@@ -1,0 +1,281 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ConfigWarning } from "@/components/ConfigWarning";
+import { useMounted } from "@/hooks/useMounted";
+import { useIsSupabaseConfigured, useSupabase } from "@/lib/supabase/client";
+import type { Integrante } from "@/types/database";
+
+function parseMatricula(raw: string): number | null {
+  const t = raw.trim();
+  if (!t) return null;
+  const n = Number(t);
+  if (!Number.isFinite(n) || !Number.isInteger(n)) return null;
+  return n;
+}
+
+type FiltroIntegrante = "matricula" | "nome" | "setor" | "email";
+
+export default function IntegrantesPage() {
+  const mounted = useMounted();
+  const supabase = useSupabase();
+  const configured = useIsSupabaseConfigured();
+  const [rows, setRows] = useState<Integrante[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [busca, setBusca] = useState("");
+  const [filtro, setFiltro] = useState<FiltroIntegrante>("nome");
+
+  const [matricula, setMatricula] = useState("");
+  const [nome, setNome] = useState("");
+  const [setor, setSetor] = useState("");
+  const [cargo, setCargo] = useState("");
+  const [classePadrao, setClassePadrao] = useState("");
+  const [email, setEmail] = useState("");
+
+  const load = useCallback(async () => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+    setError(null);
+    const { data, error: err } = await supabase
+      .from("integrantes")
+      .select("*")
+      .order("matricula", { ascending: true });
+    if (err) setError(err.message);
+    else setRows((data as Integrante[]) ?? []);
+    setLoading(false);
+  }, [supabase]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const filtradas = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => {
+      if (filtro === "matricula") {
+        return String(r.matricula).toLowerCase().includes(q);
+      }
+      if (filtro === "nome") return (r.nome || "").toLowerCase().includes(q);
+      if (filtro === "setor") return (r.setor || "").toLowerCase().includes(q);
+      return (r.email || "").toLowerCase().includes(q);
+    });
+  }, [rows, busca, filtro]);
+
+  async function handleSubmit(ev: React.FormEvent) {
+    ev.preventDefault();
+    if (!supabase || !nome.trim()) return;
+    const m = parseMatricula(matricula);
+    if (m === null) {
+      setError("Informe uma matrícula numérica inteira válida.");
+      return;
+    }
+    setError(null);
+    const { error: err } = await supabase.from("integrantes").insert({
+      matricula: m,
+      nome: nome.trim(),
+      setor: setor.trim() || null,
+      cargo: cargo.trim() || null,
+      classe_padrao: classePadrao.trim() || null,
+      email: email.trim() || null,
+    });
+    if (err) setError(err.message);
+    else {
+      setMatricula("");
+      setNome("");
+      setSetor("");
+      setCargo("");
+      setClassePadrao("");
+      setEmail("");
+      setShowForm(false);
+      void load();
+    }
+  }
+
+  async function remove(id: string) {
+    if (!supabase) return;
+    const { error: err } = await supabase.from("integrantes").delete().eq("id", id);
+    if (err) setError(err.message);
+    else void load();
+  }
+
+  return (
+    <div className="mx-auto max-w-5xl">
+      <header className="mb-8">
+        <h2 className="text-2xl font-semibold tracking-tight">Integrantes</h2>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          Matrícula, nome, setor, cargo, classe/padrão e e-mail.
+        </p>
+      </header>
+
+      {mounted && !configured && <ConfigWarning />}
+
+      {error && (
+        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+          {error}
+        </p>
+      )}
+
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="min-w-0 flex-1">
+          <label className="block text-xs text-[var(--muted)]">Buscar</label>
+          <input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Digite para filtrar…"
+            className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+          />
+        </div>
+        <div className="w-full sm:w-48">
+          <label className="block text-xs text-[var(--muted)]">Filtrar por</label>
+          <select
+            value={filtro}
+            onChange={(e) => setFiltro(e.target.value as FiltroIntegrante)}
+            className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+          >
+            <option value="matricula">Matrícula</option>
+            <option value="nome">Nome</option>
+            <option value="setor">Setor</option>
+            <option value="email">E-mail</option>
+          </select>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowForm((v) => !v)}
+          className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500"
+        >
+          {showForm ? "Fechar formulário" : "Adicionar"}
+        </button>
+      </div>
+
+      {showForm && (
+        <form
+          onSubmit={handleSubmit}
+          className="mb-10 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-5"
+        >
+          <h3 className="mb-4 text-sm font-medium text-[var(--muted)]">Novo integrante</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs text-[var(--muted)]">Matrícula</label>
+              <input
+                inputMode="numeric"
+                value={matricula}
+                onChange={(e) => setMatricula(e.target.value)}
+                placeholder="Número inteiro"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--muted)]">Nome</label>
+              <input
+                required
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--muted)]">Setor</label>
+              <input
+                value={setor}
+                onChange={(e) => setSetor(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--muted)]">Cargo</label>
+              <input
+                value={cargo}
+                onChange={(e) => setCargo(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--muted)]">Classe / Padrão</label>
+              <input
+                value={classePadrao}
+                onChange={(e) => setClassePadrao(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--muted)]">E-mail</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="submit"
+              disabled={!supabase}
+              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
+            >
+              Guardar integrante
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm text-[var(--muted)] hover:bg-white/5"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      )}
+
+      <section>
+        <h3 className="mb-3 text-sm font-medium text-[var(--muted)]">Lista</h3>
+        {loading ? (
+          <p className="text-sm text-[var(--muted)]">Carregando…</p>
+        ) : filtradas.length === 0 ? (
+          <p className="text-sm text-[var(--muted)]">
+            {supabase
+              ? rows.length === 0
+                ? "Nenhum integrante cadastrado."
+                : "Nenhum resultado para a busca."
+              : "Configure o Supabase para ver os dados."}
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {filtradas.map((r) => (
+              <li
+                key={r.id}
+                className="flex flex-col gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 sm:flex-row sm:items-start sm:justify-between"
+              >
+                <div>
+                  <p className="font-medium">
+                    <span className="text-sky-300">Mat. {r.matricula}</span>
+                    {" · "}
+                    {r.nome}
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--muted)]">
+                    {r.setor || "—"} · {r.cargo || "—"} · {r.classe_padrao || "—"}
+                  </p>
+                  {r.email && (
+                    <p className="mt-1 text-xs text-[var(--muted)]">{r.email}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void remove(r.id)}
+                  disabled={!supabase}
+                  className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-300 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
+                >
+                  Excluir
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}

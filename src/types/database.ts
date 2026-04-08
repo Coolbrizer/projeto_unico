@@ -1,0 +1,56 @@
+export type Atividade = {
+  id: string;
+  codigo: string;
+  descricao: string | null;
+  responsavel: string | null;
+  inicio: string | null;
+  fim: string | null;
+  etiqueta_relatorio?: string | null;
+  link_relatorio?: string | null;
+  created_at: string;
+};
+
+export type Equipe = {
+  id: string;
+  codigo: string;
+  equipe: string;
+  created_at: string;
+};
+
+export type Integrante = {
+  id: string;
+  matricula: number;
+  nome: string;
+  setor: string | null;
+  cargo: string | null;
+  classe_padrao: string | null;
+  email: string | null;
+  created_at: string;
+};
+
+export type RefPgto = {
+  id: string;
+  cargo: string;
+  classe_padrao: string;
+  valor_mensal: number;
+  created_at: string;
+};
+
+export type Orcamento = {
+  id: string;
+  categoria: string;
+  descricao: string | null;
+  valor_previsto: number;
+  valor_real: number | null;
+  periodo: string | null;
+  created_at: string;
+};
+
+export type Documento = {
+  id: string;
+  titulo: string;
+  tipo: string | null;
+  url: string | null;
+  observacoes: string | null;
+  created_at: string;
+};
