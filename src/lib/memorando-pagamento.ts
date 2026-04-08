@@ -18,7 +18,7 @@ function limparTextoData(s: string): string {
  */
 export function parseDataTexto(s: string | null | undefined): Date | null {
   if (s == null) return null;
-  let t = limparTextoData(String(s));
+  const t = limparTextoData(String(s));
   if (!t) return null;
 
   // ISO no início ou após espaço (yyyy-mm-dd)
