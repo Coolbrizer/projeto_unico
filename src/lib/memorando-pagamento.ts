@@ -139,12 +139,31 @@ export function listarIntegrantesMemorandoPagamento(
   return { integrantes: lista, atividadesNoMes };
 }
 
+/** Nomes para o PDF: ordenados alfabeticamente, cada nome aparece uma vez (texto normalizado). */
+export function nomesUnicosParaMemorando(integrantes: Integrante[]): string[] {
+  const sorted = [...integrantes].sort((a, b) =>
+    (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR", { sensitivity: "base" })
+  );
+  const visto = new Set<string>();
+  const nomes: string[] = [];
+  for (const i of sorted) {
+    const exibicao = (i.nome ?? "").trim();
+    if (!exibicao) continue;
+    const chave = exibicao.replace(/\s+/g, " ").toLowerCase();
+    if (visto.has(chave)) continue;
+    visto.add(chave);
+    nomes.push(exibicao);
+  }
+  return nomes;
+}
+
 export function gerarPdfMemorandoPagamento(
   resultado: ResultadoMemorandoPagamento,
   year: number,
   month: number
 ): void {
   const { integrantes, atividadesNoMes } = resultado;
+  const nomesPdf = nomesUnicosParaMemorando(integrantes);
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const mesTitulo = new Date(year, month - 1, 1).toLocaleDateString("pt-BR", {
     month: "long",
@@ -164,31 +183,26 @@ export function gerarPdfMemorandoPagamento(
   doc.text(`Emitido em ${new Date().toLocaleString("pt-BR")}`, 14, 30);
   doc.setTextColor(0, 0, 0);
 
-  if (integrantes.length === 0) {
+  if (nomesPdf.length === 0) {
     doc.setFontSize(10);
     const msg =
       atividadesNoMes === 0
-        ? "Nenhuma atividade com período (início/fim) reconhecido que cruze o mês selecionado. Use datas no formato dd/mm/aaaa ou aaaa-mm-dd nos campos Início e Final da atividade."
-        : `Foram encontrada(s) ${atividadesNoMes} atividade(s) no período, porém nenhum integrante com setor alinhado ao código ou nome da equipe dessas atividades. Ajuste os setores em Integrantes ou os vínculos em Equipe.`;
+        ? "Nenhum registro encontrado para o mês selecionado. Verifique as datas de início e fim (formato dd/mm/aaaa ou aaaa-mm-dd)."
+        : "Nenhum integrante vinculado ao período. Verifique se o setor de cada integrante coincide com o código da atividade ou com o nome cadastrado em Equipe.";
     doc.text(msg, 14, 42, { maxWidth: 260 });
   } else {
-    const head = [["Matrícula", "Nome", "Setor", "Cargo", "Classe/Padrão", "E-mail"]];
-    const tableBody = integrantes.map((i) => [
-      String(i.matricula),
-      i.nome,
-      i.setor ?? "—",
-      i.cargo ?? "—",
-      i.classe_padrao ?? "—",
-      i.email ?? "—",
-    ]);
+    const head = [["Nome"]];
+    const tableBody = nomesPdf.map((nome) => [nome]);
     autoTable(doc, {
       startY: 34,
       head,
       body: tableBody,
-      styles: { fontSize: 8, cellPadding: 2 },
+      styles: { fontSize: 10, cellPadding: 3 },
       headStyles: { fillColor: [30, 64, 90], textColor: 255 },
       alternateRowStyles: { fillColor: [245, 248, 252] },
       margin: { left: 14, right: 14 },
+      tableWidth: "auto",
+      columnStyles: { 0: { cellWidth: 250 } },
     });
   }
 

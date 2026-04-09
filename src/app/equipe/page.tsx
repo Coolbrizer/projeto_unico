@@ -211,8 +211,8 @@ export default function EquipePage() {
           Memorando de Pagamento
         </button>
         <p className="text-xs text-[var(--muted)] sm:max-w-md">
-          PDF com integrantes cuja atividade (início/fim) intersecta o mês escolhido, conforme vínculo
-          setor–código/equipe.
+          Lista em PDF com cada nome uma vez: integrantes cujo período (início/fim) cruza o mês
+          selecionado e cujo setor coincide com o código ou com a equipe cadastrada para essa atividade.
         </p>
       </div>
 
