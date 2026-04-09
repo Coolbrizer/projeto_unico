@@ -17,6 +17,7 @@ create table public.atividades (
   responsavel text,
   inicio text,
   fim text,
+  progresso smallint not null default 0,
   etiqueta_relatorio text,
   link_relatorio text,
   created_at timestamptz not null default now()

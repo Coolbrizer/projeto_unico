@@ -24,11 +24,13 @@ export default function AtividadesPage() {
   const [responsavel, setResponsavel] = useState("");
   const [inicio, setInicio] = useState("");
   const [fim, setFim] = useState("");
+  const [progressoNovo, setProgressoNovo] = useState(0);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [relatorioEtiqueta, setRelatorioEtiqueta] = useState("");
   const [relatorioLink, setRelatorioLink] = useState("");
   const [savingRelatorio, setSavingRelatorio] = useState(false);
+  const [progressoEdit, setProgressoEdit] = useState(0);
 
   const load = useCallback(async () => {
     if (!supabase) {
@@ -70,6 +72,7 @@ export default function AtividadesPage() {
       responsavel: responsavel.trim() || null,
       inicio: inicio.trim() || null,
       fim: fim.trim() || null,
+      progresso: progressoNovo,
     });
     if (err) setError(err.message);
     else {
@@ -78,6 +81,7 @@ export default function AtividadesPage() {
       setResponsavel("");
       setInicio("");
       setFim("");
+      setProgressoNovo(0);
       setShowForm(false);
       void load();
     }
@@ -102,6 +106,7 @@ export default function AtividadesPage() {
       setExpandedId(a.id);
       setRelatorioEtiqueta(a.etiqueta_relatorio ?? "");
       setRelatorioLink(a.link_relatorio ?? "");
+      setProgressoEdit(Math.min(100, Math.max(0, Number(a.progresso ?? 0) || 0)));
     }
   }
 
@@ -114,6 +119,7 @@ export default function AtividadesPage() {
       .update({
         etiqueta_relatorio: relatorioEtiqueta.trim() || null,
         link_relatorio: relatorioLink.trim() || null,
+        progresso: progressoEdit,
       })
       .eq("id", id);
     setSavingRelatorio(false);
@@ -219,6 +225,26 @@ export default function AtividadesPage() {
                 className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
               />
             </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs text-[var(--muted)]">
+                Progresso: <span className="font-medium text-sky-300">{progressoNovo}%</span>
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={10}
+                value={progressoNovo}
+                onChange={(e) => setProgressoNovo(Number(e.target.value))}
+                className="mt-2 w-full"
+              />
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-sky-500/70"
+                  style={{ width: `${progressoNovo}%` }}
+                />
+              </div>
+            </div>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             <button
@@ -279,6 +305,22 @@ export default function AtividadesPage() {
                     <p className="mt-1 text-xs text-[var(--muted)]">
                       Início: {a.inicio || "—"} · Final: {a.fim || "—"}
                     </p>
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-xs text-[var(--muted)]">
+                        <span>Progresso</span>
+                        <span className="font-medium text-sky-300">
+                          {Math.min(100, Math.max(0, Number(a.progresso ?? 0) || 0))}%
+                        </span>
+                      </div>
+                      <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-full rounded-full bg-sky-500/70"
+                          style={{
+                            width: `${Math.min(100, Math.max(0, Number(a.progresso ?? 0) || 0))}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
                     <p className="mt-2 text-xs text-sky-400/90">
                       {expandedId === a.id ? "Clique para fechar o relatório" : "Clique para ver o relatório"}
                     </p>
@@ -299,6 +341,26 @@ export default function AtividadesPage() {
                   <div className="border-t border-[var(--card-border)] bg-[var(--background)]/50 px-4 py-4">
                     <p className="mb-3 text-xs font-medium text-[var(--muted)]">Relatório</p>
                     <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs text-[var(--muted)]">
+                          Progresso: <span className="font-medium text-sky-300">{progressoEdit}%</span>
+                        </label>
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          step={10}
+                          value={progressoEdit}
+                          onChange={(e) => setProgressoEdit(Number(e.target.value))}
+                          className="mt-2 w-full"
+                        />
+                        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                          <div
+                            className="h-full rounded-full bg-sky-500/70"
+                            style={{ width: `${progressoEdit}%` }}
+                          />
+                        </div>
+                      </div>
                       <div className="sm:col-span-2">
                         <label className="block text-xs text-[var(--muted)]">Etiqueta do Relatório</label>
                         <input

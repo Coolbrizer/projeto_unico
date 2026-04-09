@@ -5,6 +5,7 @@ export type Atividade = {
   responsavel: string | null;
   inicio: string | null;
   fim: string | null;
+  progresso?: number | null;
   etiqueta_relatorio?: string | null;
   link_relatorio?: string | null;
   created_at: string;
