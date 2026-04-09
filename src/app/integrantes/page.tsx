@@ -14,7 +14,18 @@ function parseMatricula(raw: string): number | null {
   return n;
 }
 
-type FiltroIntegrante = "matricula" | "nome" | "setor" | "email";
+/** Busca em matrícula, nome, setor e e-mail: cada palavra deve aparecer em algum desses campos. */
+function integranteMatchesBusca(r: Integrante, raw: string): boolean {
+  const q = raw.trim().toLowerCase();
+  if (!q) return true;
+  const tokens = q.split(/\s+/).filter(Boolean);
+  const matStr = String(r.matricula).toLowerCase();
+  const nome = (r.nome ?? "").toLowerCase();
+  const setor = (r.setor ?? "").toLowerCase();
+  const email = (r.email ?? "").toLowerCase();
+  const campos = [matStr, nome, setor, email];
+  return tokens.every((tok) => campos.some((c) => c.includes(tok)));
+}
 
 export default function IntegrantesPage() {
   const mounted = useMounted();
@@ -25,7 +36,6 @@ export default function IntegrantesPage() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [busca, setBusca] = useState("");
-  const [filtro, setFiltro] = useState<FiltroIntegrante>("nome");
 
   const [matricula, setMatricula] = useState("");
   const [nome, setNome] = useState("");
@@ -53,18 +63,10 @@ export default function IntegrantesPage() {
     void load();
   }, [load]);
 
-  const filtradas = useMemo(() => {
-    const q = busca.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => {
-      if (filtro === "matricula") {
-        return String(r.matricula).toLowerCase().includes(q);
-      }
-      if (filtro === "nome") return (r.nome || "").toLowerCase().includes(q);
-      if (filtro === "setor") return (r.setor || "").toLowerCase().includes(q);
-      return (r.email || "").toLowerCase().includes(q);
-    });
-  }, [rows, busca, filtro]);
+  const filtradas = useMemo(
+    () => rows.filter((r) => integranteMatchesBusca(r, busca)),
+    [rows, busca]
+  );
 
   async function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault();
@@ -108,7 +110,8 @@ export default function IntegrantesPage() {
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Integrantes</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Matrícula, nome, setor, cargo, classe/padrão e e-mail.
+          Cadastro com matrícula, nome, setor, cargo, classe/padrão e e-mail. A busca cobre matrícula,
+          nome, setor e e-mail.
         </p>
       </header>
 
@@ -126,22 +129,9 @@ export default function IntegrantesPage() {
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            placeholder="Digite para filtrar…"
+            placeholder="Matrícula, nome, setor ou e-mail (várias palavras refinam a busca)"
             className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
           />
-        </div>
-        <div className="w-full sm:w-48">
-          <label className="block text-xs text-[var(--muted)]">Filtrar por</label>
-          <select
-            value={filtro}
-            onChange={(e) => setFiltro(e.target.value as FiltroIntegrante)}
-            className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
-          >
-            <option value="matricula">Matrícula</option>
-            <option value="nome">Nome</option>
-            <option value="setor">Setor</option>
-            <option value="email">E-mail</option>
-          </select>
         </div>
         <button
           type="button"
