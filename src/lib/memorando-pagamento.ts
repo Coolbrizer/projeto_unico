@@ -77,9 +77,15 @@ export function listarIntegrantesMemorandoPagamento(
 
   const lista = integrantes
     .filter((i) => ids.has(i.id))
-    .sort((a, b) =>
-      (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR", { sensitivity: "base" })
-    );
+    .sort((a, b) => {
+      const sa = (a.setor ?? "").trim();
+      const sb = (b.setor ?? "").trim();
+      const ka = sa ? sa.toLowerCase() : "\uffff";
+      const kb = sb ? sb.toLowerCase() : "\uffff";
+      const porSetor = ka.localeCompare(kb, "pt-BR", { sensitivity: "base" });
+      if (porSetor !== 0) return porSetor;
+      return (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR", { sensitivity: "base" });
+    });
   return { integrantes: lista, atividadesNoMes };
 }
 
