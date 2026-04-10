@@ -4,6 +4,39 @@ import { atividadeSobrepoemMes } from "@/lib/datas-atividade";
 import { montarGrupos } from "@/lib/equipe-grupos";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
 
+/** Igual à tela Equipe, com tolerância a espaços extras no setor/código. */
+function integranteNoGrupoDoCodigo(
+  codigo: string,
+  equipes: Equipe[],
+  i: Integrante
+): boolean {
+  const codigoLc = codigo.trim().toLowerCase();
+  const equipeRows = equipes.filter((e) => (e.codigo ?? "").trim().toLowerCase() === codigoLc);
+  const nomesEquipe = new Set(
+    equipeRows.map((e) => (e.equipe ?? "").trim().toLowerCase()).filter(Boolean)
+  );
+  const s = (i.setor ?? "").trim().toLowerCase();
+  if (!s) return false;
+  if (codigoLc && s === codigoLc) return true;
+  if (nomesEquipe.has(s)) return true;
+  const sCompact = s.replace(/\s/g, "");
+  const cCompact = codigoLc.replace(/\s/g, "");
+  if (codigoLc && sCompact === cCompact) return true;
+  return false;
+}
+
+/** Nome do integrante aparece no texto de responsável (ex.: "20256 | Maria Silva"). */
+function integranteCasaComResponsavel(a: Atividade, i: Integrante): boolean {
+  const raw = (a.responsavel ?? "").trim();
+  if (!raw) return false;
+  const pipe = raw.lastIndexOf("|");
+  const trechoNome = (pipe >= 0 ? raw.slice(pipe + 1) : raw).trim().toLowerCase();
+  const nomeInt = (i.nome ?? "").trim().toLowerCase();
+  if (!trechoNome || !nomeInt) return false;
+  if (trechoNome === nomeInt) return true;
+  return trechoNome.includes(nomeInt) || nomeInt.includes(trechoNome);
+}
+
 export type ResultadoMemorandoPagamento = {
   integrantes: Integrante[];
   /** Quantidade de atividades cujo período (início/fim) cruza o mês de referência. */
@@ -30,14 +63,33 @@ export function listarIntegrantesMemorandoPagamento(
     }
   }
 
+  const codigosNoMesLc = new Set([...codigosNoMes].map((c) => c.trim().toLowerCase()));
+
   const grupos = montarGrupos(equipes, atividades, integrantes);
   const map = new Map<string, Integrante>();
   for (const g of grupos) {
-    if (!codigosNoMes.has(g.codigo)) continue;
+    if (!codigosNoMesLc.has(g.codigo.trim().toLowerCase())) continue;
     for (const i of g.integrantes) {
       map.set(i.id, i);
     }
   }
+
+  if (atividadesNoMes > 0) {
+    for (const a of atividades) {
+      if (!atividadeSobrepoemMes(a, year, month)) continue;
+      const cod = (a.codigo ?? "").trim();
+      if (!cod) continue;
+      for (const i of integrantes) {
+        if (integranteNoGrupoDoCodigo(cod, equipes, i)) {
+          map.set(i.id, i);
+        }
+        if (integranteCasaComResponsavel(a, i)) {
+          map.set(i.id, i);
+        }
+      }
+    }
+  }
+
   const lista = [...map.values()].sort((a, b) =>
     (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR", { sensitivity: "base" })
   );
@@ -93,7 +145,7 @@ export function gerarPdfMemorandoPagamento(
     const msg =
       atividadesNoMes === 0
         ? "Nenhuma atividade com período (data inicial e final) que cruze este mês. Confira início e fim em Atividades (DD/MM/AAAA) e o código da atividade."
-        : "Nenhum integrante vinculado às atividades deste período. O setor do integrante deve coincidir com o código da atividade ou com o nome cadastrado em Equipe para o mesmo código.";
+        : "Nenhum integrante vinculado às atividades deste período. Confira: setor = código da atividade (ou nome em Equipe), ou nome no campo Responsável da atividade.";
     doc.text(msg, 14, 42, { maxWidth: 260 });
   } else {
     const head = [["Nome"]];
