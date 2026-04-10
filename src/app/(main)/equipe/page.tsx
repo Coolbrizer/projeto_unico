@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { usePerfil } from "@/components/AppShell";
 import { canEditarEquipe } from "@/lib/auth/roles";
+import { formatarPeriodoAtividade } from "@/lib/datas-atividade";
 import { equipeLinhaEhResponsavel } from "@/lib/equipe-page-helpers";
 import { montarGrupos } from "@/lib/equipe-grupos";
 import {
@@ -225,8 +226,9 @@ export default function EquipePage() {
           Memorando de Pagamento
         </button>
         <p className="text-xs text-[var(--muted)] sm:max-w-md">
-          Lista em PDF com cada nome uma vez: integrantes cujo período (início/fim) cruza o mês
-          selecionado e cujo setor coincide com o código ou com a equipe cadastrada para essa atividade.
+          Lista em PDF com cada nome uma vez: integrantes cuja atividade tem início/fim (DD/MM/AAAA) que
+          cruza o mês selecionado e cujo setor coincide com o código ou com a equipe cadastrada para essa
+          atividade.
         </p>
       </div>
 
@@ -332,6 +334,11 @@ export default function EquipePage() {
                   </p>
                   {g.atividade?.descricao && (
                     <p className="mt-2 text-sm text-[var(--foreground)]">{g.atividade.descricao}</p>
+                  )}
+                  {g.atividade && (
+                    <p className="mt-1 text-xs text-[var(--muted)]">
+                      Período: {formatarPeriodoAtividade(g.atividade)}
+                    </p>
                   )}
                 </div>
 

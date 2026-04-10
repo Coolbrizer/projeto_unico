@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { normalizarDataParaApi } from "@/lib/datas-atividade";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 
@@ -35,8 +36,8 @@ export async function POST(request: Request) {
       codigo: (body.codigo ?? "").trim(),
       descricao: body.descricao?.trim() || null,
       responsavel: body.responsavel?.trim() || null,
-      inicio: body.inicio?.trim() || null,
-      fim: body.fim?.trim() || null,
+      inicio: normalizarDataParaApi(body.inicio ?? undefined),
+      fim: normalizarDataParaApi(body.fim ?? undefined),
       progresso,
     })
     .select("*")

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { normalizarDataParaApi } from "@/lib/datas-atividade";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 
@@ -31,8 +32,20 @@ export async function PATCH(request: Request, ctx: Ctx) {
   if ("codigo" in body) patch.codigo = String(body.codigo ?? "").trim();
   if ("descricao" in body) patch.descricao = body.descricao ? String(body.descricao).trim() : null;
   if ("responsavel" in body) patch.responsavel = body.responsavel ? String(body.responsavel).trim() : null;
-  if ("inicio" in body) patch.inicio = body.inicio ? String(body.inicio).trim() : null;
-  if ("fim" in body) patch.fim = body.fim ? String(body.fim).trim() : null;
+  if ("inicio" in body) {
+    const raw = body.inicio;
+    patch.inicio =
+      raw === null || raw === undefined || String(raw).trim() === ""
+        ? null
+        : normalizarDataParaApi(String(raw));
+  }
+  if ("fim" in body) {
+    const raw = body.fim;
+    patch.fim =
+      raw === null || raw === undefined || String(raw).trim() === ""
+        ? null
+        : normalizarDataParaApi(String(raw));
+  }
   if ("progresso" in body) {
     const p = Math.min(100, Math.max(0, Math.floor(Number(body.progresso)) || 0));
     patch.progresso = p;

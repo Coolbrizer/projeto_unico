@@ -5,6 +5,7 @@ import { ConfigWarning } from "@/components/ConfigWarning";
 import { useMounted } from "@/hooks/useMounted";
 import { usePerfil } from "@/components/AppShell";
 import { canEditarAtividadesIntegrantes } from "@/lib/auth/roles";
+import { formatarPeriodoAtividade, normalizarDataParaApi } from "@/lib/datas-atividade";
 import { useIsSupabaseConfigured, useSupabase } from "@/lib/supabase/client";
 import type { Atividade } from "@/types/database";
 
@@ -79,8 +80,8 @@ export default function AtividadesPage() {
         codigo: codigo.trim(),
         descricao: descricao.trim() || null,
         responsavel: responsavel.trim() || null,
-        inicio: inicio.trim() || null,
-        fim: fim.trim() || null,
+        inicio: normalizarDataParaApi(inicio) ?? null,
+        fim: normalizarDataParaApi(fim) ?? null,
         progresso: progressoNovo,
       }),
     });
@@ -150,7 +151,8 @@ export default function AtividadesPage() {
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Atividades</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Código, descrição, responsável e datas (texto livre).
+          Código, descrição, responsável e datas de início e fim (formato DD/MM/AAAA). O memorando de
+          pagamento usa esse período para filtrar por mês.
         </p>
       </header>
 
@@ -232,7 +234,9 @@ export default function AtividadesPage() {
               <input
                 value={inicio}
                 onChange={(e) => setInicio(e.target.value)}
-                placeholder="Texto livre ou data"
+                placeholder="DD/MM/AAAA"
+                inputMode="numeric"
+                autoComplete="off"
                 className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
               />
             </div>
@@ -241,7 +245,9 @@ export default function AtividadesPage() {
               <input
                 value={fim}
                 onChange={(e) => setFim(e.target.value)}
-                placeholder="Texto livre ou data"
+                placeholder="DD/MM/AAAA"
+                inputMode="numeric"
+                autoComplete="off"
                 className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
               />
             </div>
@@ -322,7 +328,7 @@ export default function AtividadesPage() {
                       Responsável: {a.responsavel || "—"}
                     </p>
                     <p className="mt-1 text-xs text-[var(--muted)]">
-                      Início: {a.inicio || "—"} · Final: {a.fim || "—"}
+                      Período: {formatarPeriodoAtividade(a)}
                     </p>
                     <div className="mt-3">
                       <div className="flex items-center justify-between text-xs text-[var(--muted)]">
