@@ -17,8 +17,10 @@ export function diasNoMesReferencia(year: number, month1a12: number): number {
 
 /**
  * Integrantes com vinculação a **alguma** atividade cujo período cruza o mês:
- * - mesmo critério de equipe/setor que `montarGrupos` (setor = código ou nome da linha de equipe);
- * - **ou** nome do integrante reconhecido como responsável da atividade (sem exigir coincidência de setor).
+ * - mesmo critério de setor que `montarGrupos` (setor = código ou nome da linha de equipe);
+ * - **ou** nome do integrante alinhado ao texto de **cada linha** da tabela equipe daquele código
+ *   (como na coluna “Equipes / funções”), via `equipeLinhaEhResponsavel`;
+ * - **ou** nome do integrante reconhecido no campo responsável da atividade.
  */
 export function listarIntegrantesMemorandoPagamento(
   equipes: Equipe[],
@@ -57,6 +59,12 @@ export function listarIntegrantesMemorandoPagamento(
       if (!s) continue;
       if (codigo && s === codigoLc) ids.add(i.id);
       else if (nomesEquipe.has(s)) ids.add(i.id);
+    }
+
+    for (const r of equipeRows) {
+      for (const i of integrantes) {
+        if (equipeLinhaEhResponsavel(r.equipe ?? "", i.nome ?? "")) ids.add(i.id);
+      }
     }
 
     for (const a of ats) {

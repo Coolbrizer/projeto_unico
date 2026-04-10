@@ -226,9 +226,9 @@ export default function EquipePage() {
           Memorando de Pagamento
         </button>
         <p className="text-xs text-[var(--muted)] sm:max-w-md">
-          Lista em PDF com cada nome uma vez: integrantes cuja atividade tem início/fim (DD/MM/AAAA) que
-          cruza o mês selecionado e cujo setor coincide com o código ou com a equipe cadastrada para essa
-          atividade.
+          Lista em PDF com cada nome uma vez: integrantes vinculados às atividades com período que cruza o
+          mês (setor alinhado ao código ou às linhas de equipe, nome alinhado a cada linha em Equipes/funções,
+          ou ao responsável cadastrado na atividade).
         </p>
       </div>
 
