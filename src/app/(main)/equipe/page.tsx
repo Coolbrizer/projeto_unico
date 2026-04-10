@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
+import { usePerfil } from "@/components/AppShell";
+import { canEditarEquipe } from "@/lib/auth/roles";
 import { equipeLinhaEhResponsavel } from "@/lib/equipe-page-helpers";
 import { montarGrupos } from "@/lib/equipe-grupos";
 import {
@@ -33,6 +35,8 @@ export default function EquipePage() {
   const mounted = useMounted();
   const supabase = useSupabase();
   const configured = useIsSupabaseConfigured();
+  const perfil = usePerfil();
+  const podeEditar = canEditarEquipe(perfil);
   const [equipes, setEquipes] = useState<Equipe[]>([]);
   const [atividades, setAtividades] = useState<Atividade[]>([]);
   const [integrantes, setIntegrantes] = useState<Integrante[]>([]);
@@ -61,7 +65,10 @@ export default function EquipePage() {
     const [rEq, rAt, rInt] = await Promise.all([
       supabase.from("equipe").select("*").order("created_at", { ascending: false }),
       supabase.from("atividades").select("*").order("created_at", { ascending: false }),
-      supabase.from("integrantes").select("*").order("nome", { ascending: true }),
+      supabase
+        .from("integrantes")
+        .select("id, matricula, nome, setor, cargo, classe_padrao, email, created_at")
+        .order("nome", { ascending: true }),
     ]);
     if (rEq.error) setError(rEq.error.message);
     else setEquipes((rEq.data as Equipe[]) ?? []);
@@ -105,24 +112,31 @@ export default function EquipePage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!supabase) return;
-    const { error: err } = await supabase.from("equipe").insert({
-      codigo: codigo.trim(),
-      equipe: equipe.trim(),
+    if (!podeEditar) return;
+    setError(null);
+    const res = await fetch("/api/equipe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ codigo: codigo.trim(), equipe: equipe.trim() }),
     });
-    if (err) setError(err.message);
-    else {
-      setCodigo("");
-      setEquipe("");
-      setShowForm(false);
-      void load();
+    const data = (await res.json()) as { error?: string };
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível guardar.");
+      return;
     }
+    setCodigo("");
+    setEquipe("");
+    setShowForm(false);
+    void load();
   }
 
   async function remove(id: string) {
-    if (!supabase) return;
-    const { error: err } = await supabase.from("equipe").delete().eq("id", id);
-    if (err) setError(err.message);
+    if (!podeEditar) return;
+    setError(null);
+    const res = await fetch(`/api/equipe/${id}`, { method: "DELETE", credentials: "include" });
+    const data = (await res.json()) as { error?: string };
+    if (!res.ok) setError(data.error ?? "Não foi possível excluir.");
     else void load();
   }
 
@@ -237,16 +251,18 @@ export default function EquipePage() {
             <option value="nome">Nome (equipe, integrante, descrição)</option>
           </select>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowForm((v) => !v)}
-          className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500"
-        >
-          {showForm ? "Fechar formulário" : "Adicionar"}
-        </button>
+        {podeEditar && (
+          <button
+            type="button"
+            onClick={() => setShowForm((v) => !v)}
+            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500"
+          >
+            {showForm ? "Fechar formulário" : "Adicionar"}
+          </button>
+        )}
       </div>
 
-      {showForm && (
+      {showForm && podeEditar && (
         <form
           onSubmit={handleSubmit}
           className="mb-10 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-5"
@@ -273,7 +289,6 @@ export default function EquipePage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="submit"
-              disabled={!supabase}
               className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
             >
               Guardar
@@ -353,14 +368,15 @@ export default function EquipePage() {
                                   </span>
                                 )}
                               </span>
-                              <button
-                                type="button"
-                                onClick={() => void remove(r.id)}
-                                disabled={!supabase}
-                                className="shrink-0 rounded border border-red-500/40 px-2 py-1 text-xs text-red-300 hover:bg-red-500/10 disabled:opacity-50"
-                              >
-                                Excluir
-                              </button>
+                              {podeEditar && (
+                                <button
+                                  type="button"
+                                  onClick={() => void remove(r.id)}
+                                  className="shrink-0 rounded border border-red-500/40 px-2 py-1 text-xs text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+                                >
+                                  Excluir
+                                </button>
+                              )}
                             </li>
                           );
                         })}

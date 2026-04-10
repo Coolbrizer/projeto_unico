@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { parsePerfil } from "@/lib/auth/roles";
 import { SESSION_COOKIE, signSessionToken, verifySessionToken } from "@/lib/auth/session";
 
 export async function POST(request: Request) {
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
 
   const { data: row, error: fetchErr } = await supabase
     .from("integrantes")
-    .select("id,email,password_hash")
+    .select("id,email,password_hash,perfil")
     .eq("id", session.sub)
     .maybeSingle();
 
@@ -61,10 +62,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: upErr.message }, { status: 500 });
   }
 
+  const role = parsePerfil(row.perfil as unknown);
+
   const token = await signSessionToken({
     sub: session.sub,
     email: session.email,
     mcp: false,
+    role,
   });
 
   const res = NextResponse.json({ ok: true });

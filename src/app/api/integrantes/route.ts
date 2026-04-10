@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { hashPassword } from "@/lib/auth/password";
-import { getSessionFromCookies } from "@/lib/auth/getSession";
+import { parsePerfil, type Perfil } from "@/lib/auth/roles";
+import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 
 const DEFAULT_PASSWORD = "123456";
 
@@ -14,10 +15,9 @@ function parseMatricula(raw: string): number | null {
 }
 
 export async function POST(request: Request) {
-  const session = await getSessionFromCookies();
-  if (!session) {
-    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
-  }
+  const auth = await requireGestorOuAdmin();
+  if (auth.response) return auth.response;
+  const session = auth.session;
 
   let body: {
     matricula?: string;
@@ -26,11 +26,17 @@ export async function POST(request: Request) {
     cargo?: string;
     classe_padrao?: string;
     email?: string;
+    perfil?: unknown;
   };
   try {
     body = (await request.json()) as typeof body;
   } catch {
     return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
+  }
+
+  let perfilNovo: Perfil = "basico";
+  if (session.role === "admin" && body.perfil !== undefined) {
+    perfilNovo = parsePerfil(body.perfil);
   }
 
   const nome = body.nome?.trim();
@@ -73,8 +79,9 @@ export async function POST(request: Request) {
       email,
       password_hash,
       must_change_password,
+      perfil: perfilNovo,
     })
-    .select("id, matricula, nome, setor, cargo, classe_padrao, email, created_at")
+    .select("id, matricula, nome, setor, cargo, classe_padrao, email, perfil, created_at")
     .single();
 
   if (error) {

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { useMounted } from "@/hooks/useMounted";
+import { usePerfil } from "@/components/AppShell";
+import { canEditarAtividadesIntegrantes } from "@/lib/auth/roles";
 import { useIsSupabaseConfigured, useSupabase } from "@/lib/supabase/client";
 import type { Atividade } from "@/types/database";
 
@@ -12,6 +14,8 @@ export default function AtividadesPage() {
   const mounted = useMounted();
   const supabase = useSupabase();
   const configured = useIsSupabaseConfigured();
+  const perfil = usePerfil();
+  const podeEditar = canEditarAtividadesIntegrantes(perfil);
   const [rows, setRows] = useState<Atividade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,38 +69,49 @@ export default function AtividadesPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!supabase) return;
-    const { error: err } = await supabase.from("atividades").insert({
-      codigo: codigo.trim(),
-      descricao: descricao.trim() || null,
-      responsavel: responsavel.trim() || null,
-      inicio: inicio.trim() || null,
-      fim: fim.trim() || null,
-      progresso: progressoNovo,
+    if (!podeEditar) return;
+    setError(null);
+    const res = await fetch("/api/atividades", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        codigo: codigo.trim(),
+        descricao: descricao.trim() || null,
+        responsavel: responsavel.trim() || null,
+        inicio: inicio.trim() || null,
+        fim: fim.trim() || null,
+        progresso: progressoNovo,
+      }),
     });
-    if (err) setError(err.message);
-    else {
-      setCodigo("");
-      setDescricao("");
-      setResponsavel("");
-      setInicio("");
-      setFim("");
-      setProgressoNovo(0);
-      setShowForm(false);
-      void load();
+    const data = (await res.json()) as { error?: string };
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível guardar.");
+      return;
     }
+    setCodigo("");
+    setDescricao("");
+    setResponsavel("");
+    setInicio("");
+    setFim("");
+    setProgressoNovo(0);
+    setShowForm(false);
+    void load();
   }
 
   async function remove(id: string) {
-    if (!supabase) return;
-    const { error: err } = await supabase.from("atividades").delete().eq("id", id);
-    if (err) setError(err.message);
-    else {
-      if (expandedId === id) {
-        setExpandedId(null);
-      }
-      void load();
+    if (!podeEditar) return;
+    setError(null);
+    const res = await fetch(`/api/atividades/${id}`, { method: "DELETE", credentials: "include" });
+    const data = (await res.json()) as { error?: string };
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível excluir.");
+      return;
     }
+    if (expandedId === id) {
+      setExpandedId(null);
+    }
+    void load();
   }
 
   function handleToggleRelatorio(a: Atividade) {
@@ -111,19 +126,22 @@ export default function AtividadesPage() {
   }
 
   async function saveRelatorio(id: string) {
-    if (!supabase) return;
+    if (!podeEditar) return;
     setSavingRelatorio(true);
     setError(null);
-    const { error: err } = await supabase
-      .from("atividades")
-      .update({
+    const res = await fetch(`/api/atividades/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
         etiqueta_relatorio: relatorioEtiqueta.trim() || null,
         link_relatorio: relatorioLink.trim() || null,
         progresso: progressoEdit,
-      })
-      .eq("id", id);
+      }),
+    });
+    const data = (await res.json()) as { error?: string };
     setSavingRelatorio(false);
-    if (err) setError(err.message);
+    if (!res.ok) setError(data.error ?? "Não foi possível guardar.");
     else void load();
   }
 
@@ -166,16 +184,18 @@ export default function AtividadesPage() {
             <option value="responsavel">Responsável</option>
           </select>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowForm((v) => !v)}
-          className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500"
-        >
-          {showForm ? "Fechar formulário" : "Adicionar"}
-        </button>
+        {podeEditar && (
+          <button
+            type="button"
+            onClick={() => setShowForm((v) => !v)}
+            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500"
+          >
+            {showForm ? "Fechar formulário" : "Adicionar"}
+          </button>
+        )}
       </div>
 
-      {showForm && (
+      {showForm && podeEditar && (
         <form
           onSubmit={handleSubmit}
           className="mb-10 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-5"
@@ -249,7 +269,6 @@ export default function AtividadesPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="submit"
-              disabled={!supabase}
               className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
             >
               Guardar atividade
@@ -325,69 +344,103 @@ export default function AtividadesPage() {
                       {expandedId === a.id ? "Clique para fechar o relatório" : "Clique para ver o relatório"}
                     </p>
                   </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void remove(a.id);
-                    }}
-                    disabled={!supabase}
-                    className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-300 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
-                  >
-                    Excluir
-                  </button>
+                  {podeEditar && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void remove(a.id);
+                      }}
+                      className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-300 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
+                    >
+                      Excluir
+                    </button>
+                  )}
                 </div>
                 {expandedId === a.id && (
                   <div className="border-t border-[var(--card-border)] bg-[var(--background)]/50 px-4 py-4">
                     <p className="mb-3 text-xs font-medium text-[var(--muted)]">Relatório</p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="sm:col-span-2">
-                        <label className="block text-xs text-[var(--muted)]">
-                          Progresso: <span className="font-medium text-sky-300">{progressoEdit}%</span>
-                        </label>
-                        <input
-                          type="range"
-                          min={0}
-                          max={100}
-                          step={10}
-                          value={progressoEdit}
-                          onChange={(e) => setProgressoEdit(Number(e.target.value))}
-                          className="mt-2 w-full"
-                        />
-                        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
-                          <div
-                            className="h-full rounded-full bg-sky-500/70"
-                            style={{ width: `${progressoEdit}%` }}
-                          />
+                    {!podeEditar ? (
+                      <div className="space-y-2 text-sm">
+                        <p>
+                          <span className="text-[var(--muted)]">Progresso: </span>
+                          <span className="font-medium text-sky-300">
+                            {Math.min(100, Math.max(0, Number(a.progresso ?? 0) || 0))}%
+                          </span>
+                        </p>
+                        {a.etiqueta_relatorio && (
+                          <p>
+                            <span className="text-[var(--muted)]">Etiqueta: </span>
+                            {a.etiqueta_relatorio}
+                          </p>
+                        )}
+                        {a.link_relatorio && (
+                          <p>
+                            <span className="text-[var(--muted)]">Link: </span>
+                            <a
+                              href={a.link_relatorio}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-sky-400 underline"
+                            >
+                              {a.link_relatorio}
+                            </a>
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="sm:col-span-2">
+                            <label className="block text-xs text-[var(--muted)]">
+                              Progresso:{" "}
+                              <span className="font-medium text-sky-300">{progressoEdit}%</span>
+                            </label>
+                            <input
+                              type="range"
+                              min={0}
+                              max={100}
+                              step={10}
+                              value={progressoEdit}
+                              onChange={(e) => setProgressoEdit(Number(e.target.value))}
+                              className="mt-2 w-full"
+                            />
+                            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                              <div
+                                className="h-full rounded-full bg-sky-500/70"
+                                style={{ width: `${progressoEdit}%` }}
+                              />
+                            </div>
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="block text-xs text-[var(--muted)]">Etiqueta do Relatório</label>
+                            <input
+                              value={relatorioEtiqueta}
+                              onChange={(e) => setRelatorioEtiqueta(e.target.value)}
+                              className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="block text-xs text-[var(--muted)]">Link do Relatório</label>
+                            <input
+                              type="url"
+                              value={relatorioLink}
+                              onChange={(e) => setRelatorioLink(e.target.value)}
+                              placeholder="https://…"
+                              className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                            />
+                          </div>
                         </div>
-                      </div>
-                      <div className="sm:col-span-2">
-                        <label className="block text-xs text-[var(--muted)]">Etiqueta do Relatório</label>
-                        <input
-                          value={relatorioEtiqueta}
-                          onChange={(e) => setRelatorioEtiqueta(e.target.value)}
-                          className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
-                        />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <label className="block text-xs text-[var(--muted)]">Link do Relatório</label>
-                        <input
-                          type="url"
-                          value={relatorioLink}
-                          onChange={(e) => setRelatorioLink(e.target.value)}
-                          placeholder="https://…"
-                          className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
-                        />
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={!supabase || savingRelatorio}
-                      onClick={() => void saveRelatorio(a.id)}
-                      className="mt-3 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
-                    >
-                      {savingRelatorio ? "A guardar…" : "Guardar relatório"}
-                    </button>
+                        <button
+                          type="button"
+                          disabled={savingRelatorio}
+                          onClick={() => void saveRelatorio(a.id)}
+                          className="mt-3 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
+                        >
+                          {savingRelatorio ? "A guardar…" : "Guardar relatório"}
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </li>

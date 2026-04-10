@@ -1,9 +1,14 @@
 import { AppShell } from "@/components/AppShell";
+import { getSessionFromCookies } from "@/lib/auth/getSession";
+import { parsePerfil } from "@/lib/auth/roles";
 
-export default function MainLayout({
+export default async function MainLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <AppShell>{children}</AppShell>;
+  const session = await getSessionFromCookies();
+  const role = session?.role ?? parsePerfil(undefined);
+
+  return <AppShell role={role}>{children}</AppShell>;
 }

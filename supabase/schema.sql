@@ -42,6 +42,7 @@ create table public.integrantes (
   email text,
   password_hash text,
   must_change_password boolean not null default true,
+  perfil text not null default 'basico' check (perfil in ('basico', 'gestor', 'admin')),
   created_at timestamptz not null default now()
 );
 

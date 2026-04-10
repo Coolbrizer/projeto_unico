@@ -18,6 +18,8 @@ export type Equipe = {
   created_at: string;
 };
 
+export type PerfilIntegrante = "basico" | "gestor" | "admin";
+
 export type Integrante = {
   id: string;
   matricula: number;
@@ -26,6 +28,7 @@ export type Integrante = {
   cargo: string | null;
   classe_padrao: string | null;
   email: string | null;
+  perfil?: PerfilIntegrante | null;
   /** Não expor ao cliente; ausente nas queries da UI. */
   password_hash?: string | null;
   must_change_password?: boolean | null;

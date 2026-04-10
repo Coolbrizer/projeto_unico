@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
+import { usePerfil } from "@/components/AppShell";
+import { canEditarAtividadesIntegrantes } from "@/lib/auth/roles";
 import { useMounted } from "@/hooks/useMounted";
 import { useIsSupabaseConfigured, useSupabase } from "@/lib/supabase/client";
 import type { Integrante } from "@/types/database";
@@ -31,6 +33,8 @@ export default function IntegrantesPage() {
   const mounted = useMounted();
   const supabase = useSupabase();
   const configured = useIsSupabaseConfigured();
+  const perfil = usePerfil();
+  const podeEditar = canEditarAtividadesIntegrantes(perfil);
   const [rows, setRows] = useState<Integrante[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +74,7 @@ export default function IntegrantesPage() {
 
   async function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault();
-    if (!nome.trim()) return;
+    if (!podeEditar || !nome.trim()) return;
     const m = parseMatricula(matricula);
     if (m === null) {
       setError("Informe uma matrícula numérica inteira válida.");
@@ -113,9 +117,11 @@ export default function IntegrantesPage() {
   }
 
   async function remove(id: string) {
-    if (!supabase) return;
-    const { error: err } = await supabase.from("integrantes").delete().eq("id", id);
-    if (err) setError(err.message);
+    if (!podeEditar) return;
+    setError(null);
+    const res = await fetch(`/api/integrantes/${id}`, { method: "DELETE", credentials: "include" });
+    const payload = (await res.json()) as { error?: string };
+    if (!res.ok) setError(payload.error ?? "Não foi possível excluir.");
     else void load();
   }
 
@@ -148,16 +154,18 @@ export default function IntegrantesPage() {
             className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
           />
         </div>
-        <button
-          type="button"
-          onClick={() => setShowForm((v) => !v)}
-          className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500"
-        >
-          {showForm ? "Fechar formulário" : "Adicionar"}
-        </button>
+        {podeEditar && (
+          <button
+            type="button"
+            onClick={() => setShowForm((v) => !v)}
+            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500"
+          >
+            {showForm ? "Fechar formulário" : "Adicionar"}
+          </button>
+        )}
       </div>
 
-      {showForm && (
+      {showForm && podeEditar && (
         <form
           onSubmit={handleSubmit}
           className="mb-10 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-5"
@@ -268,14 +276,15 @@ export default function IntegrantesPage() {
                     <p className="mt-1 text-xs text-[var(--muted)]">{r.email}</p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void remove(r.id)}
-                  disabled={!supabase}
-                  className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-300 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
-                >
-                  Excluir
-                </button>
+                {podeEditar && (
+                  <button
+                    type="button"
+                    onClick={() => void remove(r.id)}
+                    className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-300 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
+                  >
+                    Excluir
+                  </button>
+                )}
               </li>
             ))}
           </ul>

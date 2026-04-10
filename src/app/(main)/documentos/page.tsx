@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
+import { usePerfil } from "@/components/AppShell";
+import { canEditarDocumentos } from "@/lib/auth/roles";
 import { useMounted } from "@/hooks/useMounted";
 import { useIsSupabaseConfigured, useSupabase } from "@/lib/supabase/client";
 import type { Documento } from "@/types/database";
@@ -10,6 +12,8 @@ export default function DocumentosPage() {
   const mounted = useMounted();
   const supabase = useSupabase();
   const configured = useIsSupabaseConfigured();
+  const perfil = usePerfil();
+  const podeEditar = canEditarDocumentos(perfil);
   const [rows, setRows] = useState<Documento[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,27 +43,37 @@ export default function DocumentosPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!supabase || !titulo.trim()) return;
-    const { error: err } = await supabase.from("documentos").insert({
-      titulo: titulo.trim(),
-      tipo: tipo.trim() || null,
-      url: url.trim() || null,
-      observacoes: observacoes.trim() || null,
+    if (!podeEditar || !titulo.trim()) return;
+    setError(null);
+    const res = await fetch("/api/documentos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        titulo: titulo.trim(),
+        tipo: tipo.trim() || null,
+        url: url.trim() || null,
+        observacoes: observacoes.trim() || null,
+      }),
     });
-    if (err) setError(err.message);
-    else {
-      setTitulo("");
-      setTipo("");
-      setUrl("");
-      setObservacoes("");
-      void load();
+    const data = (await res.json()) as { error?: string };
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível guardar.");
+      return;
     }
+    setTitulo("");
+    setTipo("");
+    setUrl("");
+    setObservacoes("");
+    void load();
   }
 
   async function remove(id: string) {
-    if (!supabase) return;
-    const { error: err } = await supabase.from("documentos").delete().eq("id", id);
-    if (err) setError(err.message);
+    if (!podeEditar) return;
+    setError(null);
+    const res = await fetch(`/api/documentos/${id}`, { method: "DELETE", credentials: "include" });
+    const data = (await res.json()) as { error?: string };
+    if (!res.ok) setError(data.error ?? "Não foi possível excluir.");
     else void load();
   }
 
@@ -80,6 +94,7 @@ export default function DocumentosPage() {
         </p>
       )}
 
+      {podeEditar && (
       <form
         onSubmit={handleSubmit}
         className="mb-10 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-5"
@@ -125,12 +140,12 @@ export default function DocumentosPage() {
         </div>
         <button
           type="submit"
-          disabled={!supabase}
           className="mt-4 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
         >
           Adicionar
         </button>
       </form>
+      )}
 
       <section>
         <h3 className="mb-3 text-sm font-medium text-[var(--muted)]">Lista</h3>
@@ -166,14 +181,15 @@ export default function DocumentosPage() {
                     <p className="mt-2 text-xs text-[var(--muted)]">{r.observacoes}</p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void remove(r.id)}
-                  disabled={!supabase}
-                  className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-300 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
-                >
-                  Excluir
-                </button>
+                {podeEditar && (
+                  <button
+                    type="button"
+                    onClick={() => void remove(r.id)}
+                    className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-300 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
+                  >
+                    Excluir
+                  </button>
+                )}
               </li>
             ))}
           </ul>

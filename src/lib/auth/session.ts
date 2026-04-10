@@ -1,5 +1,7 @@
 import { SignJWT } from "jose/jwt/sign";
 import { jwtVerify } from "jose/jwt/verify";
+import type { Perfil } from "@/lib/auth/roles";
+import { parsePerfil } from "@/lib/auth/roles";
 
 export const SESSION_COOKIE = "app_session";
 
@@ -8,6 +10,7 @@ export type SessionPayload = {
   email: string;
   /** must change password */
   mcp: boolean;
+  role: Perfil;
 };
 
 function getSecret(): Uint8Array {
@@ -19,7 +22,7 @@ function getSecret(): Uint8Array {
 }
 
 export async function signSessionToken(payload: SessionPayload): Promise<string> {
-  return new SignJWT({ email: payload.email, mcp: payload.mcp })
+  return new SignJWT({ email: payload.email, mcp: payload.mcp, role: payload.role })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(payload.sub)
     .setIssuedAt()
@@ -33,8 +36,9 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
     const sub = typeof payload.sub === "string" ? payload.sub : "";
     const email = typeof payload.email === "string" ? payload.email : "";
     const mcp = payload.mcp === true;
+    const role = parsePerfil(payload.role);
     if (!sub || !email) return null;
-    return { sub, email, mcp };
+    return { sub, email, mcp, role };
   } catch {
     return null;
   }

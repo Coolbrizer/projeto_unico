@@ -13,6 +13,10 @@ export async function GET() {
     return NextResponse.json({ user: null });
   }
   return NextResponse.json({
-    user: { email: session.email, mustChangePassword: session.mcp },
+    user: {
+      email: session.email,
+      mustChangePassword: session.mcp,
+      perfil: session.role,
+    },
   });
 }

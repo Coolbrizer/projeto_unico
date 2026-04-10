@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
+import { usePerfil } from "@/components/AppShell";
+import { isAdmin } from "@/lib/auth/roles";
 import { useMounted } from "@/hooks/useMounted";
 import { totalDespesaMensalFolha, valorMensalDoRef } from "@/lib/orcamento-folha";
 import { useIsSupabaseConfigured, useSupabase } from "@/lib/supabase/client";
@@ -16,6 +18,8 @@ export default function OrcamentoPage() {
   const mounted = useMounted();
   const supabase = useSupabase();
   const configured = useIsSupabaseConfigured();
+  const perfil = usePerfil();
+  const podeExcluirLancamento = isAdmin(perfil);
   const [rows, setRows] = useState<Orcamento[]>([]);
   const [integrantes, setIntegrantes] = useState<Integrante[]>([]);
   const [refPgto, setRefPgto] = useState<RefPgto[]>([]);
@@ -32,7 +36,10 @@ export default function OrcamentoPage() {
     setError(null);
     const [o, i, r] = await Promise.all([
       supabase.from("orcamento").select("*").order("created_at", { ascending: false }),
-      supabase.from("integrantes").select("*").order("nome", { ascending: true }),
+      supabase
+        .from("integrantes")
+        .select("id, matricula, nome, setor, cargo, classe_padrao, email, created_at")
+        .order("nome", { ascending: true }),
       supabase.from("ref_pgto").select("*").order("cargo", { ascending: true }),
     ]);
     if (o.error) setError(o.error.message);
@@ -87,9 +94,11 @@ export default function OrcamentoPage() {
   }, [rows]);
 
   async function removeOrc(id: string) {
-    if (!supabase) return;
-    const { error: err } = await supabase.from("orcamento").delete().eq("id", id);
-    if (err) setError(err.message);
+    if (!podeExcluirLancamento) return;
+    setError(null);
+    const res = await fetch(`/api/orcamento/${id}`, { method: "DELETE", credentials: "include" });
+    const data = (await res.json()) as { error?: string };
+    if (!res.ok) setError(data.error ?? "Não foi possível excluir.");
     else void load();
   }
 
@@ -281,14 +290,15 @@ export default function OrcamentoPage() {
                     {r.periodo && ` · ${r.periodo}`}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void removeOrc(r.id)}
-                  disabled={!supabase}
-                  className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-300 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
-                >
-                  Excluir
-                </button>
+                {podeExcluirLancamento && (
+                  <button
+                    type="button"
+                    onClick={() => void removeOrc(r.id)}
+                    className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-300 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
+                  >
+                    Excluir
+                  </button>
+                )}
               </li>
             ))}
           </ul>

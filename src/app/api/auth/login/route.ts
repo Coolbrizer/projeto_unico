@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { verifyPassword } from "@/lib/auth/password";
+import { parsePerfil } from "@/lib/auth/roles";
 import { SESSION_COOKIE, signSessionToken } from "@/lib/auth/session";
 
 export async function POST(request: Request) {
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
 
   const { data: row, error } = await supabase
     .from("integrantes")
-    .select("id,email,nome,password_hash,must_change_password")
+    .select("id,email,nome,password_hash,must_change_password,perfil")
     .eq("email", email)
     .maybeSingle();
 
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
   }
 
   const mustChange = row.must_change_password !== false;
+  const role = parsePerfil((row as { perfil?: unknown }).perfil);
 
   let token: string;
   try {
@@ -58,6 +60,7 @@ export async function POST(request: Request) {
       sub: row.id,
       email: row.email ?? email,
       mcp: mustChange,
+      role,
     });
   } catch {
     return NextResponse.json(
