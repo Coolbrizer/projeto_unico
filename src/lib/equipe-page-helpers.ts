@@ -12,3 +12,11 @@ export function equipeLinhaEhResponsavel(
   if (eq === raw.toLowerCase()) return true;
   return nomeDoResp.includes(eq) || eq.includes(nomeDoResp);
 }
+
+/** Nome do integrante (cadastro) corresponde ao texto do responsável na atividade. */
+export function integranteNomeMatchResponsavelAtividade(
+  nomeIntegrante: string | null | undefined,
+  responsavelAtividade: string | null | undefined
+): boolean {
+  return equipeLinhaEhResponsavel((nomeIntegrante ?? "").trim(), responsavelAtividade);
+}

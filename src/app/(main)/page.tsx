@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { useMounted } from "@/hooks/useMounted";
 import { usePerfil } from "@/components/AppShell";
-import { canEditarAtividadesIntegrantes } from "@/lib/auth/roles";
+import { canEditarAtividadesIntegrantes, isAdmin } from "@/lib/auth/roles";
 import { formatarPeriodoAtividade, normalizarDataParaApi } from "@/lib/datas-atividade";
+import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
 import { useIsSupabaseConfigured, useSupabase } from "@/lib/supabase/client";
 import type { Atividade } from "@/types/database";
 
@@ -17,6 +18,8 @@ export default function AtividadesPage() {
   const configured = useIsSupabaseConfigured();
   const perfil = usePerfil();
   const podeEditar = canEditarAtividadesIntegrantes(perfil);
+  const [nomeUsuario, setNomeUsuario] = useState<string | null>(null);
+  const [sessionNomeCarregado, setSessionNomeCarregado] = useState(false);
   const [rows, setRows] = useState<Atividade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +58,32 @@ export default function AtividadesPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/auth/session", { credentials: "include" });
+        const data = (await res.json()) as { user?: { nome?: string | null } | null };
+        if (!cancelled) setNomeUsuario(data.user?.nome?.trim() ?? null);
+      } finally {
+        if (!cancelled) setSessionNomeCarregado(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const podeEditarRelatorio = useCallback(
+    (a: Atividade) => {
+      if (isAdmin(perfil)) return true;
+      if (!sessionNomeCarregado) return false;
+      if (!nomeUsuario) return false;
+      return integranteNomeMatchResponsavelAtividade(nomeUsuario, a.responsavel);
+    },
+    [perfil, nomeUsuario, sessionNomeCarregado]
+  );
 
   const filtradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -126,11 +155,11 @@ export default function AtividadesPage() {
     }
   }
 
-  async function saveRelatorio(id: string) {
-    if (!podeEditar) return;
+  async function saveRelatorio(a: Atividade) {
+    if (!podeEditarRelatorio(a)) return;
     setSavingRelatorio(true);
     setError(null);
-    const res = await fetch(`/api/atividades/${id}`, {
+    const res = await fetch(`/api/atividades/${a.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -152,7 +181,8 @@ export default function AtividadesPage() {
         <h2 className="text-2xl font-semibold tracking-tight">Atividades</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Código, descrição, responsável e datas de início e fim (formato DD/MM/AAAA). O memorando de
-          pagamento usa esse período para filtrar por mês.
+          pagamento usa esse período para filtrar por mês. Progresso, etiqueta e link do relatório só
+          podem ser alterados pelo responsável cadastrado (administradores também podem).
         </p>
       </header>
 
@@ -366,7 +396,9 @@ export default function AtividadesPage() {
                 {expandedId === a.id && (
                   <div className="border-t border-[var(--card-border)] bg-[var(--background)]/50 px-4 py-4">
                     <p className="mb-3 text-xs font-medium text-[var(--muted)]">Relatório</p>
-                    {!podeEditar ? (
+                    {!sessionNomeCarregado && !isAdmin(perfil) ? (
+                      <p className="text-sm text-[var(--muted)]">A verificar permissões…</p>
+                    ) : !podeEditarRelatorio(a) ? (
                       <div className="space-y-2 text-sm">
                         <p>
                           <span className="text-[var(--muted)]">Progresso: </span>
@@ -393,6 +425,9 @@ export default function AtividadesPage() {
                             </a>
                           </p>
                         )}
+                        <p className="text-xs text-[var(--muted)]">
+                          Apenas o responsável pela atividade pode editar estes campos.
+                        </p>
                       </div>
                     ) : (
                       <>
@@ -440,7 +475,7 @@ export default function AtividadesPage() {
                         <button
                           type="button"
                           disabled={savingRelatorio}
-                          onClick={() => void saveRelatorio(a.id)}
+                          onClick={() => void saveRelatorio(a)}
                           className="mt-3 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
                         >
                           {savingRelatorio ? "A guardar…" : "Guardar relatório"}

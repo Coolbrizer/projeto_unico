@@ -1,14 +1,30 @@
 import { NextResponse } from "next/server";
 import { normalizarDataParaApi } from "@/lib/datas-atividade";
 import { createServiceClient } from "@/lib/supabase/service";
+import { getSessionFromCookies } from "@/lib/auth/getSession";
+import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
+import { isAdmin } from "@/lib/auth/roles";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-export async function PATCH(request: Request, ctx: Ctx) {
-  const { response } = await requireGestorOuAdmin();
-  if (response) return response;
+function patchTouchesRelatorio(body: Record<string, unknown>): boolean {
+  return (
+    "progresso" in body || "etiqueta_relatorio" in body || "link_relatorio" in body
+  );
+}
 
+function patchTouchesCamposGestor(body: Record<string, unknown>): boolean {
+  return (
+    "codigo" in body ||
+    "descricao" in body ||
+    "responsavel" in body ||
+    "inicio" in body ||
+    "fim" in body
+  );
+}
+
+export async function PATCH(request: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   if (!id) {
     return NextResponse.json({ error: "ID inválido." }, { status: 400 });
@@ -21,11 +37,58 @@ export async function PATCH(request: Request, ctx: Ctx) {
     return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
   }
 
+  const session = await getSessionFromCookies();
+  if (!session) {
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  }
+
+  const relatorio = patchTouchesRelatorio(body);
+  const gestorFields = patchTouchesCamposGestor(body);
+
+  if (!relatorio && !gestorFields) {
+    return NextResponse.json({ error: "Nenhum campo para atualizar." }, { status: 400 });
+  }
+
+  if (gestorFields) {
+    const { response } = await requireGestorOuAdmin();
+    if (response) return response;
+  }
+
   let supabase;
   try {
     supabase = createServiceClient();
   } catch {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
+  }
+
+  if (relatorio && !isAdmin(session.role)) {
+    const { data: atividadeRow, error: errAt } = await supabase
+      .from("atividades")
+      .select("responsavel")
+      .eq("id", id)
+      .maybeSingle();
+    if (errAt || !atividadeRow) {
+      return NextResponse.json({ error: "Atividade não encontrada." }, { status: 404 });
+    }
+    const { data: integranteRow, error: errInt } = await supabase
+      .from("integrantes")
+      .select("nome")
+      .eq("id", session.sub)
+      .maybeSingle();
+    if (errInt || !integranteRow) {
+      return NextResponse.json({ error: "Integrante não encontrado." }, { status: 403 });
+    }
+    const nome = (integranteRow as { nome?: string }).nome;
+    const resp = (atividadeRow as { responsavel?: string | null }).responsavel;
+    if (!integranteNomeMatchResponsavelAtividade(nome, resp)) {
+      return NextResponse.json(
+        {
+          error:
+            "Apenas o responsável pela atividade pode alterar progresso, etiqueta ou link do relatório.",
+        },
+        { status: 403 }
+      );
+    }
   }
 
   const patch: Record<string, string | number | null> = {};
