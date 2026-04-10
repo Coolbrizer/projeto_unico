@@ -10,8 +10,9 @@ function limparTextoData(s: string): string {
 }
 
 /**
- * Interpreta datas em texto: ISO (yyyy-mm-dd), brasileiro (dd/mm/aaaa),
- * inclusive quando há texto extra ou rótulos.
+ * Interpreta datas: sempre **DD/MM/AAAA** para texto com barras (pt-BR).
+ * ISO **AAAA-MM-DD** (Postgres) é interpretado literalmente (ano-mês-dia).
+ * Não usa `Date.parse()` em strings ambíguas — no JS isso segue regras tipo MM/DD e corrompe o valor.
  */
 export function parseDataTexto(s: string | Date | null | undefined): Date | null {
   if (s == null) return null;
@@ -22,11 +23,11 @@ export function parseDataTexto(s: string | Date | null | undefined): Date | null
   const t = limparTextoData(String(s));
   if (!t) return null;
 
-  const iso = /(?:^|\s)(\d{4})-(\d{2})-(\d{2})/.exec(t);
-  if (iso) {
-    const y = Number(iso[1]);
-    const m = Number(iso[2]);
-    const day = Number(iso[3]);
+  const isoSolo = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  if (isoSolo) {
+    const y = Number(isoSolo[1]);
+    const m = Number(isoSolo[2]);
+    const day = Number(isoSolo[3]);
     const d = new Date(y, m - 1, day);
     if (
       !Number.isNaN(d.getTime()) &&
@@ -56,12 +57,26 @@ export function parseDataTexto(s: string | Date | null | undefined): Date | null
     }
   }
 
-  const parsed = Date.parse(t);
-  if (!Number.isNaN(parsed)) return new Date(parsed);
+  const isoInText = /(?:^|\s|T)(\d{4})-(\d{2})-(\d{2})/.exec(t);
+  if (isoInText) {
+    const y = Number(isoInText[1]);
+    const m = Number(isoInText[2]);
+    const day = Number(isoInText[3]);
+    const d = new Date(y, m - 1, day);
+    if (
+      !Number.isNaN(d.getTime()) &&
+      d.getFullYear() === y &&
+      d.getMonth() === m - 1 &&
+      d.getDate() === day
+    ) {
+      return d;
+    }
+  }
+
   return null;
 }
 
-/** Exibe data em DD/MM/AAAA (valores ISO do Postgres, texto livre ou Date). */
+/** Exibe data em DD/MM/AAAA. Para `AAAA-MM-DD` do Postgres, formata só a string (sem `Date`, sem fuso). */
 export function formatDataParaExibicao(value: string | Date | null | undefined): string {
   if (value == null || value === "") return "—";
   if (value instanceof Date) {
@@ -73,6 +88,13 @@ export function formatDataParaExibicao(value: string | Date | null | undefined):
   }
   const t = String(value).trim();
   if (!t) return "—";
+  const isoDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  if (isoDate) {
+    const y = isoDate[1];
+    const m = isoDate[2];
+    const d = isoDate[3];
+    return `${d}/${m}/${y}`;
+  }
   const parsed = parseDataTexto(t);
   if (!parsed) return t;
   const d = parsed.getDate();
