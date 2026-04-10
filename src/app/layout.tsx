@@ -20,6 +20,9 @@ export const metadata: Metadata = {
   description: "Controle de atividades, equipe, orçamento e documentos do projeto.",
 };
 
+/** Evita HTML estático gerado no build sem as variáveis; na Vercel o env existe em runtime em cada pedido. */
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{
