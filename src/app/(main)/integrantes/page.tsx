@@ -52,7 +52,7 @@ export default function IntegrantesPage() {
     setError(null);
     const { data, error: err } = await supabase
       .from("integrantes")
-      .select("*")
+      .select("id, matricula, nome, setor, cargo, classe_padrao, email, created_at")
       .order("matricula", { ascending: true });
     if (err) setError(err.message);
     else setRows((data as Integrante[]) ?? []);
@@ -70,32 +70,46 @@ export default function IntegrantesPage() {
 
   async function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault();
-    if (!supabase || !nome.trim()) return;
+    if (!nome.trim()) return;
     const m = parseMatricula(matricula);
     if (m === null) {
       setError("Informe uma matrícula numérica inteira válida.");
       return;
     }
-    setError(null);
-    const { error: err } = await supabase.from("integrantes").insert({
-      matricula: m,
-      nome: nome.trim(),
-      setor: setor.trim() || null,
-      cargo: cargo.trim() || null,
-      classe_padrao: classePadrao.trim() || null,
-      email: email.trim() || null,
-    });
-    if (err) setError(err.message);
-    else {
-      setMatricula("");
-      setNome("");
-      setSetor("");
-      setCargo("");
-      setClassePadrao("");
-      setEmail("");
-      setShowForm(false);
-      void load();
+    if (!email.trim()) {
+      setError("Informe o e-mail — é necessário para o login no sistema.");
+      return;
     }
+    setError(null);
+    const res = await fetch("/api/integrantes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        matricula,
+        nome: nome.trim(),
+        setor: setor.trim() || null,
+        cargo: cargo.trim() || null,
+        classe_padrao: classePadrao.trim() || null,
+        email: email.trim(),
+      }),
+    });
+    const payload = (await res.json()) as { error?: string; aviso?: string };
+    if (!res.ok) {
+      setError(payload.error ?? "Não foi possível guardar.");
+      return;
+    }
+    setMatricula("");
+    setNome("");
+    setSetor("");
+    setCargo("");
+    setClassePadrao("");
+    setEmail("");
+    setShowForm(false);
+    if (payload.aviso) {
+      window.alert(payload.aviso);
+    }
+    void load();
   }
 
   async function remove(id: string) {
@@ -110,8 +124,9 @@ export default function IntegrantesPage() {
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Integrantes</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Cadastro com matrícula, nome, setor, cargo, classe/padrão e e-mail. A busca cobre matrícula,
-          nome, setor e e-mail.
+          Cadastro com matrícula, nome, setor, cargo, classe/padrão e e-mail. O e-mail é obrigatório e
+          usado para login; novos integrantes recebem a senha inicial 123456 e devem
+          alterá-la no primeiro acesso. A busca cobre matrícula, nome, setor e e-mail.
         </p>
       </header>
 
@@ -193,9 +208,10 @@ export default function IntegrantesPage() {
               />
             </div>
             <div>
-              <label className="block text-xs text-[var(--muted)]">E-mail</label>
+              <label className="block text-xs text-[var(--muted)]">E-mail (obrigatório para login)</label>
               <input
                 type="email"
+                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
@@ -205,7 +221,6 @@ export default function IntegrantesPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="submit"
-              disabled={!supabase}
               className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
             >
               Guardar integrante

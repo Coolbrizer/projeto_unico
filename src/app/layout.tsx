@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AppShell } from "@/components/AppShell";
 import { SupabaseProvider } from "@/lib/supabase/context";
 import { getPublicSupabaseEnv } from "@/lib/supabase/env";
 
@@ -35,9 +34,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <SupabaseProvider url={url} anonKey={anonKey}>
-          <AppShell>{children}</AppShell>
-        </SupabaseProvider>
+        <SupabaseProvider url={url} anonKey={anonKey}>{children}</SupabaseProvider>
       </body>
     </html>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const nav = [
   { href: "/", label: "Atividades" },
@@ -13,6 +13,13 @@ const nav = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    router.replace("/login");
+    router.refresh();
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -26,7 +33,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               Modernização do Único
             </h1>
           </div>
-          <nav className="flex min-w-0 flex-1 flex-wrap gap-1 overflow-x-auto pb-1 md:justify-end">
+          <nav className="flex min-w-0 flex-1 flex-wrap items-center gap-1 overflow-x-auto pb-1 md:justify-end">
             {nav.map((item) => {
               const active =
                 item.href === "/"
@@ -46,6 +53,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
+            <button
+              type="button"
+              onClick={() => void handleLogout()}
+              className="ml-1 shrink-0 rounded-lg border border-[var(--card-border)] px-3 py-2 text-sm font-medium text-[var(--muted)] hover:bg-white/5 hover:text-[var(--foreground)]"
+            >
+              Sair
+            </button>
           </nav>
         </div>
       </header>

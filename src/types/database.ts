@@ -26,6 +26,9 @@ export type Integrante = {
   cargo: string | null;
   classe_padrao: string | null;
   email: string | null;
+  /** Não expor ao cliente; ausente nas queries da UI. */
+  password_hash?: string | null;
+  must_change_password?: boolean | null;
   created_at: string;
 };
 

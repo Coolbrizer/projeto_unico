@@ -31,7 +31,7 @@ create table public.equipe (
   created_at timestamptz not null default now()
 );
 
--- Integrantes: Matrícula (inteiro grande), Nome, Setor, Cargo, Classe/Padrão, E-mail
+-- Integrantes: Matrícula (inteiro grande), Nome, Setor, Cargo, Classe/Padrão, E-mail, senha (bcrypt)
 create table public.integrantes (
   id uuid primary key default gen_random_uuid(),
   matricula bigint not null,
@@ -40,8 +40,14 @@ create table public.integrantes (
   cargo text,
   classe_padrao text,
   email text,
+  password_hash text,
+  must_change_password boolean not null default true,
   created_at timestamptz not null default now()
 );
+
+create unique index if not exists integrantes_email_lower_uniq
+  on public.integrantes (lower(btrim(email)))
+  where email is not null and btrim(email) <> '';
 
 -- Orçamento e Documentos (criação idempotente se ainda não existirem)
 create table if not exists public.orcamento (
