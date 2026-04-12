@@ -7,6 +7,26 @@ export type GrupoAtividade = {
   integrantes: Integrante[];
 };
 
+/** Código, equipes, integrantes (nome, setor, matrícula) e dados da atividade: cada palavra deve aparecer em algum desses campos. */
+export function grupoAtividadeMatchesBusca(g: GrupoAtividade, raw: string): boolean {
+  const q = raw.trim().toLowerCase();
+  if (!q) return true;
+  const tokens = q.split(/\s+/).filter(Boolean);
+  const codigo = (g.codigo ?? "").toLowerCase();
+  const atDesc = (g.atividade?.descricao ?? "").toLowerCase();
+  const atResp = (g.atividade?.responsavel ?? "").toLowerCase();
+  const campos: string[] = [codigo, atDesc, atResp];
+  for (const e of g.equipeRows) {
+    campos.push((e.equipe ?? "").toLowerCase());
+  }
+  for (const i of g.integrantes) {
+    campos.push((i.nome ?? "").toLowerCase());
+    campos.push((i.setor ?? "").toLowerCase());
+    campos.push(String(i.matricula).toLowerCase());
+  }
+  return tokens.every((tok) => campos.some((c) => c.includes(tok)));
+}
+
 export function montarGrupos(
   equipes: Equipe[],
   atividades: Atividade[],

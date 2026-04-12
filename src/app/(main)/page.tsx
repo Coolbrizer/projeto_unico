@@ -10,7 +10,17 @@ import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpe
 import { useIsSupabaseConfigured, useSupabase } from "@/lib/supabase/client";
 import type { Atividade } from "@/types/database";
 
-type FiltroAtividade = "codigo" | "descricao" | "responsavel";
+/** Busca em código, descrição e responsável: cada palavra deve aparecer em algum desses campos. */
+function atividadeMatchesBusca(a: Atividade, raw: string): boolean {
+  const q = raw.trim().toLowerCase();
+  if (!q) return true;
+  const tokens = q.split(/\s+/).filter(Boolean);
+  const codigo = (a.codigo ?? "").toLowerCase();
+  const desc = (a.descricao ?? "").toLowerCase();
+  const resp = (a.responsavel ?? "").toLowerCase();
+  const campos = [codigo, desc, resp];
+  return tokens.every((tok) => campos.some((c) => c.includes(tok)));
+}
 
 export default function AtividadesPage() {
   const mounted = useMounted();
@@ -25,7 +35,6 @@ export default function AtividadesPage() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [busca, setBusca] = useState("");
-  const [filtro, setFiltro] = useState<FiltroAtividade>("codigo");
 
   const [codigo, setCodigo] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -85,17 +94,10 @@ export default function AtividadesPage() {
     [perfil, nomeUsuario, sessionNomeCarregado]
   );
 
-  const filtradas = useMemo(() => {
-    const q = busca.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((a) => {
-      let texto = "";
-      if (filtro === "codigo") texto = a.codigo ?? "";
-      else if (filtro === "descricao") texto = a.descricao ?? "";
-      else texto = a.responsavel ?? "";
-      return texto.toLowerCase().includes(q);
-    });
-  }, [rows, busca, filtro]);
+  const filtradas = useMemo(
+    () => rows.filter((a) => atividadeMatchesBusca(a, busca)),
+    [rows, busca]
+  );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -182,7 +184,8 @@ export default function AtividadesPage() {
         <p className="mt-1 text-sm text-[var(--muted)]">
           Código, descrição, responsável e datas de início e fim (formato DD/MM/AAAA). O memorando de
           pagamento usa esse período para filtrar por mês. Progresso, etiqueta e link do relatório só
-          podem ser alterados pelo responsável cadastrado (administradores também podem).
+          podem ser alterados pelo responsável cadastrado (administradores também podem). A busca cobre
+          código, descrição e responsável.
         </p>
       </header>
 
@@ -200,21 +203,9 @@ export default function AtividadesPage() {
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            placeholder="Digite para filtrar…"
+            placeholder="Código, descrição ou responsável (várias palavras refinam a busca)"
             className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
           />
-        </div>
-        <div className="w-full sm:w-48">
-          <label className="block text-xs text-[var(--muted)]">Filtrar por</label>
-          <select
-            value={filtro}
-            onChange={(e) => setFiltro(e.target.value as FiltroAtividade)}
-            className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
-          >
-            <option value="codigo">Código</option>
-            <option value="descricao">Nome / descrição</option>
-            <option value="responsavel">Responsável</option>
-          </select>
         </div>
         {podeEditar && (
           <button

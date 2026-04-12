@@ -6,7 +6,7 @@ import { usePerfil } from "@/components/AppShell";
 import { canEditarEquipe } from "@/lib/auth/roles";
 import { formatarPeriodoAtividade } from "@/lib/datas-atividade";
 import { equipeLinhaEhResponsavel } from "@/lib/equipe-page-helpers";
-import { montarGrupos } from "@/lib/equipe-grupos";
+import { grupoAtividadeMatchesBusca, montarGrupos } from "@/lib/equipe-grupos";
 import {
   gerarPdfMemorandoPagamento,
   listarIntegrantesMemorandoPagamento,
@@ -14,8 +14,6 @@ import {
 import { useMounted } from "@/hooks/useMounted";
 import { useIsSupabaseConfigured, useSupabase } from "@/lib/supabase/client";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
-
-type FiltroEquipe = "codigo" | "nome";
 
 const MESES_PT = [
   { value: "1", label: "Janeiro" },
@@ -45,13 +43,15 @@ export default function EquipePage() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [busca, setBusca] = useState("");
-  const [filtro, setFiltro] = useState<FiltroEquipe>("codigo");
   const [mesExtracao, setMesExtracao] = useState("");
   const [anoExtracao, setAnoExtracao] = useState("");
 
   const anosExtracao = useMemo(() => {
-    const central = new Date().getFullYear();
-    return Array.from({ length: 17 }, (_, i) => central - 5 + i);
+    const now = new Date().getFullYear();
+    const end = Math.max(now, 2026) + 10;
+    const out: number[] = [];
+    for (let y = 2026; y <= end; y++) out.push(y);
+    return out;
   }, []);
 
   const [codigo, setCodigo] = useState("");
@@ -89,27 +89,10 @@ export default function EquipePage() {
     [equipes, atividades, integrantes]
   );
 
-  const gruposFiltrados = useMemo(() => {
-    const q = busca.trim().toLowerCase();
-    if (!q) return grupos;
-    return grupos.filter((g) => {
-      if (filtro === "codigo") {
-        return (g.codigo || "").toLowerCase().includes(q);
-      }
-      const inEquipe = g.equipeRows.some((e) =>
-        (e.equipe || "").toLowerCase().includes(q)
-      );
-      const inInt = g.integrantes.some(
-        (i) =>
-          (i.nome || "").toLowerCase().includes(q) ||
-          (i.setor || "").toLowerCase().includes(q)
-      );
-      const inAt =
-        (g.atividade?.descricao || "").toLowerCase().includes(q) ||
-        (g.atividade?.responsavel || "").toLowerCase().includes(q);
-      return inEquipe || inInt || inAt;
-    });
-  }, [grupos, busca, filtro]);
+  const gruposFiltrados = useMemo(
+    () => grupos.filter((g) => grupoAtividadeMatchesBusca(g, busca)),
+    [grupos, busca]
+  );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -168,7 +151,9 @@ export default function EquipePage() {
         <h2 className="text-2xl font-semibold tracking-tight">Equipe</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Agrupado por código de atividade. Integrantes aparecem quando o setor coincide com o nome da
-          equipe ou com o código. O responsável vem do cadastro de Atividades (mesmo código).
+          equipe ou com o código. O responsável vem do cadastro de Atividades (mesmo código). A busca cobre
+          código, linhas de equipe, integrantes (nome, setor, matrícula), descrição e responsável da
+          atividade.
         </p>
       </header>
 
@@ -238,20 +223,9 @@ export default function EquipePage() {
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            placeholder="Digite para filtrar…"
+            placeholder="Código, equipe, integrante, setor, matrícula, descrição ou responsável (várias palavras refinam a busca)"
             className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
           />
-        </div>
-        <div className="w-full sm:w-48">
-          <label className="block text-xs text-[var(--muted)]">Filtrar por</label>
-          <select
-            value={filtro}
-            onChange={(e) => setFiltro(e.target.value as FiltroEquipe)}
-            className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
-          >
-            <option value="codigo">Código</option>
-            <option value="nome">Nome (equipe, integrante, descrição)</option>
-          </select>
         </div>
         {podeEditar && (
           <button
