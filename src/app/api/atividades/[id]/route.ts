@@ -8,6 +8,13 @@ import { isAdmin } from "@/lib/auth/roles";
 
 type Ctx = { params: Promise<{ id: string }> };
 
+function normalizarProgresso(valor: unknown): number {
+  const numero = Number(valor ?? 0);
+  if (!Number.isFinite(numero)) return 0;
+  const emDegraus = Math.round(numero / 10) * 10;
+  return Math.min(100, Math.max(0, emDegraus));
+}
+
 function patchTouchesRelatorio(body: Record<string, unknown>): boolean {
   return (
     "progresso" in body || "etiqueta_relatorio" in body || "link_relatorio" in body
@@ -63,7 +70,8 @@ export async function PATCH(request: Request, ctx: Ctx) {
 
   const touchedEtiqueta = "etiqueta_relatorio" in body;
   const touchedLink = "link_relatorio" in body;
-  const touchedRelatorioTabela = touchedEtiqueta || touchedLink;
+  const touchedProgresso = "progresso" in body;
+  const touchedRelatorioTabela = touchedEtiqueta || touchedLink || touchedProgresso;
 
   const { data: atividadeRow, error: errAt } = await supabase
     .from("atividades")
@@ -114,11 +122,6 @@ export async function PATCH(request: Request, ctx: Ctx) {
         ? null
         : normalizarDataParaApi(String(raw));
   }
-  if ("progresso" in body) {
-    const p = Math.min(100, Math.max(0, Math.floor(Number(body.progresso)) || 0));
-    patch.progresso = p;
-  }
-
   const hasAtividadePatch = Object.keys(patch).length > 0;
   let atividadeAtualizada: Record<string, unknown> | null = null;
   if (hasAtividadePatch) {
@@ -149,8 +152,9 @@ export async function PATCH(request: Request, ctx: Ctx) {
         : null
       : undefined;
     const link = touchedLink ? (body.link_relatorio ? String(body.link_relatorio).trim() : null) : undefined;
+    const progresso = touchedProgresso ? normalizarProgresso(body.progresso) : undefined;
 
-    if (etiqueta === null && link === null) {
+    if (etiqueta === null && link === null && !touchedProgresso) {
       const { error: deleteError } = await supabase
         .from("etiqueta_relatorio")
         .delete()
@@ -159,9 +163,10 @@ export async function PATCH(request: Request, ctx: Ctx) {
         return NextResponse.json({ error: deleteError.message }, { status: 400 });
       }
     } else {
-      const upsertPayload: Record<string, string | null> = { codigo: codigoAtividade };
+      const upsertPayload: Record<string, string | number | null> = { codigo: codigoAtividade };
       if (etiqueta !== undefined) upsertPayload.etiqueta = etiqueta;
       if (link !== undefined) upsertPayload.link = link;
+      if (progresso !== undefined) upsertPayload.progresso = progresso;
       const { error: upsertError } = await supabase
         .from("etiqueta_relatorio")
         .upsert(upsertPayload, { onConflict: "codigo" });

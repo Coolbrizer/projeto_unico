@@ -9,10 +9,18 @@ type EtiquetaRelatorioRow = {
   codigo: string;
   etiqueta: string | null;
   link: string | null;
+  progresso: number | null;
 };
 
 function chaveCodigo(codigo: string | null | undefined): string {
   return String(codigo ?? "").trim();
+}
+
+function normalizarProgresso(valor: unknown): number {
+  const numero = Number(valor ?? 0);
+  if (!Number.isFinite(numero)) return 0;
+  const emDegraus = Math.round(numero / 10) * 10;
+  return Math.min(100, Math.max(0, emDegraus));
 }
 
 export async function GET() {
@@ -30,7 +38,7 @@ export async function GET() {
 
   const [atividadesResult, relatorioResult] = await Promise.all([
     supabase.from("atividades").select("*").order("created_at", { ascending: false }),
-    supabase.from("etiqueta_relatorio").select("codigo, etiqueta, link"),
+    supabase.from("etiqueta_relatorio").select("codigo, etiqueta, link, progresso"),
   ]);
 
   if (atividadesResult.error) {
@@ -51,6 +59,7 @@ export async function GET() {
       ...atividade,
       etiqueta_relatorio: relatorio?.etiqueta ?? null,
       link_relatorio: relatorio?.link ?? null,
+      progresso: normalizarProgresso(relatorio?.progresso ?? atividade.progresso),
     };
   });
 
@@ -82,7 +91,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }
 
-  const progresso = Math.min(100, Math.max(0, Math.floor(Number(body.progresso ?? 0)) || 0));
+  const progresso = normalizarProgresso(body.progresso);
 
   const { data, error } = await supabase
     .from("atividades")
@@ -92,13 +101,22 @@ export async function POST(request: Request) {
       responsavel: body.responsavel?.trim() || null,
       inicio: normalizarDataParaApi(body.inicio ?? undefined),
       fim: normalizarDataParaApi(body.fim ?? undefined),
-      progresso,
     })
     .select("*")
     .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  const codigo = String(data.codigo ?? "").trim();
+  if (codigo) {
+    const { error: relatorioError } = await supabase
+      .from("etiqueta_relatorio")
+      .upsert({ codigo, progresso }, { onConflict: "codigo" });
+    if (relatorioError) {
+      return NextResponse.json({ error: relatorioError.message }, { status: 400 });
+    }
   }
 
   return NextResponse.json({ ok: true, atividade: data });

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { useMounted } from "@/hooks/useMounted";
-import { useIsSupabaseConfigured, useSupabase } from "@/lib/supabase/client";
+import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import type { Atividade } from "@/types/database";
 
 function progressoSeguro(valor: number | null | undefined): number {
@@ -13,29 +13,24 @@ function progressoSeguro(valor: number | null | undefined): number {
 
 export default function ProgressoPage() {
   const mounted = useMounted();
-  const supabase = useSupabase();
   const configured = useIsSupabaseConfigured();
   const [rows, setRows] = useState<Atividade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
-
     setError(null);
-    const { data, error: err } = await supabase.from("atividades").select("*");
+    const res = await fetch("/api/atividades", { credentials: "include" });
+    const data = (await res.json()) as { error?: string; atividades?: Atividade[] };
 
-    if (err) {
-      setError(err.message);
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível carregar as atividades.");
     } else {
-      setRows((data as Atividade[]) ?? []);
+      setRows(data.atividades ?? []);
     }
 
     setLoading(false);
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -77,7 +72,7 @@ export default function ProgressoPage() {
           <p className="text-sm text-[var(--muted)]">Carregando…</p>
         ) : atividadesOrdenadas.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">
-            {supabase ? "Nenhuma atividade encontrada." : "Configure o Supabase para ver os dados."}
+            {configured ? "Nenhuma atividade encontrada." : "Configure o Supabase para ver os dados."}
           </p>
         ) : (
           <ul className="space-y-3">
