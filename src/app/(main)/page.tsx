@@ -8,7 +8,7 @@ import { usePerfil } from "@/components/AppShell";
 import { canEditarAtividadesIntegrantes, isAdmin } from "@/lib/auth/roles";
 import { formatarPeriodoAtividade, normalizarDataParaApi } from "@/lib/datas-atividade";
 import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
-import { useIsSupabaseConfigured, useSupabase } from "@/lib/supabase/client";
+import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import type { Atividade } from "@/types/database";
 
 /** Busca em código, descrição e responsável: cada palavra deve aparecer em algum desses campos. */
@@ -26,7 +26,6 @@ function atividadeMatchesBusca(a: Atividade, raw: string): boolean {
 export default function AtividadesPage() {
   const searchParams = useSearchParams();
   const mounted = useMounted();
-  const supabase = useSupabase();
   const configured = useIsSupabaseConfigured();
   const perfil = usePerfil();
   const podeEditar = canEditarAtividadesIntegrantes(perfil);
@@ -52,19 +51,16 @@ export default function AtividadesPage() {
   const [progressoEdit, setProgressoEdit] = useState(0);
 
   const load = useCallback(async () => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
     setError(null);
-    const { data, error: err } = await supabase
-      .from("atividades")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (err) setError(err.message);
-    else setRows((data as Atividade[]) ?? []);
+    const res = await fetch("/api/atividades", { credentials: "include" });
+    const data = (await res.json()) as { error?: string; atividades?: Atividade[] };
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível carregar as atividades.");
+    } else {
+      setRows(data.atividades ?? []);
+    }
     setLoading(false);
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -326,7 +322,7 @@ export default function AtividadesPage() {
           <p className="text-sm text-[var(--muted)]">Carregando…</p>
         ) : filtradas.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">
-            {supabase
+            {configured
               ? rows.length === 0
                 ? "Nenhuma atividade ainda."
                 : "Nenhum resultado para a busca."

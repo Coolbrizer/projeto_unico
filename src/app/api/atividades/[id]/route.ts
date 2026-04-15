@@ -61,15 +61,20 @@ export async function PATCH(request: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }
 
+  const touchedEtiqueta = "etiqueta_relatorio" in body;
+  const touchedLink = "link_relatorio" in body;
+  const touchedRelatorioTabela = touchedEtiqueta || touchedLink;
+
+  const { data: atividadeRow, error: errAt } = await supabase
+    .from("atividades")
+    .select("codigo, responsavel")
+    .eq("id", id)
+    .maybeSingle();
+  if (errAt || !atividadeRow) {
+    return NextResponse.json({ error: "Atividade não encontrada." }, { status: 404 });
+  }
+
   if (relatorio && !isAdmin(session.role)) {
-    const { data: atividadeRow, error: errAt } = await supabase
-      .from("atividades")
-      .select("responsavel")
-      .eq("id", id)
-      .maybeSingle();
-    if (errAt || !atividadeRow) {
-      return NextResponse.json({ error: "Atividade não encontrada." }, { status: 404 });
-    }
     const { data: integranteRow, error: errInt } = await supabase
       .from("integrantes")
       .select("nome")
@@ -113,20 +118,60 @@ export async function PATCH(request: Request, ctx: Ctx) {
     const p = Math.min(100, Math.max(0, Math.floor(Number(body.progresso)) || 0));
     patch.progresso = p;
   }
-  if ("etiqueta_relatorio" in body) {
-    patch.etiqueta_relatorio = body.etiqueta_relatorio ? String(body.etiqueta_relatorio).trim() : null;
-  }
-  if ("link_relatorio" in body) {
-    patch.link_relatorio = body.link_relatorio ? String(body.link_relatorio).trim() : null;
+
+  const hasAtividadePatch = Object.keys(patch).length > 0;
+  let atividadeAtualizada: Record<string, unknown> | null = null;
+  if (hasAtividadePatch) {
+    const { data, error } = await supabase
+      .from("atividades")
+      .update(patch)
+      .eq("id", id)
+      .select("*")
+      .single();
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    atividadeAtualizada = data as Record<string, unknown>;
   }
 
-  const { data, error } = await supabase.from("atividades").update(patch).eq("id", id).select("*").single();
+  if (touchedRelatorioTabela) {
+    const codigoAtividade = String((atividadeAtualizada?.codigo ?? atividadeRow.codigo) ?? "").trim();
+    if (!codigoAtividade) {
+      return NextResponse.json(
+        { error: "A atividade precisa de código para guardar etiqueta/link do relatório." },
+        { status: 400 }
+      );
+    }
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    const etiqueta = touchedEtiqueta
+      ? body.etiqueta_relatorio
+        ? String(body.etiqueta_relatorio).trim()
+        : null
+      : undefined;
+    const link = touchedLink ? (body.link_relatorio ? String(body.link_relatorio).trim() : null) : undefined;
+
+    if (etiqueta === null && link === null) {
+      const { error: deleteError } = await supabase
+        .from("etiqueta_relatorio")
+        .delete()
+        .eq("codigo", codigoAtividade);
+      if (deleteError) {
+        return NextResponse.json({ error: deleteError.message }, { status: 400 });
+      }
+    } else {
+      const upsertPayload: Record<string, string | null> = { codigo: codigoAtividade };
+      if (etiqueta !== undefined) upsertPayload.etiqueta = etiqueta;
+      if (link !== undefined) upsertPayload.link = link;
+      const { error: upsertError } = await supabase
+        .from("etiqueta_relatorio")
+        .upsert(upsertPayload, { onConflict: "codigo" });
+      if (upsertError) {
+        return NextResponse.json({ error: upsertError.message }, { status: 400 });
+      }
+    }
   }
 
-  return NextResponse.json({ ok: true, atividade: data });
+  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(_request: Request, ctx: Ctx) {
@@ -143,6 +188,26 @@ export async function DELETE(_request: Request, ctx: Ctx) {
     supabase = createServiceClient();
   } catch {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
+  }
+
+  const { data: atividadeRow, error: errAtividade } = await supabase
+    .from("atividades")
+    .select("codigo")
+    .eq("id", id)
+    .maybeSingle();
+  if (errAtividade || !atividadeRow) {
+    return NextResponse.json({ error: "Atividade não encontrada." }, { status: 404 });
+  }
+
+  const codigo = String((atividadeRow as { codigo?: string | null }).codigo ?? "").trim();
+  if (codigo) {
+    const { error: deleteRelatorioError } = await supabase
+      .from("etiqueta_relatorio")
+      .delete()
+      .eq("codigo", codigo);
+    if (deleteRelatorioError) {
+      return NextResponse.json({ error: deleteRelatorioError.message }, { status: 400 });
+    }
   }
 
   const { error } = await supabase.from("atividades").delete().eq("id", id);
