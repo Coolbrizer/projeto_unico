@@ -13,15 +13,11 @@ function apenasDigitos(valor: string): string {
   return valor.replace(/\D/g, "");
 }
 
-function formatarDataDocumento(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString("pt-BR", {
-      dateStyle: "short",
-      timeStyle: "short",
-    });
-  } catch {
-    return iso;
-  }
+function hrefSeguro(url: string): string {
+  const t = url.trim();
+  if (!t) return "#";
+  if (/^https?:\/\//i.test(t)) return t;
+  return `https://${t}`;
 }
 
 export default function DocumentosPage() {
@@ -98,8 +94,8 @@ export default function DocumentosPage() {
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Documentos</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Cadastre documentos por tipo, número, ano, etiqueta e link. A lista mostra os mais recentes
-          primeiro.
+          A lista ordena pelo número e ano do documento (ano mais recente primeiro; no mesmo ano,
+          menor número primeiro).
         </p>
       </header>
 
@@ -185,7 +181,7 @@ export default function DocumentosPage() {
       )}
 
       <section>
-        <h3 className="mb-3 text-sm font-medium text-[var(--muted)]">Lista de documentos</h3>
+        <h3 className="mb-2 text-sm font-medium text-[var(--muted)]">Lista de documentos</h3>
         {loading ? (
           <p className="text-sm text-[var(--muted)]">Carregando…</p>
         ) : rows.length === 0 ? (
@@ -193,62 +189,51 @@ export default function DocumentosPage() {
             {configured ? "Nenhum documento cadastrado." : "Configure o Supabase para ver os dados."}
           </p>
         ) : (
-          <ul className="space-y-3">
-            {rows.map((r) => (
-              <li
-                key={r.id}
-                className="flex flex-col gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 sm:flex-row sm:items-start sm:justify-between"
-              >
-                <div className="min-w-0 space-y-1 text-sm">
-                  <p className="text-xs text-[var(--muted)]">
-                    {formatarDataDocumento(r.created_at)}
-                  </p>
-                  {r.numero != null || r.ano != null ? (
-                    <>
-                      <p className="font-medium text-[var(--foreground)]">
-                        {r.tipo ?? "—"}
-                      </p>
-                      <p>
-                        <span className="text-[var(--muted)]">Número: </span>
-                        {r.numero ?? "—"}
-                        <span className="text-[var(--muted)]"> · Ano: </span>
-                        {r.ano ?? "—"}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="font-medium text-[var(--foreground)]">{r.titulo}</p>
-                  )}
-                  {r.etiqueta && (
-                    <p>
-                      <span className="text-[var(--muted)]">Etiqueta: </span>
-                      {r.etiqueta}
-                    </p>
-                  )}
-                  {r.url && (
-                    <a
-                      href={r.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-block break-all text-sky-400 underline hover:text-sky-300"
-                    >
-                      {r.url}
-                    </a>
-                  )}
-                  {r.observacoes && (
-                    <p className="text-xs text-[var(--muted)]">{r.observacoes}</p>
-                  )}
-                </div>
-                {podeEditar && (
-                  <button
-                    type="button"
-                    onClick={() => void remove(r.id)}
-                    className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-300 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
-                  >
-                    Excluir
-                  </button>
-                )}
-              </li>
-            ))}
+          <ul className="divide-y divide-[var(--card-border)] rounded-lg border border-[var(--card-border)] bg-[var(--card)]">
+            {rows.map((r) => {
+              const temRef = r.numero != null && r.ano != null && String(r.numero).trim() !== "" && String(r.ano).trim() !== "";
+              const linhaPrincipal = temRef
+                ? `${r.tipo ?? r.titulo} nº ${r.numero}/${r.ano}`
+                : r.titulo;
+              const etiquetaTxt = r.etiqueta?.trim();
+
+              return (
+                <li key={r.id}>
+                  <div className="flex min-h-[2rem] items-center gap-2 px-2 py-1 sm:px-3 sm:py-1.5">
+                    <div className="min-w-0 flex-1 text-xs leading-snug sm:text-sm">
+                      <span className="text-sky-300">{linhaPrincipal}</span>
+                      {etiquetaTxt ? (
+                        <span className="text-[var(--muted)]"> — {etiquetaTxt}</span>
+                      ) : null}
+                      {r.observacoes && !temRef ? (
+                        <span className="text-[var(--muted)]"> — {r.observacoes}</span>
+                      ) : null}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {r.url && (
+                        <a
+                          href={hrefSeguro(r.url)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-medium text-sky-400 underline hover:text-sky-300 sm:text-sm"
+                        >
+                          Link
+                        </a>
+                      )}
+                      {podeEditar && (
+                        <button
+                          type="button"
+                          onClick={() => void remove(r.id)}
+                          className="rounded border border-red-500/40 px-1.5 py-0.5 text-[10px] text-red-300 hover:bg-red-500/10 sm:text-xs"
+                        >
+                          Excluir
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

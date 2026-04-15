@@ -3,6 +3,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getSessionFromCookies } from "@/lib/auth/getSession";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { TIPOS_DOCUMENTO, type TipoDocumento } from "@/lib/documentos-constants";
+import { ordenarDocumentosPorReferencia } from "@/lib/documentos-sort";
+import type { Documento } from "@/types/database";
 
 function isTipoDocumento(v: string): v is TipoDocumento {
   return (TIPOS_DOCUMENTO as readonly string[]).includes(v);
@@ -25,16 +27,15 @@ export async function GET() {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }
 
-  const { data, error } = await supabase
-    .from("documentos")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("documentos").select("*");
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, documentos: data ?? [] });
+  const documentos = ordenarDocumentosPorReferencia((data as Documento[]) ?? []);
+
+  return NextResponse.json({ ok: true, documentos });
 }
 
 export async function POST(request: Request) {
