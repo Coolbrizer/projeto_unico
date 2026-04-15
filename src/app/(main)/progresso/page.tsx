@@ -18,6 +18,7 @@ export default function ProgressoPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filtroProgresso, setFiltroProgresso] = useState<string>("todos");
+  const [ordemProgresso, setOrdemProgresso] = useState<"asc" | "desc">("asc");
 
   const load = useCallback(async () => {
     setError(null);
@@ -42,10 +43,12 @@ export default function ProgressoPage() {
       [...rows].sort((a, b) => {
         const progressoA = progressoSeguro(a.progresso);
         const progressoB = progressoSeguro(b.progresso);
-        if (progressoA !== progressoB) return progressoA - progressoB;
+        if (progressoA !== progressoB) {
+          return ordemProgresso === "asc" ? progressoA - progressoB : progressoB - progressoA;
+        }
         return (a.codigo ?? "").localeCompare(b.codigo ?? "", "pt-BR", { sensitivity: "base" });
       }),
-    [rows]
+    [rows, ordemProgresso]
   );
 
   const atividadesFiltradas = useMemo(() => {
@@ -75,20 +78,33 @@ export default function ProgressoPage() {
       <section className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5">
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <h3 className="text-sm font-medium text-[var(--muted)]">Gráfico de barras</h3>
-          <div className="sm:w-56">
-            <label className="block text-xs text-[var(--muted)]">Filtrar por progresso</label>
-            <select
-              value={filtroProgresso}
-              onChange={(e) => setFiltroProgresso(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2.5 py-1.5 text-sm outline-none ring-sky-500/50 focus:ring-2"
-            >
-              <option value="todos">Todos</option>
-              {Array.from({ length: 11 }, (_, idx) => idx * 10).map((percentual) => (
-                <option key={percentual} value={String(percentual)}>
-                  {percentual}%
-                </option>
-              ))}
-            </select>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="sm:w-56">
+              <label className="block text-xs text-[var(--muted)]">Filtrar por progresso</label>
+              <select
+                value={filtroProgresso}
+                onChange={(e) => setFiltroProgresso(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2.5 py-1.5 text-sm outline-none ring-sky-500/50 focus:ring-2"
+              >
+                <option value="todos">Todos</option>
+                {Array.from({ length: 11 }, (_, idx) => idx * 10).map((percentual) => (
+                  <option key={percentual} value={String(percentual)}>
+                    {percentual}%
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:w-56">
+              <label className="block text-xs text-[var(--muted)]">Ordenação</label>
+              <select
+                value={ordemProgresso}
+                onChange={(e) => setOrdemProgresso(e.target.value as "asc" | "desc")}
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2.5 py-1.5 text-sm outline-none ring-sky-500/50 focus:ring-2"
+              >
+                <option value="asc">Menor para maior</option>
+                <option value="desc">Maior para menor</option>
+              </select>
+            </div>
           </div>
         </div>
 
