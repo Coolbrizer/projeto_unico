@@ -17,6 +17,7 @@ export default function ProgressoPage() {
   const [rows, setRows] = useState<Atividade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filtroProgresso, setFiltroProgresso] = useState<string>("todos");
 
   const load = useCallback(async () => {
     setError(null);
@@ -47,6 +48,12 @@ export default function ProgressoPage() {
     [rows]
   );
 
+  const atividadesFiltradas = useMemo(() => {
+    if (filtroProgresso === "todos") return atividadesOrdenadas;
+    const percentual = Number(filtroProgresso);
+    return atividadesOrdenadas.filter((atividade) => progressoSeguro(atividade.progresso) === percentual);
+  }, [atividadesOrdenadas, filtroProgresso]);
+
   return (
     <div className="mx-auto max-w-5xl">
       <header className="mb-8">
@@ -66,28 +73,47 @@ export default function ProgressoPage() {
       )}
 
       <section className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5">
-        <h3 className="mb-4 text-sm font-medium text-[var(--muted)]">Gráfico de barras</h3>
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <h3 className="text-sm font-medium text-[var(--muted)]">Gráfico de barras</h3>
+          <div className="sm:w-56">
+            <label className="block text-xs text-[var(--muted)]">Filtrar por progresso</label>
+            <select
+              value={filtroProgresso}
+              onChange={(e) => setFiltroProgresso(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2.5 py-1.5 text-sm outline-none ring-sky-500/50 focus:ring-2"
+            >
+              <option value="todos">Todos</option>
+              {Array.from({ length: 11 }, (_, idx) => idx * 10).map((percentual) => (
+                <option key={percentual} value={String(percentual)}>
+                  {percentual}%
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         {loading ? (
           <p className="text-sm text-[var(--muted)]">Carregando…</p>
-        ) : atividadesOrdenadas.length === 0 ? (
+        ) : atividadesFiltradas.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">
-            {configured ? "Nenhuma atividade encontrada." : "Configure o Supabase para ver os dados."}
+            {configured
+              ? "Nenhuma atividade encontrada para esse percentual."
+              : "Configure o Supabase para ver os dados."}
           </p>
         ) : (
-          <ul className="space-y-3">
-            {atividadesOrdenadas.map((atividade) => {
+          <ul className="space-y-1.5">
+            {atividadesFiltradas.map((atividade) => {
               const progresso = progressoSeguro(atividade.progresso);
               const codigo = atividade.codigo?.trim() || "SEM-CODIGO";
               return (
                 <li key={atividade.id}>
                   <Link
                     href={`/?busca=${encodeURIComponent(codigo)}`}
-                    className="block rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-3 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60"
+                    className="block rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60"
                   >
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-[200px_minmax(0,1fr)_70px] sm:items-center sm:gap-3">
+                    <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[180px_minmax(0,1fr)_64px] sm:items-center sm:gap-2">
                       <p className="truncate text-sm font-medium text-sky-300">{codigo}</p>
-                      <div className="h-4 w-full overflow-hidden rounded-full bg-white/10">
+                      <div className="h-3.5 w-full overflow-hidden rounded-full bg-white/10">
                         <div
                           className="h-full rounded-full bg-sky-500/70"
                           style={{ width: `${progresso}%` }}
