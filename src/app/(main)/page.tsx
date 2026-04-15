@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { useMounted } from "@/hooks/useMounted";
 import { usePerfil } from "@/components/AppShell";
@@ -23,6 +24,7 @@ function atividadeMatchesBusca(a: Atividade, raw: string): boolean {
 }
 
 export default function AtividadesPage() {
+  const searchParams = useSearchParams();
   const mounted = useMounted();
   const supabase = useSupabase();
   const configured = useIsSupabaseConfigured();
@@ -83,6 +85,13 @@ export default function AtividadesPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const buscaInicial = searchParams.get("busca");
+    if (buscaInicial) {
+      setBusca(buscaInicial);
+    }
+  }, [searchParams]);
 
   const podeEditarRelatorio = useCallback(
     (a: Atividade) => {

@@ -13,6 +13,7 @@ export function usePerfil(): Perfil {
 
 const navBase = [
   { href: "/", label: "Atividades" },
+  { href: "/progresso", label: "Progresso" },
   { href: "/equipe", label: "Equipe" },
   { href: "/integrantes", label: "Integrantes" },
   { href: "/documentos", label: "Documentos" },
