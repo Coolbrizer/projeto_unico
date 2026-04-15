@@ -197,9 +197,11 @@ export default function DocumentosPage() {
                 : r.titulo;
               const etiquetaTxt = r.etiqueta?.trim();
 
+              const temLink = Boolean(r.url?.trim());
+
               return (
                 <li key={r.id}>
-                  <div className="flex min-h-[2rem] flex-wrap items-center gap-x-2 gap-y-1 px-2 py-1 sm:px-3 sm:py-1.5">
+                  <div className="flex min-h-[2rem] flex-wrap items-center justify-between gap-x-3 gap-y-1 px-2 py-1 sm:px-3 sm:py-1.5">
                     <div className="min-w-0 flex flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-snug sm:text-sm">
                       <span className="text-sky-300">{linhaPrincipal}</span>
                       {etiquetaTxt ? (
@@ -208,26 +210,37 @@ export default function DocumentosPage() {
                       {r.observacoes && !temRef ? (
                         <span className="text-[var(--muted)]">— {r.observacoes}</span>
                       ) : null}
-                      {r.url ? (
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {temLink ? (
                         <a
-                          href={hrefSeguro(r.url)}
+                          href={hrefSeguro(r.url!)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex shrink-0 items-center rounded-md bg-sky-600/90 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-sky-500 sm:text-xs"
+                          className="inline-flex items-center rounded-md bg-sky-600/90 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-sky-500 sm:text-xs"
                         >
                           Acessar
                         </a>
-                      ) : null}
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          title="Não há link cadastrado para este documento. Inclua o campo Link ao salvar um novo registro."
+                          className="inline-flex cursor-not-allowed items-center rounded-md border border-[var(--card-border)] bg-white/5 px-2 py-0.5 text-[10px] font-medium text-[var(--muted)] opacity-70 sm:text-xs"
+                        >
+                          Acessar
+                        </button>
+                      )}
+                      {podeEditar && (
+                        <button
+                          type="button"
+                          onClick={() => void remove(r.id)}
+                          className="rounded border border-red-500/40 px-1.5 py-0.5 text-[10px] text-red-300 hover:bg-red-500/10 sm:text-xs"
+                        >
+                          Excluir
+                        </button>
+                      )}
                     </div>
-                    {podeEditar && (
-                      <button
-                        type="button"
-                        onClick={() => void remove(r.id)}
-                        className="ml-auto shrink-0 rounded border border-red-500/40 px-1.5 py-0.5 text-[10px] text-red-300 hover:bg-red-500/10 sm:text-xs"
-                      >
-                        Excluir
-                      </button>
-                    )}
                   </div>
                 </li>
               );
