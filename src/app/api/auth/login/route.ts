@@ -30,13 +30,26 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: row, error } = await supabase
+  // Case-insensitive: e-mails podem estar gravados com capitalização diferente.
+  // Não usar maybeSingle() — duplicatas ou variações de maiúsculas podem gerar erro e ser confundidas com senha errada.
+  const { data: matches, error: queryError } = await supabase
     .from("integrantes")
     .select("id,email,nome,password_hash,must_change_password,perfil")
-    .eq("email", email)
-    .maybeSingle();
+    .ilike("email", email);
 
-  if (error || !row) {
+  if (queryError) {
+    console.error("[login] Falha ao consultar integrantes:", queryError);
+    return NextResponse.json(
+      {
+        error:
+          "Não foi possível validar o login no servidor. Confirme SUPABASE_SERVICE_ROLE_KEY e a tabela integrantes.",
+      },
+      { status: 500 }
+    );
+  }
+
+  const row = matches && matches.length > 0 ? matches[0] : null;
+  if (!row) {
     return NextResponse.json({ error: "E-mail ou senha incorretos." }, { status: 401 });
   }
 
