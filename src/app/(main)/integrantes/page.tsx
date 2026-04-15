@@ -5,7 +5,7 @@ import { ConfigWarning } from "@/components/ConfigWarning";
 import { usePerfil } from "@/components/AppShell";
 import { canEditarAtividadesIntegrantes } from "@/lib/auth/roles";
 import { useMounted } from "@/hooks/useMounted";
-import { useIsSupabaseConfigured, useSupabase } from "@/lib/supabase/client";
+import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import type { Integrante } from "@/types/database";
 
 function parseMatricula(raw: string): number | null {
@@ -31,7 +31,6 @@ function integranteMatchesBusca(r: Integrante, raw: string): boolean {
 
 export default function IntegrantesPage() {
   const mounted = useMounted();
-  const supabase = useSupabase();
   const configured = useIsSupabaseConfigured();
   const perfil = usePerfil();
   const podeEditar = canEditarAtividadesIntegrantes(perfil);
@@ -49,19 +48,17 @@ export default function IntegrantesPage() {
   const [email, setEmail] = useState("");
 
   const load = useCallback(async () => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
     setError(null);
-    const { data, error: err } = await supabase
-      .from("integrantes")
-      .select("id, matricula, nome, setor, cargo, classe_padrao, email, created_at")
-      .order("matricula", { ascending: true });
-    if (err) setError(err.message);
-    else setRows((data as Integrante[]) ?? []);
+    const res = await fetch("/api/integrantes", { credentials: "include" });
+    const data = (await res.json()) as { error?: string; integrantes?: Integrante[] };
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível carregar os integrantes.");
+      setRows([]);
+    } else {
+      setRows(data.integrantes ?? []);
+    }
     setLoading(false);
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -250,7 +247,7 @@ export default function IntegrantesPage() {
           <p className="text-sm text-[var(--muted)]">Carregando…</p>
         ) : filtradas.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">
-            {supabase
+            {configured
               ? rows.length === 0
                 ? "Nenhum integrante cadastrado."
                 : "Nenhum resultado para a busca."

@@ -1,6 +1,29 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { getSessionFromCookies } from "@/lib/auth/getSession";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
+
+export async function GET() {
+  const session = await getSessionFromCookies();
+  if (!session) {
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  }
+
+  let supabase;
+  try {
+    supabase = createServiceClient();
+  } catch {
+    return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
+  }
+
+  const { data, error } = await supabase.from("equipe").select("*").order("created_at", { ascending: false });
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  return NextResponse.json({ ok: true, equipe: data ?? [] });
+}
 
 export async function POST(request: Request) {
   const { response } = await requireGestorOuAdmin();

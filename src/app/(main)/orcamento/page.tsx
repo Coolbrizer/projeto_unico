@@ -6,7 +6,7 @@ import { usePerfil } from "@/components/AppShell";
 import { isAdmin } from "@/lib/auth/roles";
 import { useMounted } from "@/hooks/useMounted";
 import { totalDespesaMensalFolha, valorMensalDoRef } from "@/lib/orcamento-folha";
-import { useIsSupabaseConfigured, useSupabase } from "@/lib/supabase/client";
+import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import type { Integrante, Orcamento, RefPgto } from "@/types/database";
 
 function formatMoney(n: number | null) {
@@ -16,7 +16,6 @@ function formatMoney(n: number | null) {
 
 export default function OrcamentoPage() {
   const mounted = useMounted();
-  const supabase = useSupabase();
   const configured = useIsSupabaseConfigured();
   const perfil = usePerfil();
   const podeExcluirLancamento = isAdmin(perfil);
@@ -29,27 +28,26 @@ export default function OrcamentoPage() {
   const [mesesProjecao, setMesesProjecao] = useState(1);
 
   const load = useCallback(async () => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
     setError(null);
-    const [o, i, r] = await Promise.all([
-      supabase.from("orcamento").select("*").order("created_at", { ascending: false }),
-      supabase
-        .from("integrantes")
-        .select("id, matricula, nome, setor, cargo, classe_padrao, email, created_at")
-        .order("nome", { ascending: true }),
-      supabase.from("ref_pgto").select("*").order("cargo", { ascending: true }),
-    ]);
-    if (o.error) setError(o.error.message);
-    else setRows((o.data as Orcamento[]) ?? []);
-    if (i.error) setError(i.error.message);
-    else setIntegrantes((i.data as Integrante[]) ?? []);
-    if (r.error) setError(r.error.message);
-    else setRefPgto((r.data as RefPgto[]) ?? []);
+    const res = await fetch("/api/orcamento", { credentials: "include" });
+    const data = (await res.json()) as {
+      error?: string;
+      orcamento?: Orcamento[];
+      integrantes?: Integrante[];
+      ref_pgto?: RefPgto[];
+    };
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível carregar o orçamento.");
+      setRows([]);
+      setIntegrantes([]);
+      setRefPgto([]);
+    } else {
+      setRows(data.orcamento ?? []);
+      setIntegrantes(data.integrantes ?? []);
+      setRefPgto(data.ref_pgto ?? []);
+    }
     setLoading(false);
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -120,7 +118,7 @@ export default function OrcamentoPage() {
         </p>
       )}
 
-      {!loading && supabase && (
+      {!loading && configured && (
         <div className="mb-8 rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-5">
           <p className="text-xs font-medium uppercase tracking-wide text-emerald-200/90">
             Despesa mensal (folha integrantes)
@@ -269,7 +267,7 @@ export default function OrcamentoPage() {
           <p className="text-sm text-[var(--muted)]">Carregando…</p>
         ) : rows.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">
-            {supabase ? "Nenhum lançamento ainda." : "Configure o Supabase para ver os dados."}
+            {configured ? "Nenhum lançamento ainda." : "Configure o Supabase para ver os dados."}
           </p>
         ) : (
           <ul className="space-y-3">

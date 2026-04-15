@@ -44,14 +44,13 @@ export async function GET() {
   if (atividadesResult.error) {
     return NextResponse.json({ error: atividadesResult.error.message }, { status: 400 });
   }
-  if (relatorioResult.error) {
-    return NextResponse.json({ error: relatorioResult.error.message }, { status: 400 });
-  }
 
   const relatorioPorCodigo = new Map<string, EtiquetaRelatorioRow>();
-  ((relatorioResult.data as EtiquetaRelatorioRow[] | null) ?? []).forEach((row) => {
-    relatorioPorCodigo.set(chaveCodigo(row.codigo), row);
-  });
+  if (!relatorioResult.error) {
+    ((relatorioResult.data as EtiquetaRelatorioRow[] | null) ?? []).forEach((row) => {
+      relatorioPorCodigo.set(chaveCodigo(row.codigo), row);
+    });
+  }
 
   const atividades = ((atividadesResult.data as Atividade[] | null) ?? []).map((atividade) => {
     const relatorio = relatorioPorCodigo.get(chaveCodigo(atividade.codigo));

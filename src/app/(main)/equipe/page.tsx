@@ -12,7 +12,7 @@ import {
   listarIntegrantesMemorandoPagamento,
 } from "@/lib/memorando-pagamento";
 import { useMounted } from "@/hooks/useMounted";
-import { useIsSupabaseConfigured, useSupabase } from "@/lib/supabase/client";
+import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
 
 const MESES_PT = [
@@ -32,7 +32,6 @@ const MESES_PT = [
 
 export default function EquipePage() {
   const mounted = useMounted();
-  const supabase = useSupabase();
   const configured = useIsSupabaseConfigured();
   const perfil = usePerfil();
   const podeEditar = canEditarEquipe(perfil);
@@ -58,27 +57,23 @@ export default function EquipePage() {
   const [equipe, setEquipe] = useState("");
 
   const load = useCallback(async () => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
     setError(null);
-    const [rEq, rAt, rInt] = await Promise.all([
-      supabase.from("equipe").select("*").order("created_at", { ascending: false }),
-      supabase.from("atividades").select("*").order("created_at", { ascending: false }),
-      supabase
-        .from("integrantes")
-        .select("id, matricula, nome, setor, cargo, classe_padrao, email, created_at")
-        .order("nome", { ascending: true }),
+    const [resEq, resAt, resInt] = await Promise.all([
+      fetch("/api/equipe", { credentials: "include" }),
+      fetch("/api/atividades", { credentials: "include" }),
+      fetch("/api/integrantes", { credentials: "include" }),
     ]);
-    if (rEq.error) setError(rEq.error.message);
-    else setEquipes((rEq.data as Equipe[]) ?? []);
-    if (rAt.error) setError(rAt.error.message);
-    else setAtividades((rAt.data as Atividade[]) ?? []);
-    if (rInt.error) setError(rInt.error.message);
-    else setIntegrantes((rInt.data as Integrante[]) ?? []);
+    const jEq = (await resEq.json()) as { error?: string; equipe?: Equipe[] };
+    const jAt = (await resAt.json()) as { error?: string; atividades?: Atividade[] };
+    const jInt = (await resInt.json()) as { error?: string; integrantes?: Integrante[] };
+    if (!resEq.ok) setError(jEq.error ?? "Não foi possível carregar equipes.");
+    else setEquipes(jEq.equipe ?? []);
+    if (!resAt.ok) setError(jAt.error ?? "Não foi possível carregar atividades.");
+    else setAtividades(jAt.atividades ?? []);
+    if (!resInt.ok) setError(jInt.error ?? "Não foi possível carregar integrantes.");
+    else setIntegrantes(jInt.integrantes ?? []);
     setLoading(false);
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -205,7 +200,7 @@ export default function EquipePage() {
         <button
           type="button"
           onClick={handleMemorandoPagamento}
-          disabled={!supabase || loading}
+          disabled={!configured || loading}
           className="rounded-lg border border-amber-500/50 bg-amber-500/15 px-4 py-2 text-sm font-medium text-amber-100 hover:bg-amber-500/25 disabled:opacity-50"
         >
           Memorando de Pagamento
@@ -286,7 +281,7 @@ export default function EquipePage() {
           <p className="text-sm text-[var(--muted)]">Carregando…</p>
         ) : gruposFiltrados.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">
-            {supabase
+            {configured
               ? grupos.length === 0
                 ? "Nenhum dado para agrupar."
                 : "Nenhum resultado para a busca."
