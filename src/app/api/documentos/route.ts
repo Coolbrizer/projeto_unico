@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getSessionFromCookies } from "@/lib/auth/getSession";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
-import { TIPOS_DOCUMENTO, type TipoDocumento } from "@/lib/documentos-constants";
 import { ordenarDocumentosPorReferencia } from "@/lib/documentos-sort";
+import { parseCorpoDocumento } from "@/lib/documentos-validacao";
 import type { Documento } from "@/types/database";
 
 /** Supabase pode retornar `link` ou, em bases antigas, `url`. */
@@ -21,14 +21,6 @@ function normalizarDocumento(row: Record<string, unknown>): Documento {
     ...base,
     link: linkDoRegistro(row),
   };
-}
-
-function isTipoDocumento(v: string): v is TipoDocumento {
-  return (TIPOS_DOCUMENTO as readonly string[]).includes(v);
-}
-
-function apenasDigitos(s: string): boolean {
-  return /^\d+$/.test(s);
 }
 
 export async function GET() {
@@ -74,23 +66,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
   }
 
-  const tipoRaw = body.tipo_documento?.trim() ?? "";
-  if (!tipoRaw || !isTipoDocumento(tipoRaw)) {
-    return NextResponse.json({ error: "Selecione um tipo de documento válido." }, { status: 400 });
+  const parsed = parseCorpoDocumento(body);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   }
 
-  const numero = body.numero?.trim() ?? "";
-  const ano = body.ano?.trim() ?? "";
-  if (!numero || !apenasDigitos(numero)) {
-    return NextResponse.json({ error: "Informe o número (apenas dígitos)." }, { status: 400 });
-  }
-  if (!ano || !apenasDigitos(ano)) {
-    return NextResponse.json({ error: "Informe o ano (apenas dígitos)." }, { status: 400 });
-  }
-
-  const etiqueta = body.etiqueta?.trim() || null;
-  const link = body.link?.trim() || null;
-
+  const { tipo_documento: tipoRaw, numero, ano, etiqueta, link } = parsed.data;
   const titulo = `${tipoRaw} nº ${numero}/${ano}`;
 
   let supabase;

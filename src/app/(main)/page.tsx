@@ -197,7 +197,7 @@ export default function AtividadesPage() {
       {mounted && !configured && <ConfigWarning />}
 
       {error && (
-        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-800">
           {error}
         </p>
       )}
@@ -209,14 +209,14 @@ export default function AtividadesPage() {
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Código, descrição ou responsável (várias palavras refinam a busca)"
-            className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+            className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
           />
         </div>
         {podeEditar && (
           <button
             type="button"
             onClick={() => setShowForm((v) => !v)}
-            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500"
+            className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]"
           >
             {showForm ? "Fechar formulário" : "Adicionar"}
           </button>
@@ -235,7 +235,7 @@ export default function AtividadesPage() {
               <input
                 value={codigo}
                 onChange={(e) => setCodigo(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
             <div>
@@ -243,7 +243,7 @@ export default function AtividadesPage() {
               <input
                 value={responsavel}
                 onChange={(e) => setResponsavel(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
             <div className="sm:col-span-2">
@@ -252,7 +252,7 @@ export default function AtividadesPage() {
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
                 rows={2}
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
             <div>
@@ -263,7 +263,7 @@ export default function AtividadesPage() {
                 placeholder="DD/MM/AAAA"
                 inputMode="numeric"
                 autoComplete="off"
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
             <div>
@@ -274,12 +274,12 @@ export default function AtividadesPage() {
                 placeholder="DD/MM/AAAA"
                 inputMode="numeric"
                 autoComplete="off"
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs text-[var(--muted)]">
-                Progresso: <span className="font-medium text-sky-300">{progressoNovo}%</span>
+                Progresso: <span className="font-medium text-[var(--accent)]">{progressoNovo}%</span>
               </label>
               <input
                 type="range"
@@ -290,9 +290,9 @@ export default function AtividadesPage() {
                 onChange={(e) => setProgressoNovo(Number(e.target.value))}
                 className="mt-2 w-full"
               />
-              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200/80">
                 <div
-                  className="h-full rounded-full bg-sky-500/70"
+                  className="h-full rounded-full bg-[var(--accent)]/70"
                   style={{ width: `${progressoNovo}%` }}
                 />
               </div>
@@ -301,7 +301,7 @@ export default function AtividadesPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="submit"
-              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
+              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
             >
               Guardar atividade
             </button>
@@ -339,10 +339,10 @@ export default function AtividadesPage() {
                   <button
                     type="button"
                     onClick={() => handleToggleRelatorio(a)}
-                    className="min-w-0 flex-1 rounded-lg text-left outline-none ring-sky-500/50 focus-visible:ring-2"
+                    className="min-w-0 flex-1 rounded-lg text-left outline-none ring-[var(--accent)]/40 focus-visible:ring-2"
                   >
                     <p className="font-medium">
-                      {a.codigo ? <span className="text-sky-300">{a.codigo}</span> : "—"}
+                      {a.codigo ? <span className="text-[var(--accent)]">{a.codigo}</span> : "—"}
                       {a.descricao && (
                         <span className="font-normal text-[var(--foreground)]">
                           {" "}
@@ -359,20 +359,20 @@ export default function AtividadesPage() {
                     <div className="mt-3">
                       <div className="flex items-center justify-between text-xs text-[var(--muted)]">
                         <span>Progresso</span>
-                        <span className="font-medium text-sky-300">
+                        <span className="font-medium text-[var(--accent)]">
                           {Math.min(100, Math.max(0, Number(a.progresso ?? 0) || 0))}%
                         </span>
                       </div>
-                      <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                      <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-slate-200/80">
                         <div
-                          className="h-full rounded-full bg-sky-500/70"
+                          className="h-full rounded-full bg-[var(--accent)]/70"
                           style={{
                             width: `${Math.min(100, Math.max(0, Number(a.progresso ?? 0) || 0))}%`,
                           }}
                         />
                       </div>
                     </div>
-                    <p className="mt-2 text-xs text-sky-400/90">
+                    <p className="mt-2 text-xs text-[var(--accent-hover)]/90">
                       {expandedId === a.id ? "Clique para fechar o relatório" : "Clique para ver o relatório"}
                     </p>
                   </button>
@@ -383,7 +383,7 @@ export default function AtividadesPage() {
                         e.stopPropagation();
                         void remove(a.id);
                       }}
-                      className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-300 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
+                      className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-700 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
                     >
                       Excluir
                     </button>
@@ -398,7 +398,7 @@ export default function AtividadesPage() {
                       <div className="space-y-2 text-sm">
                         <p>
                           <span className="text-[var(--muted)]">Progresso: </span>
-                          <span className="font-medium text-sky-300">
+                          <span className="font-medium text-[var(--accent)]">
                             {Math.min(100, Math.max(0, Number(a.progresso ?? 0) || 0))}%
                           </span>
                         </p>
@@ -415,7 +415,7 @@ export default function AtividadesPage() {
                               href={a.link_relatorio}
                               target="_blank"
                               rel="noreferrer"
-                              className="text-sky-400 underline"
+                              className="text-[var(--accent-hover)] underline"
                             >
                               {a.link_relatorio}
                             </a>
@@ -431,7 +431,7 @@ export default function AtividadesPage() {
                           <div className="sm:col-span-2">
                             <label className="block text-xs text-[var(--muted)]">
                               Progresso:{" "}
-                              <span className="font-medium text-sky-300">{progressoEdit}%</span>
+                              <span className="font-medium text-[var(--accent)]">{progressoEdit}%</span>
                             </label>
                             <input
                               type="range"
@@ -442,9 +442,9 @@ export default function AtividadesPage() {
                               onChange={(e) => setProgressoEdit(Number(e.target.value))}
                               className="mt-2 w-full"
                             />
-                            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200/80">
                               <div
-                                className="h-full rounded-full bg-sky-500/70"
+                                className="h-full rounded-full bg-[var(--accent)]/70"
                                 style={{ width: `${progressoEdit}%` }}
                               />
                             </div>
@@ -454,7 +454,7 @@ export default function AtividadesPage() {
                             <input
                               value={relatorioEtiqueta}
                               onChange={(e) => setRelatorioEtiqueta(e.target.value)}
-                              className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                              className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
                             />
                           </div>
                           <div className="sm:col-span-2">
@@ -464,7 +464,7 @@ export default function AtividadesPage() {
                               value={relatorioLink}
                               onChange={(e) => setRelatorioLink(e.target.value)}
                               placeholder="https://…"
-                              className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                              className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
                             />
                           </div>
                         </div>
@@ -472,7 +472,7 @@ export default function AtividadesPage() {
                           type="button"
                           disabled={savingRelatorio}
                           onClick={() => void saveRelatorio(a)}
-                          className="mt-3 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
+                          className="mt-3 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
                         >
                           {savingRelatorio ? "A guardar…" : "Guardar relatório"}
                         </button>

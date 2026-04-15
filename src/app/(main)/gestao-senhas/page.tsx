@@ -89,7 +89,7 @@ export default function GestaoSenhasPage() {
       </header>
 
       {error && (
-        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-800">
           {error}
         </p>
       )}
@@ -125,7 +125,7 @@ export default function GestaoSenhasPage() {
                       onChange={(e) =>
                         void alterarPerfil(r.id, e.target.value as PerfilIntegrante)
                       }
-                      className="max-w-[140px] rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2 py-1 text-xs outline-none ring-sky-500/50 focus:ring-2"
+                      className="max-w-[140px] rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2 py-1 text-xs outline-none ring-[var(--accent)]/40 focus:ring-2"
                     >
                       <option value="basico">Básico</option>
                       <option value="gestor">Gestor</option>

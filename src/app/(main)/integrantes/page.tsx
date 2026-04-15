@@ -139,7 +139,7 @@ export default function IntegrantesPage() {
       {mounted && !configured && <ConfigWarning />}
 
       {error && (
-        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-800">
           {error}
         </p>
       )}
@@ -151,14 +151,14 @@ export default function IntegrantesPage() {
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Matrícula, nome, setor ou e-mail (várias palavras refinam a busca)"
-            className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+            className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
           />
         </div>
         {podeEditar && (
           <button
             type="button"
             onClick={() => setShowForm((v) => !v)}
-            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500"
+            className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]"
           >
             {showForm ? "Fechar formulário" : "Adicionar"}
           </button>
@@ -179,7 +179,7 @@ export default function IntegrantesPage() {
                 value={matricula}
                 onChange={(e) => setMatricula(e.target.value)}
                 placeholder="Número inteiro"
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
             <div>
@@ -188,7 +188,7 @@ export default function IntegrantesPage() {
                 required
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
             <div>
@@ -196,7 +196,7 @@ export default function IntegrantesPage() {
               <input
                 value={setor}
                 onChange={(e) => setSetor(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
             <div>
@@ -204,7 +204,7 @@ export default function IntegrantesPage() {
               <input
                 value={cargo}
                 onChange={(e) => setCargo(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
             <div>
@@ -212,7 +212,7 @@ export default function IntegrantesPage() {
               <input
                 value={classePadrao}
                 onChange={(e) => setClassePadrao(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
             <div>
@@ -222,14 +222,14 @@ export default function IntegrantesPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="submit"
-              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
+              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
             >
               Guardar integrante
             </button>
@@ -265,7 +265,7 @@ export default function IntegrantesPage() {
               >
                 <div>
                   <p className="font-medium">
-                    <span className="text-sky-300">Mat. {r.matricula}</span>
+                    <span className="text-[var(--accent)]">Mat. {r.matricula}</span>
                     {" · "}
                     {r.nome}
                   </p>
@@ -280,7 +280,7 @@ export default function IntegrantesPage() {
                   <button
                     type="button"
                     onClick={() => void remove(r.id)}
-                    className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-300 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
+                    className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-700 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
                   >
                     Excluir
                   </button>

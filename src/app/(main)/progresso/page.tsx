@@ -70,7 +70,7 @@ export default function ProgressoPage() {
       {mounted && !configured && <ConfigWarning />}
 
       {error && (
-        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-800">
           {error}
         </p>
       )}
@@ -84,7 +84,7 @@ export default function ProgressoPage() {
               <select
                 value={filtroProgresso}
                 onChange={(e) => setFiltroProgresso(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2.5 py-1.5 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2.5 py-1.5 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               >
                 <option value="todos">Todos</option>
                 {Array.from({ length: 11 }, (_, idx) => idx * 10).map((percentual) => (
@@ -99,7 +99,7 @@ export default function ProgressoPage() {
               <select
                 value={ordemProgresso}
                 onChange={(e) => setOrdemProgresso(e.target.value as "asc" | "desc")}
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2.5 py-1.5 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2.5 py-1.5 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               >
                 <option value="asc">Menor para maior</option>
                 <option value="desc">Maior para menor</option>
@@ -125,13 +125,13 @@ export default function ProgressoPage() {
                 <li key={atividade.id}>
                   <Link
                     href={`/?busca=${encodeURIComponent(codigo)}`}
-                    className="-mx-1 block rounded-md border-0 bg-transparent px-1 py-0.5 transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:py-1"
+                    className="-mx-1 block rounded-md border-0 bg-transparent px-1 py-0.5 transition-colors hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/50 sm:py-1"
                   >
                     <div className="grid grid-cols-1 gap-0.5 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_3rem] sm:items-center sm:gap-2">
-                      <p className="truncate text-sm font-medium leading-tight text-sky-300">{codigo}</p>
-                      <div className="h-3 w-full min-w-0 overflow-hidden rounded-full bg-white/10">
+                      <p className="truncate text-sm font-medium leading-tight text-[var(--accent)]">{codigo}</p>
+                      <div className="h-3 w-full min-w-0 overflow-hidden rounded-full bg-slate-200/80">
                         <div
-                          className="h-full rounded-full bg-sky-500/70"
+                          className="h-full rounded-full bg-[var(--accent)]/70"
                           style={{ width: `${progresso}%` }}
                         />
                       </div>

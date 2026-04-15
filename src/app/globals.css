@@ -1,16 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0c1222;
-  --foreground: #e8edf5;
-  --muted: #94a3b8;
-  --card: #131b2e;
-  --card-border: #1e293b;
-  --accent: #0ea5e9;
-  --accent-hover: #38bdf8;
+  /* Tom geral: azul suave (fundo claro) */
+  --background: #e4eaf3;
+  --foreground: #1e293b;
+  --muted: #64748b;
+  --card: #ffffff;
+  --card-border: #c5d0e0;
+  --accent: #5b8dbd;
+  --accent-hover: #4a7aa3;
+  --accent-muted: #7ea3c4;
+  --accent-foreground: #ffffff;
   --success: #22c55e;
-  --warning: #eab308;
-  --danger: #ef4444;
+  --warning: #ca8a04;
+  --danger: #dc2626;
+  /* Campos de formulário */
+  --input-bg: #ffffff;
+  --input-text: #0f172a;
+  --input-border: #94a3b8;
+  --input-focus-ring: rgba(91, 141, 189, 0.45);
 }
 
 @theme inline {
@@ -24,4 +32,31 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   min-height: 100vh;
+}
+
+/* Campos preenchíveis e selecionáveis: fundo branco, texto preto */
+input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="hidden"]),
+textarea,
+select {
+  background-color: var(--input-bg) !important;
+  color: var(--input-text) !important;
+  border-color: var(--input-border) !important;
+}
+
+input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="submit"]):not([type="button"]):focus,
+textarea:focus,
+select:focus {
+  --tw-ring-color: var(--input-focus-ring);
+}
+
+/* Placeholder legível em fundo branco */
+input::placeholder,
+textarea::placeholder {
+  color: #64748b;
+}
+
+/* Opções do select */
+select option {
+  background-color: var(--input-bg);
+  color: var(--input-text);
 }

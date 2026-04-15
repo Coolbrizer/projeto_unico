@@ -160,7 +160,7 @@ export default function EquipePage() {
       {mounted && !configured && <ConfigWarning />}
 
       {error && (
-        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-800">
           {error}
         </p>
       )}
@@ -174,7 +174,7 @@ export default function EquipePage() {
             <select
               value={mesExtracao}
               onChange={(e) => setMesExtracao(e.target.value)}
-              className="mt-1 min-w-[180px] rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+              className="mt-1 min-w-[180px] rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
             >
               <option value="">Selecione o mês</option>
               {MESES_PT.map((m) => (
@@ -191,7 +191,7 @@ export default function EquipePage() {
             <select
               value={anoExtracao}
               onChange={(e) => setAnoExtracao(e.target.value)}
-              className="mt-1 min-w-[120px] rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+              className="mt-1 min-w-[120px] rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
             >
               <option value="">Selecione o ano</option>
               {anosExtracao.map((a) => (
@@ -224,14 +224,14 @@ export default function EquipePage() {
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Código, equipe, integrante, setor, matrícula, descrição ou responsável (várias palavras refinam a busca)"
-            className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+            className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
           />
         </div>
         {podeEditar && (
           <button
             type="button"
             onClick={() => setShowForm((v) => !v)}
-            className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500"
+            className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]"
           >
             {showForm ? "Fechar formulário" : "Adicionar"}
           </button>
@@ -250,7 +250,7 @@ export default function EquipePage() {
               <input
                 value={codigo}
                 onChange={(e) => setCodigo(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
             <div>
@@ -258,14 +258,14 @@ export default function EquipePage() {
               <input
                 value={equipe}
                 onChange={(e) => setEquipe(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="submit"
-              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
+              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
             >
               Guardar
             </button>
@@ -303,7 +303,7 @@ export default function EquipePage() {
                   <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
                     Código da atividade
                   </p>
-                  <p className="mt-1 text-lg font-semibold text-sky-300">
+                  <p className="mt-1 text-lg font-semibold text-[var(--accent)]">
                     {g.codigo ? g.codigo : "(sem código)"}
                   </p>
                   {g.atividade?.descricao && (
@@ -353,7 +353,7 @@ export default function EquipePage() {
                                 <button
                                   type="button"
                                   onClick={() => void remove(r.id)}
-                                  className="shrink-0 rounded border border-red-500/40 px-2 py-1 text-xs text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+                                  className="shrink-0 rounded border border-red-500/40 px-2 py-1 text-xs text-red-700 hover:bg-red-500/10 disabled:opacity-50"
                                 >
                                   Excluir
                                 </button>

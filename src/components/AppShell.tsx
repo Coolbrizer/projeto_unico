@@ -53,7 +53,7 @@ export function AppShell({
   return (
     <PerfilContext.Provider value={role}>
       <div className="flex min-h-screen flex-col">
-        <header className="sticky top-0 z-20 border-b border-[var(--card-border)] bg-[var(--card)]/95 backdrop-blur-sm">
+        <header className="sticky top-0 z-20 border-b border-[var(--card-border)] bg-[var(--card)]/90 shadow-sm backdrop-blur-sm">
           <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between md:gap-6">
             <div className="min-w-0 shrink-0">
               <p className="text-xs font-medium uppercase tracking-wider text-[var(--muted)]">
@@ -80,8 +80,8 @@ export function AppShell({
                     href={item.href}
                     className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                       active
-                        ? "bg-sky-500/20 text-sky-300"
-                        : "text-[var(--muted)] hover:bg-white/5 hover:text-[var(--foreground)]"
+                        ? "bg-[var(--accent)]/15 text-[var(--accent)]"
+                        : "text-[var(--muted)] hover:bg-black/[0.04] hover:text-[var(--foreground)]"
                     }`}
                   >
                     {item.label}

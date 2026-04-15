@@ -115,7 +115,7 @@ export default function OrcamentoPage() {
       {mounted && !configured && <ConfigWarning />}
 
       {error && (
-        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-800">
           {error}
         </p>
       )}
@@ -236,7 +236,7 @@ export default function OrcamentoPage() {
                         </td>
                       ) : null}
                       <td className="px-3 py-2 text-[var(--muted)]">{r.classe_padrao || "—"}</td>
-                      <td className="px-3 py-2 text-right font-medium tabular-nums text-sky-300">
+                      <td className="px-3 py-2 text-right font-medium tabular-nums text-[var(--accent)]">
                         {formatMoney(Number(r.valor_mensal))}
                       </td>
                     </tr>
@@ -294,7 +294,7 @@ export default function OrcamentoPage() {
                   <button
                     type="button"
                     onClick={() => void removeOrc(r.id)}
-                    className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-300 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
+                    className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-700 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
                   >
                     Excluir
                   </button>
@@ -326,7 +326,7 @@ export default function OrcamentoPage() {
                       <td className="px-3 py-2">{i.nome}</td>
                       <td className="px-3 py-2 text-[var(--muted)]">{i.cargo || "—"}</td>
                       <td className="px-3 py-2 text-[var(--muted)]">{i.classe_padrao || "—"}</td>
-                      <td className="px-3 py-2 text-right font-medium text-sky-300">
+                      <td className="px-3 py-2 text-right font-medium text-[var(--accent)]">
                         {formatMoney(v)}
                       </td>
                     </tr>
