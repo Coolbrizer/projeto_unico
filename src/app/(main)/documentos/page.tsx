@@ -94,8 +94,8 @@ export default function DocumentosPage() {
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Documentos</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          A lista ordena pelo número e ano do documento (ano mais recente primeiro; no mesmo ano,
-          menor número primeiro).
+          A lista ordena do mais novo para o mais antigo: ano mais recente primeiro; no mesmo ano,
+          número maior primeiro.
         </p>
       </header>
 
@@ -199,37 +199,35 @@ export default function DocumentosPage() {
 
               return (
                 <li key={r.id}>
-                  <div className="flex min-h-[2rem] items-center gap-2 px-2 py-1 sm:px-3 sm:py-1.5">
-                    <div className="min-w-0 flex-1 text-xs leading-snug sm:text-sm">
+                  <div className="flex min-h-[2rem] flex-wrap items-center gap-x-2 gap-y-1 px-2 py-1 sm:px-3 sm:py-1.5">
+                    <div className="min-w-0 flex flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-snug sm:text-sm">
                       <span className="text-sky-300">{linhaPrincipal}</span>
                       {etiquetaTxt ? (
-                        <span className="text-[var(--muted)]"> — {etiquetaTxt}</span>
+                        <span className="text-[var(--muted)]">— {etiquetaTxt}</span>
                       ) : null}
                       {r.observacoes && !temRef ? (
-                        <span className="text-[var(--muted)]"> — {r.observacoes}</span>
+                        <span className="text-[var(--muted)]">— {r.observacoes}</span>
                       ) : null}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {r.url && (
+                      {r.url ? (
                         <a
                           href={hrefSeguro(r.url)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs font-medium text-sky-400 underline hover:text-sky-300 sm:text-sm"
+                          className="inline-flex shrink-0 items-center rounded-md bg-sky-600/90 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-sky-500 sm:text-xs"
                         >
-                          Link
+                          Acessar
                         </a>
-                      )}
-                      {podeEditar && (
-                        <button
-                          type="button"
-                          onClick={() => void remove(r.id)}
-                          className="rounded border border-red-500/40 px-1.5 py-0.5 text-[10px] text-red-300 hover:bg-red-500/10 sm:text-xs"
-                        >
-                          Excluir
-                        </button>
-                      )}
+                      ) : null}
                     </div>
+                    {podeEditar && (
+                      <button
+                        type="button"
+                        onClick={() => void remove(r.id)}
+                        className="ml-auto shrink-0 rounded border border-red-500/40 px-1.5 py-0.5 text-[10px] text-red-300 hover:bg-red-500/10 sm:text-xs"
+                      >
+                        Excluir
+                      </button>
+                    )}
                   </div>
                 </li>
               );

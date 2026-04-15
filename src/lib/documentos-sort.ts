@@ -12,7 +12,8 @@ function temReferenciaNumerica(d: Pick<Documento, "ano" | "numero">): boolean {
 }
 
 /**
- * Ordena por “data do documento”: ano mais recente primeiro; no mesmo ano, número menor primeiro.
+ * Do mais novo para o mais antigo: ano mais recente primeiro; no mesmo ano, número maior primeiro
+ * (ex.: 5/2025 antes de 1/2025).
  * Registros legados (sem número/ano) ficam ao final, por data de cadastro (mais recente primeiro).
  */
 export function ordenarDocumentosPorReferencia(documentos: Documento[]): Documento[] {
@@ -31,7 +32,7 @@ export function ordenarDocumentosPorReferencia(documentos: Documento[]): Documen
 
     const numA = parseIntSeguro(a.numero);
     const numB = parseIntSeguro(b.numero);
-    if (numA !== numB) return numA - numB;
+    if (numB !== numA) return numB - numA;
 
     return (a.tipo ?? "").localeCompare(b.tipo ?? "", "pt-BR", { sensitivity: "base" });
   });
