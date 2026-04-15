@@ -101,7 +101,7 @@ export default function ProgressoPage() {
               : "Configure o Supabase para ver os dados."}
           </p>
         ) : (
-          <ul className="space-y-1.5">
+          <ul className="space-y-0">
             {atividadesFiltradas.map((atividade) => {
               const progresso = progressoSeguro(atividade.progresso);
               const codigo = atividade.codigo?.trim() || "SEM-CODIGO";
@@ -109,17 +109,19 @@ export default function ProgressoPage() {
                 <li key={atividade.id}>
                   <Link
                     href={`/?busca=${encodeURIComponent(codigo)}`}
-                    className="block rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60"
+                    className="-mx-1 block rounded-md border-0 bg-transparent px-1 py-0.5 transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:py-1"
                   >
-                    <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[180px_minmax(0,1fr)_64px] sm:items-center sm:gap-2">
-                      <p className="truncate text-sm font-medium text-sky-300">{codigo}</p>
-                      <div className="h-3.5 w-full overflow-hidden rounded-full bg-white/10">
+                    <div className="grid grid-cols-1 gap-0.5 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_3rem] sm:items-center sm:gap-2">
+                      <p className="truncate text-sm font-medium leading-tight text-sky-300">{codigo}</p>
+                      <div className="h-3 w-full min-w-0 overflow-hidden rounded-full bg-white/10">
                         <div
                           className="h-full rounded-full bg-sky-500/70"
                           style={{ width: `${progresso}%` }}
                         />
                       </div>
-                      <p className="text-right text-sm font-medium text-[var(--foreground)]">{progresso}%</p>
+                      <p className="text-right text-sm font-medium leading-tight tabular-nums text-[var(--foreground)]">
+                        {progresso}%
+                      </p>
                     </div>
                   </Link>
                 </li>
