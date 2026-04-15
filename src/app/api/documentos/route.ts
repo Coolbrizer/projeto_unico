@@ -6,6 +6,23 @@ import { TIPOS_DOCUMENTO, type TipoDocumento } from "@/lib/documentos-constants"
 import { ordenarDocumentosPorReferencia } from "@/lib/documentos-sort";
 import type { Documento } from "@/types/database";
 
+/** Supabase pode retornar `link` ou, em bases antigas, `url`. */
+function linkDoRegistro(row: Record<string, unknown>): string | null {
+  const link = row.link;
+  const url = row.url;
+  const s = (typeof link === "string" ? link : typeof url === "string" ? url : null) ?? null;
+  const t = s?.trim();
+  return t ? t : null;
+}
+
+function normalizarDocumento(row: Record<string, unknown>): Documento {
+  const base = row as unknown as Documento;
+  return {
+    ...base,
+    link: linkDoRegistro(row),
+  };
+}
+
 function isTipoDocumento(v: string): v is TipoDocumento {
   return (TIPOS_DOCUMENTO as readonly string[]).includes(v);
 }
@@ -33,7 +50,9 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  const documentos = ordenarDocumentosPorReferencia((data as Documento[]) ?? []);
+  const documentos = ordenarDocumentosPorReferencia(
+    ((data as Record<string, unknown>[]) ?? []).map((row) => normalizarDocumento(row))
+  );
 
   return NextResponse.json({ ok: true, documentos });
 }
@@ -89,7 +108,7 @@ export async function POST(request: Request) {
       numero,
       ano,
       etiqueta,
-      url: link,
+      link,
       observacoes: null,
     })
     .select("*")

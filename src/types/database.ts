@@ -61,7 +61,8 @@ export type Documento = {
   numero: string | null;
   ano: string | null;
   etiqueta: string | null;
-  url: string | null;
+  /** URL do documento (coluna `link` no Supabase). */
+  link: string | null;
   observacoes: string | null;
   created_at: string;
 };

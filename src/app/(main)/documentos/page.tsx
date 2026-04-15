@@ -197,7 +197,7 @@ export default function DocumentosPage() {
                 : r.titulo;
               const etiquetaTxt = r.etiqueta?.trim();
 
-              const temLink = Boolean(r.url?.trim());
+              const temLink = Boolean(r.link?.trim());
 
               return (
                 <li key={r.id}>
@@ -214,7 +214,7 @@ export default function DocumentosPage() {
                     <div className="flex shrink-0 items-center gap-2">
                       {temLink ? (
                         <a
-                          href={hrefSeguro(r.url!)}
+                          href={hrefSeguro(r.link!)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center rounded-md bg-sky-600/90 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-sky-500 sm:text-xs"

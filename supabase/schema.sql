@@ -68,7 +68,7 @@ create table if not exists public.documentos (
   numero text,
   ano text,
   etiqueta text,
-  url text,
+  link text,
   observacoes text,
   created_at timestamptz not null default now()
 );
