@@ -55,8 +55,12 @@ export type Orcamento = {
 
 export type Documento = {
   id: string;
+  /** Resumo interno / legado; gerado na API ao salvar. */
   titulo: string;
   tipo: string | null;
+  numero: string | null;
+  ano: string | null;
+  etiqueta: string | null;
   url: string | null;
   observacoes: string | null;
   created_at: string;

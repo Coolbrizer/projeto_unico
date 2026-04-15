@@ -65,6 +65,9 @@ create table if not exists public.documentos (
   id uuid primary key default gen_random_uuid(),
   titulo text not null,
   tipo text,
+  numero text,
+  ano text,
+  etiqueta text,
   url text,
   observacoes text,
   created_at timestamptz not null default now()

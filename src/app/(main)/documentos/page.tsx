@@ -4,38 +4,52 @@ import { useCallback, useEffect, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { usePerfil } from "@/components/AppShell";
 import { canEditarDocumentos } from "@/lib/auth/roles";
+import { TIPOS_DOCUMENTO } from "@/lib/documentos-constants";
 import { useMounted } from "@/hooks/useMounted";
-import { useIsSupabaseConfigured, useSupabase } from "@/lib/supabase/client";
+import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import type { Documento } from "@/types/database";
+
+function apenasDigitos(valor: string): string {
+  return valor.replace(/\D/g, "");
+}
+
+function formatarDataDocumento(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString("pt-BR", {
+      dateStyle: "short",
+      timeStyle: "short",
+    });
+  } catch {
+    return iso;
+  }
+}
 
 export default function DocumentosPage() {
   const mounted = useMounted();
-  const supabase = useSupabase();
   const configured = useIsSupabaseConfigured();
   const perfil = usePerfil();
   const podeEditar = canEditarDocumentos(perfil);
   const [rows, setRows] = useState<Documento[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [titulo, setTitulo] = useState("");
-  const [tipo, setTipo] = useState("");
-  const [url, setUrl] = useState("");
-  const [observacoes, setObservacoes] = useState("");
+  const [tipoDocumento, setTipoDocumento] = useState<string>(TIPOS_DOCUMENTO[0]);
+  const [numero, setNumero] = useState("");
+  const [ano, setAno] = useState("");
+  const [etiqueta, setEtiqueta] = useState("");
+  const [link, setLink] = useState("");
 
   const load = useCallback(async () => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
     setError(null);
-    const { data, error: err } = await supabase
-      .from("documentos")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (err) setError(err.message);
-    else setRows((data as Documento[]) ?? []);
+    const res = await fetch("/api/documentos", { credentials: "include" });
+    const data = (await res.json()) as { error?: string; documentos?: Documento[] };
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível carregar os documentos.");
+      setRows([]);
+    } else {
+      setRows(data.documentos ?? []);
+    }
     setLoading(false);
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -43,17 +57,18 @@ export default function DocumentosPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!podeEditar || !titulo.trim()) return;
+    if (!podeEditar) return;
     setError(null);
     const res = await fetch("/api/documentos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({
-        titulo: titulo.trim(),
-        tipo: tipo.trim() || null,
-        url: url.trim() || null,
-        observacoes: observacoes.trim() || null,
+        tipo_documento: tipoDocumento,
+        numero: apenasDigitos(numero),
+        ano: apenasDigitos(ano),
+        etiqueta: etiqueta.trim() || null,
+        link: link.trim() || null,
       }),
     });
     const data = (await res.json()) as { error?: string };
@@ -61,10 +76,11 @@ export default function DocumentosPage() {
       setError(data.error ?? "Não foi possível guardar.");
       return;
     }
-    setTitulo("");
-    setTipo("");
-    setUrl("");
-    setObservacoes("");
+    setNumero("");
+    setAno("");
+    setEtiqueta("");
+    setLink("");
+    setTipoDocumento(TIPOS_DOCUMENTO[0]);
     void load();
   }
 
@@ -82,7 +98,8 @@ export default function DocumentosPage() {
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Documentos</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Referências, links e observações sobre arquivos do projeto (inclua URL do Storage do Supabase se usar bucket).
+          Cadastre documentos por tipo, número, ano, etiqueta e link. A lista mostra os mais recentes
+          primeiro.
         </p>
       </header>
 
@@ -95,65 +112,85 @@ export default function DocumentosPage() {
       )}
 
       {podeEditar && (
-      <form
-        onSubmit={handleSubmit}
-        className="mb-10 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-5"
-      >
-        <h3 className="mb-4 text-sm font-medium text-[var(--muted)]">Novo registro</h3>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <label className="block text-xs text-[var(--muted)]">Título</label>
-            <input
-              required
-              value={titulo}
-              onChange={(e) => setTitulo(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-[var(--muted)]">Tipo</label>
-            <input
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
-              placeholder="PDF, planilha, ata…"
-              className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-[var(--muted)]">URL / link</label>
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://…"
-              className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="block text-xs text-[var(--muted)]">Observações</label>
-            <textarea
-              value={observacoes}
-              onChange={(e) => setObservacoes(e.target.value)}
-              rows={2}
-              className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
-            />
-          </div>
-        </div>
-        <button
-          type="submit"
-          className="mt-4 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
+        <form
+          onSubmit={handleSubmit}
+          className="mb-10 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-5"
         >
-          Adicionar
-        </button>
-      </form>
+          <h3 className="mb-4 text-sm font-medium text-[var(--muted)]">Novo documento</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="block text-xs text-[var(--muted)]">Tipo de Documento</label>
+              <select
+                value={tipoDocumento}
+                onChange={(e) => setTipoDocumento(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+              >
+                {TIPOS_DOCUMENTO.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--muted)]">Número</label>
+              <input
+                required
+                value={numero}
+                onChange={(e) => setNumero(apenasDigitos(e.target.value))}
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="Apenas números"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--muted)]">Ano</label>
+              <input
+                required
+                value={ano}
+                onChange={(e) => setAno(apenasDigitos(e.target.value))}
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="Apenas números"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs text-[var(--muted)]">Etiqueta</label>
+              <input
+                value={etiqueta}
+                onChange={(e) => setEtiqueta(e.target.value)}
+                placeholder="Texto livre"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs text-[var(--muted)]">Link</label>
+              <input
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
+                placeholder="URL ou texto de referência"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-sky-500/50 focus:ring-2"
+              />
+            </div>
+          </div>
+          <button
+            type="submit"
+            className="mt-4 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
+          >
+            Salvar
+          </button>
+        </form>
       )}
 
       <section>
-        <h3 className="mb-3 text-sm font-medium text-[var(--muted)]">Lista</h3>
+        <h3 className="mb-3 text-sm font-medium text-[var(--muted)]">Lista de documentos</h3>
         {loading ? (
           <p className="text-sm text-[var(--muted)]">Carregando…</p>
         ) : rows.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">
-            {supabase ? "Nenhum documento cadastrado." : "Configure o Supabase para ver os dados."}
+            {configured ? "Nenhum documento cadastrado." : "Configure o Supabase para ver os dados."}
           </p>
         ) : (
           <ul className="space-y-3">
@@ -162,23 +199,43 @@ export default function DocumentosPage() {
                 key={r.id}
                 className="flex flex-col gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 sm:flex-row sm:items-start sm:justify-between"
               >
-                <div>
-                  <p className="font-medium">{r.titulo}</p>
-                  {r.tipo && (
-                    <p className="mt-1 text-sm text-[var(--muted)]">Tipo: {r.tipo}</p>
+                <div className="min-w-0 space-y-1 text-sm">
+                  <p className="text-xs text-[var(--muted)]">
+                    {formatarDataDocumento(r.created_at)}
+                  </p>
+                  {r.numero != null || r.ano != null ? (
+                    <>
+                      <p className="font-medium text-[var(--foreground)]">
+                        {r.tipo ?? "—"}
+                      </p>
+                      <p>
+                        <span className="text-[var(--muted)]">Número: </span>
+                        {r.numero ?? "—"}
+                        <span className="text-[var(--muted)]"> · Ano: </span>
+                        {r.ano ?? "—"}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="font-medium text-[var(--foreground)]">{r.titulo}</p>
+                  )}
+                  {r.etiqueta && (
+                    <p>
+                      <span className="text-[var(--muted)]">Etiqueta: </span>
+                      {r.etiqueta}
+                    </p>
                   )}
                   {r.url && (
                     <a
                       href={r.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-1 inline-block text-sm text-sky-400 underline hover:text-sky-300"
+                      className="inline-block break-all text-sky-400 underline hover:text-sky-300"
                     >
-                      Abrir link
+                      {r.url}
                     </a>
                   )}
                   {r.observacoes && (
-                    <p className="mt-2 text-xs text-[var(--muted)]">{r.observacoes}</p>
+                    <p className="text-xs text-[var(--muted)]">{r.observacoes}</p>
                   )}
                 </div>
                 {podeEditar && (
