@@ -1,20 +1,36 @@
-import { equipeLinhaEhResponsavel, integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
+import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
 
+function linhaMatriculaNome(matricula: number | null, nome: string): string {
+  const m = matricula != null ? String(matricula) : "—";
+  const n = nome.trim() || "—";
+  return `${m} — ${n}`;
+}
+
 /**
- * Texto para a coluna “Responsável”: responsável da atividade + integrantes e linhas de equipe
- * vinculados ao mesmo código (mesma lógica de agrupamento da tela Equipe), excluindo duplicatas do responsável.
+ * Lista de participantes (matrícula e nome, uma linha por pessoa), mesmo critério de vínculo
+ * à atividade que a tela Equipe (setor = código ou nome de linha em `equipe`), mais o responsável
+ * reconhecido no cadastro de integrantes quando não entrou pelo setor.
  */
-export function textoResponsavelEquipe(
+export function textoEquipeParticipantes(
   atividade: Atividade,
   integrantes: Integrante[],
   todasEquipes: Equipe[]
 ): string {
   const codigo = String(atividade.codigo ?? "").trim();
-  const resp = atividade.responsavel?.trim();
 
   if (!codigo) {
-    return resp || "—";
+    const integ = integrantes.find((i) =>
+      integranteNomeMatchResponsavelAtividade(i.nome, atividade.responsavel)
+    );
+    if (integ) return linhaMatriculaNome(integ.matricula, integ.nome);
+    const raw = atividade.responsavel?.trim();
+    if (raw) {
+      const pipe = raw.lastIndexOf("|");
+      const nome = (pipe >= 0 ? raw.slice(pipe + 1) : raw).trim();
+      return nome ? linhaMatriculaNome(null, nome) : "—";
+    }
+    return "—";
   }
 
   const equipeRows = todasEquipes.filter((e) => String(e.codigo ?? "").trim() === codigo);
@@ -31,39 +47,32 @@ export function textoResponsavelEquipe(
     return false;
   });
 
-  const partes: string[] = [];
-  if (resp) {
-    partes.push(`Responsável: ${resp}`);
+  const porId = new Map<string, Integrante>();
+  for (const i of integrantesDoGrupo) {
+    porId.set(i.id, i);
   }
 
-  const outrosIntegrantes = integrantesDoGrupo
-    .filter((i) => !integranteNomeMatchResponsavelAtividade(i.nome, atividade.responsavel))
-    .map((i) => (i.nome ?? "").trim())
-    .filter(Boolean);
-
-  const vistos = new Set<string>();
-  const nomesUnicos: string[] = [];
-  for (const n of outrosIntegrantes) {
-    const k = n.toLowerCase();
-    if (!vistos.has(k)) {
-      vistos.add(k);
-      nomesUnicos.push(n);
-    }
+  const integResp = integrantes.find((i) =>
+    integranteNomeMatchResponsavelAtividade(i.nome, atividade.responsavel)
+  );
+  if (integResp && !porId.has(integResp.id)) {
+    porId.set(integResp.id, integResp);
   }
 
-  if (nomesUnicos.length) {
-    partes.push(`Integrantes: ${nomesUnicos.join(", ")}`);
+  const lista = [...porId.values()];
+  if (lista.length === 0 && atividade.responsavel?.trim()) {
+    const raw = atividade.responsavel.trim();
+    const pipe = raw.lastIndexOf("|");
+    const nome = (pipe >= 0 ? raw.slice(pipe + 1) : raw).trim();
+    return nome ? linhaMatriculaNome(null, nome) : "—";
   }
 
-  const linhasEquipe = equipeRows
-    .filter((r) => !equipeLinhaEhResponsavel(r.equipe ?? "", atividade.responsavel))
-    .map((r) => (r.equipe ?? "").trim())
-    .filter(Boolean);
+  lista.sort((a, b) => {
+    const aR = integranteNomeMatchResponsavelAtividade(a.nome, atividade.responsavel) ? 0 : 1;
+    const bR = integranteNomeMatchResponsavelAtividade(b.nome, atividade.responsavel) ? 0 : 1;
+    if (aR !== bR) return aR - bR;
+    return (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR", { sensitivity: "base" });
+  });
 
-  const uniqEquipe = [...new Set(linhasEquipe)];
-  if (uniqEquipe.length) {
-    partes.push(`Equipes/funções: ${uniqEquipe.join("; ")}`);
-  }
-
-  return partes.length ? partes.join("\n") : "—";
+  return lista.map((i) => linhaMatriculaNome(i.matricula, (i.nome ?? "").trim())).join("\n");
 }

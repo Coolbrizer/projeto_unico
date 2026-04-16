@@ -33,7 +33,7 @@ type LinhaPrestacao = {
   id: string;
   codigo: string;
   atividade: string | null;
-  responsavel_equipe: string;
+  equipe: string;
   setor_responsavel: string | null;
   progresso: number;
   etiqueta_relatorio: string | null;
@@ -200,12 +200,20 @@ export default function PrestacaoContasPage() {
             </button>
           </div>
           <div className="overflow-x-auto rounded-xl border border-[var(--card-border)] bg-[var(--card)]">
-          <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[1100px] table-fixed border-collapse text-left text-sm">
+            <colgroup>
+              <col className="w-[9%]" />
+              <col className="w-[16%]" />
+              <col className="w-[40%]" />
+              <col className="w-[12%]" />
+              <col className="w-[8%]" />
+              <col className="w-[15%]" />
+            </colgroup>
             <thead className="border-b border-[var(--card-border)] bg-[var(--accent-muted)]/85 text-xs uppercase text-[var(--muted)]">
               <tr>
                 <th className="px-3 py-2.5 font-medium">Código da atividade</th>
                 <th className="px-3 py-2.5 font-medium">Atividade</th>
-                <th className="px-3 py-2.5 font-medium">Responsável e equipe</th>
+                <th className="min-w-[28rem] px-3 py-2.5 font-medium">Equipe</th>
                 <th className="px-3 py-2.5 font-medium">Setor do responsável</th>
                 <th className="px-3 py-2.5 font-medium text-right">% conclusão</th>
                 <th className="px-3 py-2.5 font-medium">Etiqueta</th>
@@ -221,8 +229,18 @@ export default function PrestacaoContasPage() {
                     <td className="max-w-[220px] px-3 py-2.5 text-[var(--foreground)]">
                       {r.atividade?.trim() ? r.atividade : "—"}
                     </td>
-                    <td className="max-w-[min(28rem,90vw)] whitespace-pre-line px-3 py-2.5 align-top">
-                      {r.responsavel_equipe?.trim() ? r.responsavel_equipe : "—"}
+                    <td className="px-3 py-2.5 align-top">
+                      {r.equipe?.trim() ? (
+                        <ul className="m-0 list-none space-y-0.5 p-0">
+                          {r.equipe.split("\n").map((linha, i) => (
+                            <li key={i} className="whitespace-nowrap font-normal tabular-nums">
+                              {linha}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="px-3 py-2.5 text-[var(--muted)]">{r.setor_responsavel ?? "—"}</td>
                     <td className="px-3 py-2.5 text-right font-medium tabular-nums text-[var(--foreground)]">
@@ -236,7 +254,7 @@ export default function PrestacaoContasPage() {
                           href={hrefSeguro(r.link_relatorio!)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[var(--accent)] underline decoration-[var(--accent)]/40 underline-offset-2 hover:text-[var(--accent-hover)]"
+                          className="text-blue-700 underline decoration-blue-700 underline-offset-2 hover:text-blue-900"
                         >
                           {r.etiqueta_relatorio}
                         </a>
@@ -245,7 +263,7 @@ export default function PrestacaoContasPage() {
                           href={hrefSeguro(r.link_relatorio!)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[var(--accent)] underline decoration-[var(--accent)]/40 underline-offset-2 hover:text-[var(--accent-hover)]"
+                          className="text-blue-700 underline decoration-blue-700 underline-offset-2 hover:text-blue-900"
                         >
                           Abrir link
                         </a>

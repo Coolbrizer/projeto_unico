@@ -5,7 +5,7 @@ import type { Documento } from "@/types/database";
 export type LinhaPrestacaoPdf = {
   codigo: string;
   atividade: string | null;
-  responsavel_equipe: string;
+  equipe: string;
   setor_responsavel: string | null;
   progresso: number;
   etiqueta_relatorio: string | null;
@@ -142,14 +142,12 @@ export async function gerarPdfPrestacaoContas(
     return u ? hrefSeguro(u) : null;
   });
 
-  const head = [
-    ["Código", "Atividade", "Responsável e equipe", "Setor (resp.)", "% conclusão", "Etiqueta"],
-  ];
+  const head = [["Código", "Atividade", "Equipe", "Setor (resp.)", "% conclusão", "Etiqueta"]];
 
   const body = linhas.map((r) => [
     r.codigo?.trim() || "—",
     r.atividade?.trim() || "—",
-    r.responsavel_equipe?.trim() || "—",
+    r.equipe?.trim() || "—",
     r.setor_responsavel?.trim() || "—",
     `${r.progresso}%`,
     textoCelulaEtiqueta(r),
@@ -167,12 +165,19 @@ export async function gerarPdfPrestacaoContas(
     margin: { left: marginX, right: marginX },
     tableWidth: "auto",
     columnStyles: {
-      0: { cellWidth: 24 },
-      1: { cellWidth: 48 },
-      2: { cellWidth: 58 },
-      3: { cellWidth: 26 },
-      4: { cellWidth: 16 },
+      0: { cellWidth: 22 },
+      1: { cellWidth: 38 },
+      2: { cellWidth: 82 },
+      3: { cellWidth: 24 },
+      4: { cellWidth: 14 },
       5: { cellWidth: "auto" },
+    },
+    didParseCell: (data) => {
+      if (data.section !== "body" || data.column.index !== colEtiqueta) return;
+      const rowIdx = data.row.index;
+      if (linksPorLinha[rowIdx]) {
+        data.cell.styles.textColor = [0, 70, 180];
+      }
     },
     didDrawCell: (data) => {
       if (data.section !== "body" || data.column.index !== colEtiqueta) return;
@@ -181,6 +186,10 @@ export async function gerarPdfPrestacaoContas(
       if (!url) return;
       const { x, y, width, height } = data.cell;
       doc.link(x, y, width, height, { url });
+      doc.setDrawColor(0, 70, 180);
+      doc.setLineWidth(0.12);
+      const pad = 1.2;
+      doc.line(x + pad, y + height - 1.1, x + width - pad, y + height - 1.1);
     },
   });
 

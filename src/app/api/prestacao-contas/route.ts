@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
-import { textoResponsavelEquipe } from "@/lib/prestacao-contas-equipe";
+import { textoEquipeParticipantes } from "@/lib/prestacao-contas-equipe";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { Atividade, Documento, Equipe, Integrante } from "@/types/database";
@@ -118,13 +118,13 @@ export async function GET(request: Request) {
     const relatorio = relatorioPorCodigo.get(chaveCodigo(atividade.codigo));
     const progresso = normalizarProgresso(relatorio?.progresso ?? atividade.progresso);
     const integ = integranteParaResponsavel(integrantes, atividade.responsavel);
-    const responsavel_equipe = textoResponsavelEquipe(atividade, integrantes, todasEquipes);
+    const equipe = textoEquipeParticipantes(atividade, integrantes, todasEquipes);
 
     return {
       id: atividade.id,
       codigo: atividade.codigo,
       atividade: atividade.descricao ?? null,
-      responsavel_equipe,
+      equipe,
       setor_responsavel: integ?.setor ?? null,
       progresso,
       etiqueta_relatorio: relatorio?.etiqueta ?? atividade.etiqueta_relatorio ?? null,
