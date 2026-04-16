@@ -53,7 +53,7 @@ export function AppShell({
   return (
     <PerfilContext.Provider value={role}>
       <div className="flex min-h-screen flex-col">
-        <header className="sticky top-0 z-20 border-b border-[var(--card-border)] bg-[var(--card)]/90 shadow-sm backdrop-blur-sm">
+        <header className="sticky top-0 z-20 border-b border-[var(--card-border)] bg-[var(--card)]/92 shadow-sm backdrop-blur-sm">
           <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between md:gap-6">
             <div className="min-w-0 shrink-0">
               <p className="text-xs font-medium uppercase tracking-wider text-[var(--muted)]">
@@ -63,7 +63,7 @@ export function AppShell({
                 <h1 className="truncate text-lg font-semibold leading-snug text-[var(--foreground)]">
                   Modernização do Único
                 </h1>
-                <span className="shrink-0 rounded-md border border-[var(--card-border)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--muted)]">
+                <span className="shrink-0 rounded-md border border-[var(--card-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--accent)]">
                   {labelPerfil[role]}
                 </span>
               </div>
@@ -80,8 +80,8 @@ export function AppShell({
                     href={item.href}
                     className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                       active
-                        ? "bg-[var(--accent)]/15 text-[var(--accent)]"
-                        : "text-[var(--muted)] hover:bg-black/[0.04] hover:text-[var(--foreground)]"
+                        ? "border border-[var(--accent)]/20 bg-[var(--accent-muted)] text-[var(--accent)] shadow-sm"
+                        : "text-[var(--muted)] hover:bg-[var(--accent-muted)]/75 hover:text-[var(--foreground)]"
                     }`}
                   >
                     {item.label}
@@ -91,7 +91,7 @@ export function AppShell({
               <button
                 type="button"
                 onClick={() => void handleLogout()}
-                className="ml-1 shrink-0 rounded-lg border border-[var(--card-border)] px-3 py-2 text-sm font-medium text-[var(--muted)] hover:bg-white/5 hover:text-[var(--foreground)]"
+                className="ml-1 shrink-0 rounded-lg border border-[var(--card-border)] bg-white/55 px-3 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--accent-muted)]/7 hover:text-[var(--foreground)]"
               >
                 Sair
               </button>

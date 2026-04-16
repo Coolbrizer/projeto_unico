@@ -3,22 +3,22 @@
 :root {
   /* Tom geral: azul suave (fundo claro) */
   --background: #e4eaf3;
-  --foreground: #1e293b;
-  --muted: #64748b;
-  --card: #ffffff;
-  --card-border: #c5d0e0;
-  --accent: #5b8dbd;
-  --accent-hover: #4a7aa3;
-  --accent-muted: #7ea3c4;
+  --foreground: #243447;
+  --muted: #5f7086;
+  --card: #f9fbff;
+  --card-border: #cfd8e6;
+  --accent: #4f7da8;
+  --accent-hover: #416b91;
+  --accent-muted: #d7e5f2;
   --accent-foreground: #ffffff;
-  --success: #22c55e;
-  --warning: #ca8a04;
-  --danger: #dc2626;
+  --success: #2f7d64;
+  --warning: #9a6a17;
+  --danger: #b84d4d;
   /* Campos de formulário */
   --input-bg: #ffffff;
-  --input-text: #0f172a;
-  --input-border: #94a3b8;
-  --input-focus-ring: rgba(91, 141, 189, 0.45);
+  --input-text: #17212f;
+  --input-border: #a7b6c8;
+  --input-focus-ring: rgba(79, 125, 168, 0.28);
 }
 
 @theme inline {
@@ -32,6 +32,15 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   min-height: 100vh;
+}
+
+button,
+a {
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 /* Campos preenchíveis e selecionáveis: fundo branco, texto preto */

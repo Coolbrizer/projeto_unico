@@ -155,7 +155,7 @@ export default function EquipePage() {
       {mounted && !configured && <ConfigWarning />}
 
       {error && (
-        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-800">
+        <p className="mb-4 rounded-lg border border-[var(--danger)]/25 bg-[var(--danger)]/10 px-3 py-2 text-sm text-[var(--danger)]">
           {error}
         </p>
       )}
@@ -164,7 +164,7 @@ export default function EquipePage() {
         <div className="flex flex-wrap items-end gap-3">
           <div>
             <label className="block text-xs font-medium text-[var(--muted)]">
-              Mês <span className="text-amber-400">*</span>
+              Mês <span className="text-[var(--warning)]">*</span>
             </label>
             <select
               value={mesExtracao}
@@ -181,7 +181,7 @@ export default function EquipePage() {
           </div>
           <div>
             <label className="block text-xs font-medium text-[var(--muted)]">
-              Ano <span className="text-amber-400">*</span>
+              Ano <span className="text-[var(--warning)]">*</span>
             </label>
             <select
               value={anoExtracao}
@@ -201,7 +201,7 @@ export default function EquipePage() {
           type="button"
           onClick={handleMemorandoPagamento}
           disabled={!configured || loading}
-          className="rounded-lg border border-amber-500/50 bg-amber-500/15 px-4 py-2 text-sm font-medium text-amber-100 hover:bg-amber-500/25 disabled:opacity-50"
+          className="rounded-lg border border-[var(--warning)]/30 bg-[#f4ead5] px-4 py-2 text-sm font-semibold text-[#6f4d14] hover:bg-[#eeddbd] disabled:opacity-50"
         >
           Memorando de Pagamento
         </button>
@@ -226,7 +226,7 @@ export default function EquipePage() {
           <button
             type="button"
             onClick={() => setShowForm((v) => !v)}
-            className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]"
+                className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--accent-foreground)] shadow-sm hover:bg-[var(--accent-hover)]"
           >
             {showForm ? "Fechar formulário" : "Adicionar"}
           </button>
@@ -260,14 +260,14 @@ export default function EquipePage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="submit"
-              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--accent-foreground)] shadow-sm hover:bg-[var(--accent-hover)] disabled:opacity-50"
             >
               Guardar
             </button>
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm text-[var(--muted)] hover:bg-white/5"
+              className="rounded-lg border border-[var(--card-border)] bg-white/70 px-4 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--accent-muted)]/55"
             >
               Cancelar
             </button>
@@ -294,7 +294,7 @@ export default function EquipePage() {
                 key={g.codigo || "__vazio__"}
                 className="overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)]"
               >
-                <div className="border-b border-[var(--card-border)] bg-slate-950/40 px-4 py-4">
+                <div className="border-b border-[var(--card-border)] bg-[var(--accent-muted)]/85 px-4 py-4">
                   <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
                     Código da atividade
                   </p>
@@ -330,16 +330,16 @@ export default function EquipePage() {
                               key={r.id}
                               className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm ${
                                 ehResp
-                                  ? "border border-emerald-500/45 bg-emerald-500/10 ring-1 ring-emerald-500/25"
+                                  ? "border border-[var(--success)]/35 bg-[var(--success)]/12 ring-1 ring-[var(--success)]/15"
                                   : "border border-[var(--card-border)] bg-[var(--background)]/60"
                               }`}
                             >
                               <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                                <span className={ehResp ? "font-medium text-emerald-100" : ""}>
+                                <span className={ehResp ? "font-medium text-[var(--success)]" : ""}>
                                   {r.equipe || "—"}
                                 </span>
                                 {ehResp && (
-                                  <span className="shrink-0 rounded bg-emerald-500/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                                  <span className="shrink-0 rounded bg-[var(--success)]/16 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--success)]">
                                     Responsável pela atividade
                                   </span>
                                 )}
@@ -348,7 +348,7 @@ export default function EquipePage() {
                                 <button
                                   type="button"
                                   onClick={() => void remove(r.id)}
-                                  className="shrink-0 rounded border border-red-500/40 px-2 py-1 text-xs text-red-700 hover:bg-red-500/10 disabled:opacity-50"
+                                  className="shrink-0 rounded border border-[var(--danger)]/30 bg-white/70 px-2 py-1 text-xs font-medium text-[var(--danger)] hover:bg-[var(--danger)]/10 disabled:opacity-50"
                                 >
                                   Excluir
                                 </button>
