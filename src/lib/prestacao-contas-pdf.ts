@@ -91,7 +91,7 @@ export async function gerarPdfPrestacaoContas(
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const marginX = 18;
-  let y = 16;
+  const y = 16;
 
   const brasaoData = await carregarBrasaoPngDataUrl();
   const imgW = 22;
