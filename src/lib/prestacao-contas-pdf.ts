@@ -25,51 +25,39 @@ function tituloInstrucaoServico(d: Documento): string {
   return (d.titulo ?? "").trim() || "Instrução de Serviço";
 }
 
-/**
- * Converte SVG em PNG em escala de cinza (adequado a “preto e branco” no PDF).
- */
-async function svgParaPngDataUrl(svg: string, larguraPx: number): Promise<string> {
+function blobParaDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
-    const img = new Image();
-    const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    img.onload = () => {
-      const ratio = img.naturalHeight / img.naturalWidth || 1;
-      const w = larguraPx;
-      const h = Math.round(larguraPx * ratio);
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        URL.revokeObjectURL(url);
-        reject(new Error("Canvas não disponível."));
-        return;
-      }
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, w, h);
-      ctx.filter = "grayscale(100%) contrast(1.15)";
-      ctx.drawImage(img, 0, 0, w, h);
-      ctx.filter = "none";
-      const data = canvas.toDataURL("image/png");
-      URL.revokeObjectURL(url);
-      resolve(data);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Falha ao carregar SVG."));
-    };
-    img.src = url;
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = () => reject(new Error("Leitura do ficheiro falhou."));
+    r.readAsDataURL(blob);
   });
 }
 
-async function carregarBrasaoPngDataUrl(): Promise<string | null> {
+/** Razão altura/largura da imagem (para dimensionar em mm no PDF). */
+function aspectRatioDeDataUrlPng(dataUrl: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth || 1;
+      resolve((img.naturalHeight || 1) / w);
+    };
+    img.onerror = () => reject(new Error("Imagem inválida."));
+    img.src = dataUrl;
+  });
+}
+
+/**
+ * Carrega o brasão em PNG (preto e branco) a partir de /public/brasao-republica.png.
+ */
+async function carregarBrasao(): Promise<{ dataUrl: string; aspect: number } | null> {
   if (typeof window === "undefined") return null;
   try {
-    const res = await fetch("/brasao-republica.svg", { cache: "force-cache" });
+    const res = await fetch("/brasao-republica.png", { cache: "force-cache" });
     if (!res.ok) return null;
-    const svg = await res.text();
-    return await svgParaPngDataUrl(svg, 220);
+    const dataUrl = await blobParaDataUrl(await res.blob());
+    const aspect = await aspectRatioDeDataUrlPng(dataUrl);
+    return { dataUrl, aspect };
   } catch {
     return null;
   }
@@ -91,49 +79,48 @@ export async function gerarPdfPrestacaoContas(
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const marginX = 18;
-  const y = 16;
+  const centroX = pageW / 2;
 
-  const brasaoData = await carregarBrasaoPngDataUrl();
-  const imgW = 22;
-  const imgH = 26;
-  if (brasaoData) {
+  let ty = 14;
+
+  const brasao = await carregarBrasao();
+  const imgWmm = 42;
+  if (brasao) {
     try {
-      doc.addImage(brasaoData, "PNG", marginX, y, imgW, imgH);
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(6.5);
-      doc.setTextColor(45, 45, 45);
-      doc.text("Brasão da República", marginX + imgW / 2, y + imgH + 3, { align: "center" });
-      doc.setTextColor(0, 0, 0);
+      const imgHmm = imgWmm * brasao.aspect;
+      const imgX = centroX - imgWmm / 2;
+      doc.addImage(brasao.dataUrl, "PNG", imgX, ty, imgWmm, imgHmm);
+      ty += imgHmm + 5;
     } catch {
-      /* imagem opcional */
+      ty += 2;
     }
+  } else {
+    ty += 2;
   }
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(0, 0, 0);
 
-  const textoX = brasaoData ? marginX + imgW + 6 : marginX;
-  let ty = y + 4;
-  doc.text("Ministério Público Federal", textoX, ty);
+  doc.text("Ministério Público Federal", centroX, ty, { align: "center" });
   ty += 5;
-  doc.text("Procuradoria-Geral da República", textoX, ty);
-  ty += 14;
+  doc.text("Procuradoria-Geral da República", centroX, ty, { align: "center" });
+  ty += 12;
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.text("ANEXO", pageW / 2, ty, { align: "center" });
+  doc.text("ANEXO", centroX, ty, { align: "center" });
   ty += 8;
 
   doc.setFontSize(11);
-  doc.text(tituloInstrucaoServico(documento), pageW / 2, ty, { align: "center" });
+  doc.text(tituloInstrucaoServico(documento), centroX, ty, { align: "center" });
   ty += 7;
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.text(
     "Relatório de prestação de contas - Projeto de Modernização do Sistema Único",
-    pageW / 2,
+    centroX,
     ty,
     { align: "center" }
   );
