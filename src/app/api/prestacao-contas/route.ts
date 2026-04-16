@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
+import { textoResponsavelEquipe } from "@/lib/prestacao-contas-equipe";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { createServiceClient } from "@/lib/supabase/service";
-import type { Atividade, Documento, Integrante } from "@/types/database";
+import type { Atividade, Documento, Equipe, Integrante } from "@/types/database";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -70,16 +71,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }
 
-  const [docResult, atividadesResult, integrantesResult, relatorioResult] = await Promise.all([
-    supabase.from("documentos").select("*").eq("id", documentoId).maybeSingle(),
-    supabase
-      .from("atividades")
-      .select("*")
-      .eq("instrucao_servico", documentoId)
-      .order("codigo", { ascending: true }),
-    supabase.from("integrantes").select("id, matricula, nome, setor"),
-    supabase.from("etiqueta_relatorio").select("codigo, etiqueta, link, progresso"),
-  ]);
+  const [docResult, atividadesResult, integrantesResult, equipeResult, relatorioResult] =
+    await Promise.all([
+      supabase.from("documentos").select("*").eq("id", documentoId).maybeSingle(),
+      supabase
+        .from("atividades")
+        .select("*")
+        .eq("instrucao_servico", documentoId)
+        .order("codigo", { ascending: true }),
+      supabase.from("integrantes").select("id, matricula, nome, setor"),
+      supabase.from("equipe").select("id, codigo, equipe"),
+      supabase.from("etiqueta_relatorio").select("codigo, etiqueta, link, progresso"),
+    ]);
 
   if (docResult.error) {
     return NextResponse.json({ error: docResult.error.message }, { status: 400 });
@@ -96,6 +99,9 @@ export async function GET(request: Request) {
   if (integrantesResult.error) {
     return NextResponse.json({ error: integrantesResult.error.message }, { status: 400 });
   }
+  if (equipeResult.error) {
+    return NextResponse.json({ error: equipeResult.error.message }, { status: 400 });
+  }
 
   const relatorioPorCodigo = new Map<string, EtiquetaRelatorioRow>();
   if (!relatorioResult.error && relatorioResult.data) {
@@ -105,19 +111,20 @@ export async function GET(request: Request) {
   }
 
   const integrantes = (integrantesResult.data as Integrante[]) ?? [];
+  const todasEquipes = (equipeResult.data as Equipe[]) ?? [];
   const atividadesRaw = (atividadesResult.data as Atividade[]) ?? [];
 
   const linhas = atividadesRaw.map((atividade) => {
     const relatorio = relatorioPorCodigo.get(chaveCodigo(atividade.codigo));
     const progresso = normalizarProgresso(relatorio?.progresso ?? atividade.progresso);
     const integ = integranteParaResponsavel(integrantes, atividade.responsavel);
+    const responsavel_equipe = textoResponsavelEquipe(atividade, integrantes, todasEquipes);
 
     return {
       id: atividade.id,
       codigo: atividade.codigo,
       atividade: atividade.descricao ?? null,
-      matricula: integ?.matricula ?? null,
-      nome_responsavel: atividade.responsavel?.trim() || null,
+      responsavel_equipe,
       setor_responsavel: integ?.setor ?? null,
       progresso,
       etiqueta_relatorio: relatorio?.etiqueta ?? atividade.etiqueta_relatorio ?? null,

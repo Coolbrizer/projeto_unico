@@ -33,8 +33,7 @@ type LinhaPrestacao = {
   id: string;
   codigo: string;
   atividade: string | null;
-  matricula: number | null;
-  nome_responsavel: string | null;
+  responsavel_equipe: string;
   setor_responsavel: string | null;
   progresso: number;
   etiqueta_relatorio: string | null;
@@ -201,13 +200,12 @@ export default function PrestacaoContasPage() {
             </button>
           </div>
           <div className="overflow-x-auto rounded-xl border border-[var(--card-border)] bg-[var(--card)]">
-          <table className="w-full min-w-[880px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[760px] border-collapse text-left text-sm">
             <thead className="border-b border-[var(--card-border)] bg-[var(--accent-muted)]/85 text-xs uppercase text-[var(--muted)]">
               <tr>
                 <th className="px-3 py-2.5 font-medium">Código da atividade</th>
                 <th className="px-3 py-2.5 font-medium">Atividade</th>
-                <th className="px-3 py-2.5 font-medium">Matrícula (responsável)</th>
-                <th className="px-3 py-2.5 font-medium">Nome do responsável</th>
+                <th className="px-3 py-2.5 font-medium">Responsável e equipe</th>
                 <th className="px-3 py-2.5 font-medium">Setor do responsável</th>
                 <th className="px-3 py-2.5 font-medium text-right">% conclusão</th>
                 <th className="px-3 py-2.5 font-medium">Etiqueta</th>
@@ -223,10 +221,9 @@ export default function PrestacaoContasPage() {
                     <td className="max-w-[220px] px-3 py-2.5 text-[var(--foreground)]">
                       {r.atividade?.trim() ? r.atividade : "—"}
                     </td>
-                    <td className="px-3 py-2.5 tabular-nums text-[var(--muted)]">
-                      {r.matricula != null ? String(r.matricula) : "—"}
+                    <td className="max-w-[min(28rem,90vw)] whitespace-pre-line px-3 py-2.5 align-top">
+                      {r.responsavel_equipe?.trim() ? r.responsavel_equipe : "—"}
                     </td>
-                    <td className="px-3 py-2.5">{r.nome_responsavel ?? "—"}</td>
                     <td className="px-3 py-2.5 text-[var(--muted)]">{r.setor_responsavel ?? "—"}</td>
                     <td className="px-3 py-2.5 text-right font-medium tabular-nums text-[var(--foreground)]">
                       {r.progresso}%
@@ -234,21 +231,26 @@ export default function PrestacaoContasPage() {
                     <td className="px-3 py-2.5">
                       {!temEtiqueta && !temLink ? (
                         "—"
+                      ) : temLink && temEtiqueta ? (
+                        <a
+                          href={hrefSeguro(r.link_relatorio!)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[var(--accent)] underline decoration-[var(--accent)]/40 underline-offset-2 hover:text-[var(--accent-hover)]"
+                        >
+                          {r.etiqueta_relatorio}
+                        </a>
+                      ) : temLink ? (
+                        <a
+                          href={hrefSeguro(r.link_relatorio!)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[var(--accent)] underline decoration-[var(--accent)]/40 underline-offset-2 hover:text-[var(--accent-hover)]"
+                        >
+                          Abrir link
+                        </a>
                       ) : (
-                        <span className="inline-flex flex-wrap items-center gap-1">
-                          {temLink ? (
-                            <a
-                              href={hrefSeguro(r.link_relatorio!)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[var(--accent)] underline decoration-[var(--accent)]/40 underline-offset-2 hover:text-[var(--accent-hover)]"
-                            >
-                              {temEtiqueta ? r.etiqueta_relatorio : "Abrir link"}
-                            </a>
-                          ) : (
-                            <span>{r.etiqueta_relatorio}</span>
-                          )}
-                        </span>
+                        <span>{r.etiqueta_relatorio}</span>
                       )}
                     </td>
                   </tr>

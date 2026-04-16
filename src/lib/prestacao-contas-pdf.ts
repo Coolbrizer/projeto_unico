@@ -5,8 +5,7 @@ import type { Documento } from "@/types/database";
 export type LinhaPrestacaoPdf = {
   codigo: string;
   atividade: string | null;
-  matricula: number | null;
-  nome_responsavel: string | null;
+  responsavel_equipe: string;
   setor_responsavel: string | null;
   progresso: number;
   etiqueta_relatorio: string | null;
@@ -23,6 +22,13 @@ function tituloInstrucaoServico(d: Documento): string {
     return `Instrução de Serviço nº ${String(d.numero).trim()}/${String(d.ano).trim()}`;
   }
   return (d.titulo ?? "").trim() || "Instrução de Serviço";
+}
+
+function hrefSeguro(url: string): string {
+  const t = url.trim();
+  if (!t) return "";
+  if (/^https?:\/\//i.test(t)) return t;
+  return `https://${t}`;
 }
 
 function blobParaDataUrl(blob: Blob): Promise<string> {
@@ -63,12 +69,11 @@ async function carregarBrasao(): Promise<{ dataUrl: string; aspect: number } | n
   }
 }
 
-function textoEtiqueta(l: LinhaPrestacaoPdf): string {
+/** Texto exibido na célula (sem URL por extenso). */
+function textoCelulaEtiqueta(l: LinhaPrestacaoPdf): string {
   const et = l.etiqueta_relatorio?.trim();
-  const ln = l.link_relatorio?.trim();
-  if (et && ln) return `${et} (${ln})`;
-  if (ln) return ln;
   if (et) return et;
+  if (l.link_relatorio?.trim()) return "Link";
   return "—";
 }
 
@@ -84,7 +89,7 @@ export async function gerarPdfPrestacaoContas(
   let ty = 14;
 
   const brasao = await carregarBrasao();
-  const imgWmm = 42;
+  const imgWmm = 21;
   if (brasao) {
     try {
       const imgHmm = imgWmm * brasao.aspect;
@@ -132,27 +137,25 @@ export async function gerarPdfPrestacaoContas(
   doc.setTextColor(0, 0, 0);
   ty += 6;
 
+  const linksPorLinha = linhas.map((r) => {
+    const u = r.link_relatorio?.trim();
+    return u ? hrefSeguro(u) : null;
+  });
+
   const head = [
-    [
-      "Código",
-      "Atividade",
-      "Matrícula",
-      "Responsável",
-      "Setor",
-      "% conclusão",
-      "Etiqueta / link",
-    ],
+    ["Código", "Atividade", "Responsável e equipe", "Setor (resp.)", "% conclusão", "Etiqueta"],
   ];
 
   const body = linhas.map((r) => [
     r.codigo?.trim() || "—",
     r.atividade?.trim() || "—",
-    r.matricula != null ? String(r.matricula) : "—",
-    r.nome_responsavel?.trim() || "—",
+    r.responsavel_equipe?.trim() || "—",
     r.setor_responsavel?.trim() || "—",
     `${r.progresso}%`,
-    textoEtiqueta(r),
+    textoCelulaEtiqueta(r),
   ]);
+
+  const colEtiqueta = 5;
 
   autoTable(doc, {
     startY: ty,
@@ -164,13 +167,20 @@ export async function gerarPdfPrestacaoContas(
     margin: { left: marginX, right: marginX },
     tableWidth: "auto",
     columnStyles: {
-      0: { cellWidth: 26 },
-      1: { cellWidth: 52 },
-      2: { cellWidth: 22 },
-      3: { cellWidth: 42 },
-      4: { cellWidth: 32 },
-      5: { cellWidth: 18 },
-      6: { cellWidth: "auto" },
+      0: { cellWidth: 24 },
+      1: { cellWidth: 48 },
+      2: { cellWidth: 58 },
+      3: { cellWidth: 26 },
+      4: { cellWidth: 16 },
+      5: { cellWidth: "auto" },
+    },
+    didDrawCell: (data) => {
+      if (data.section !== "body" || data.column.index !== colEtiqueta) return;
+      const rowIdx = data.row.index;
+      const url = linksPorLinha[rowIdx];
+      if (!url) return;
+      const { x, y, width, height } = data.cell;
+      doc.link(x, y, width, height, { url });
     },
   });
 
