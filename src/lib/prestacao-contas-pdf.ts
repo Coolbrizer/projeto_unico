@@ -142,7 +142,7 @@ export async function gerarPdfPrestacaoContas(
     return u ? hrefSeguro(u) : null;
   });
 
-  const head = [["Código", "Atividade", "Equipe", "Setor (resp.)", "% conclusão", "Etiqueta"]];
+  const head = [["Código", "Atividade", "Equipe", "Setor", "% conclusão", "Etiqueta"]];
 
   const body = linhas.map((r) => [
     r.codigo?.trim() || "—",
@@ -165,12 +165,12 @@ export async function gerarPdfPrestacaoContas(
     margin: { left: marginX, right: marginX },
     tableWidth: "auto",
     columnStyles: {
-      0: { cellWidth: 22 },
-      1: { cellWidth: 38 },
-      2: { cellWidth: 82 },
+      0: { cellWidth: 18 },
+      1: { cellWidth: 101 },
+      2: { cellWidth: 78 },
       3: { cellWidth: 24 },
       4: { cellWidth: 14 },
-      5: { cellWidth: "auto" },
+      5: { cellWidth: 26, valign: "top" },
     },
     didParseCell: (data) => {
       if (data.section !== "body" || data.column.index !== colEtiqueta) return;
@@ -186,10 +186,19 @@ export async function gerarPdfPrestacaoContas(
       if (!url) return;
       const { x, y, width, height } = data.cell;
       doc.link(x, y, width, height, { url });
+      const linha = linhas[rowIdx];
+      const txt = textoCelulaEtiqueta(linha);
+      if (txt === "—") return;
+      const pad = 1.8;
+      const primeiraLinha = txt.split(/\r?\n/)[0] ?? txt;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      const tw = Math.min(doc.getTextWidth(primeiraLinha), Math.max(0, width - 2 * pad));
+      /** Primeira linha de texto ~8pt: baseline aprox. a partir do topo da célula. */
+      const yLinha = y + pad + 2.55;
       doc.setDrawColor(0, 70, 180);
-      doc.setLineWidth(0.12);
-      const pad = 1.2;
-      doc.line(x + pad, y + height - 1.1, x + width - pad, y + height - 1.1);
+      doc.setLineWidth(0.1);
+      doc.line(x + pad, yLinha, x + pad + tw, yLinha);
     },
   });
 

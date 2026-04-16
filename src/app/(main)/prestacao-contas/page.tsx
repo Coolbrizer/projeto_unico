@@ -202,19 +202,19 @@ export default function PrestacaoContasPage() {
           <div className="overflow-x-auto rounded-xl border border-[var(--card-border)] bg-[var(--card)]">
           <table className="w-full min-w-[1100px] table-fixed border-collapse text-left text-sm">
             <colgroup>
-              <col className="w-[9%]" />
-              <col className="w-[16%]" />
-              <col className="w-[40%]" />
-              <col className="w-[12%]" />
               <col className="w-[8%]" />
-              <col className="w-[15%]" />
+              <col className="w-[28%]" />
+              <col className="w-[34%]" />
+              <col className="w-[11%]" />
+              <col className="w-[7%]" />
+              <col className="w-[12%]" />
             </colgroup>
             <thead className="border-b border-[var(--card-border)] bg-[var(--accent-muted)]/85 text-xs uppercase text-[var(--muted)]">
               <tr>
                 <th className="px-3 py-2.5 font-medium">Código da atividade</th>
                 <th className="px-3 py-2.5 font-medium">Atividade</th>
-                <th className="min-w-[28rem] px-3 py-2.5 font-medium">Equipe</th>
-                <th className="px-3 py-2.5 font-medium">Setor do responsável</th>
+                <th className="px-3 py-2.5 font-medium">Equipe</th>
+                <th className="px-3 py-2.5 font-medium">Setor</th>
                 <th className="px-3 py-2.5 font-medium text-right">% conclusão</th>
                 <th className="px-3 py-2.5 font-medium">Etiqueta</th>
               </tr>
@@ -226,14 +226,14 @@ export default function PrestacaoContasPage() {
                 return (
                   <tr key={r.id} className="border-b border-[var(--card-border)]/60 last:border-b-0">
                     <td className="px-3 py-2.5 font-medium text-[var(--accent)]">{r.codigo || "—"}</td>
-                    <td className="max-w-[220px] px-3 py-2.5 text-[var(--foreground)]">
+                    <td className="min-w-0 px-3 py-2.5 text-[var(--foreground)]">
                       {r.atividade?.trim() ? r.atividade : "—"}
                     </td>
                     <td className="px-3 py-2.5 align-top">
                       {r.equipe?.trim() ? (
                         <ul className="m-0 list-none space-y-0.5 p-0">
                           {r.equipe.split("\n").map((linha, i) => (
-                            <li key={i} className="whitespace-nowrap font-normal tabular-nums">
+                            <li key={i} className="whitespace-nowrap font-normal">
                               {linha}
                             </li>
                           ))}

@@ -1,16 +1,9 @@
 import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
 
-function linhaMatriculaNome(matricula: number | null, nome: string): string {
-  const m = matricula != null ? String(matricula) : "—";
-  const n = nome.trim() || "—";
-  return `${m} — ${n}`;
-}
-
 /**
- * Lista de participantes (matrícula e nome, uma linha por pessoa), mesmo critério de vínculo
- * à atividade que a tela Equipe (setor = código ou nome de linha em `equipe`), mais o responsável
- * reconhecido no cadastro de integrantes quando não entrou pelo setor.
+ * Nomes dos integrantes que participam da atividade (critério da tela Equipe), um por linha,
+ * ordenados alfabeticamente, sem indicar responsável nem matrícula.
  */
 export function textoEquipeParticipantes(
   atividade: Atividade,
@@ -23,12 +16,12 @@ export function textoEquipeParticipantes(
     const integ = integrantes.find((i) =>
       integranteNomeMatchResponsavelAtividade(i.nome, atividade.responsavel)
     );
-    if (integ) return linhaMatriculaNome(integ.matricula, integ.nome);
+    if (integ) return (integ.nome ?? "").trim();
     const raw = atividade.responsavel?.trim();
     if (raw) {
       const pipe = raw.lastIndexOf("|");
       const nome = (pipe >= 0 ? raw.slice(pipe + 1) : raw).trim();
-      return nome ? linhaMatriculaNome(null, nome) : "—";
+      return nome || "—";
     }
     return "—";
   }
@@ -64,15 +57,15 @@ export function textoEquipeParticipantes(
     const raw = atividade.responsavel.trim();
     const pipe = raw.lastIndexOf("|");
     const nome = (pipe >= 0 ? raw.slice(pipe + 1) : raw).trim();
-    return nome ? linhaMatriculaNome(null, nome) : "—";
+    return nome || "—";
   }
 
-  lista.sort((a, b) => {
-    const aR = integranteNomeMatchResponsavelAtividade(a.nome, atividade.responsavel) ? 0 : 1;
-    const bR = integranteNomeMatchResponsavelAtividade(b.nome, atividade.responsavel) ? 0 : 1;
-    if (aR !== bR) return aR - bR;
-    return (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR", { sensitivity: "base" });
-  });
+  lista.sort((a, b) =>
+    (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR", { sensitivity: "base" })
+  );
 
-  return lista.map((i) => linhaMatriculaNome(i.matricula, (i.nome ?? "").trim())).join("\n");
+  return lista
+    .map((i) => (i.nome ?? "").trim())
+    .filter(Boolean)
+    .join("\n");
 }
