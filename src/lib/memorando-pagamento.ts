@@ -1,7 +1,5 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-
-type JsPDFWithAutoTable = jsPDF & { lastAutoTable?: { finalY: number } };
 import { atividadeSobrepoemMes } from "@/lib/datas-atividade";
 import { equipeLinhaEhResponsavel } from "@/lib/equipe-page-helpers";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
@@ -98,6 +96,7 @@ export function gerarPdfMemorandoPagamento(
 ): void {
   const { integrantes, atividadesNoMes } = resultado;
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const marginX = 18;
   const mesTitulo = new Date(year, month - 1, 1).toLocaleDateString("pt-BR", {
     month: "long",
     year: "numeric",
@@ -105,100 +104,56 @@ export function gerarPdfMemorandoPagamento(
 
   const totalDias = diasNoMesReferencia(year, month);
 
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
-  doc.text("Memorando de Pagamento", 14, 16);
+  doc.setTextColor(0, 0, 0);
+  doc.text("Memorando de Pagamento", marginX, 16);
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
   doc.text(
     `Mês de referência: ${mesTitulo.charAt(0).toUpperCase() + mesTitulo.slice(1)}`,
-    14,
+    marginX,
     24
   );
-  doc.setFontSize(9);
-  doc.setTextColor(100, 100, 100);
-  doc.text(`Emitido em ${new Date().toLocaleString("pt-BR")}`, 14, 30);
+  doc.setFontSize(8);
+  doc.setTextColor(90, 90, 90);
+  doc.text(`Emitido em ${new Date().toLocaleString("pt-BR")}`, marginX, 30);
   doc.setTextColor(0, 0, 0);
 
   if (integrantes.length === 0) {
     doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
     const msg =
       atividadesNoMes === 0
         ? "Nenhuma atividade com período (data inicial e final) que cruze este mês. Confira início e fim em Atividades (DD/MM/AAAA)."
         : "Nenhum integrante cadastrado.";
-    doc.text(msg, 14, 42, { maxWidth: 260 });
+    doc.text(msg, marginX, 42, { maxWidth: 260 });
   } else {
-    const porSetor = new Map<string, Integrante[]>();
-    for (const i of integrantes) {
-      const key = (i.setor ?? "").trim() || "(sem setor)";
-      if (!porSetor.has(key)) porSetor.set(key, []);
-      porSetor.get(key)!.push(i);
-    }
-    const setoresOrdenados = [...porSetor.keys()].sort((a, b) =>
-      a.localeCompare(b, "pt-BR", { sensitivity: "base" })
-    );
+    /** Já ordenado por setor e nome em `listarIntegrantesMemorandoPagamento`. */
+    const head = [["Matrícula", "Nome", "Setor", "Total de dias"]];
+    const body = integrantes.map((i) => [
+      String(i.matricula),
+      (i.nome ?? "").trim() || "—",
+      (i.setor ?? "").trim() || "—",
+      String(totalDias),
+    ]);
 
-    const head = [["Matrícula", "Nome", "Setor", "Total de dias do mês"]];
-    const marginX = 14;
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-    const barW = pageW - marginX * 2;
-
-    let startY = 34;
-
-    for (let s = 0; s < setoresOrdenados.length; s++) {
-      const setor = setoresOrdenados[s];
-      const listaSetor = porSetor.get(setor)!;
-
-      if (s > 0) {
-        startY += 8;
-        doc.setDrawColor(160, 170, 185);
-        doc.setLineWidth(0.35);
-        doc.line(marginX, startY - 2, pageW - marginX, startY - 2);
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.2);
-      }
-
-      if (startY > pageH - 36) {
-        doc.addPage();
-        startY = 16;
-      }
-
-      doc.setFillColor(30, 64, 90);
-      doc.rect(marginX, startY, barW, 7, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text(`Setor: ${setor}`, marginX + 2, startY + 5);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(0, 0, 0);
-      startY += 9;
-
-      const tableBody = listaSetor.map((i) => [
-        String(i.matricula),
-        (i.nome ?? "").trim() || "—",
-        (i.setor ?? "").trim() || "—",
-        String(totalDias),
-      ]);
-
-      autoTable(doc, {
-        startY,
-        head,
-        body: tableBody,
-        styles: { fontSize: 9, cellPadding: 2.5 },
-        headStyles: { fillColor: [30, 64, 90], textColor: 255 },
-        alternateRowStyles: { fillColor: [245, 248, 252] },
-        margin: { left: marginX, right: marginX },
-        tableWidth: "auto",
-        columnStyles: {
-          0: { cellWidth: 28 },
-          1: { cellWidth: 75 },
-          2: { cellWidth: 55 },
-          3: { cellWidth: 38 },
-        },
-      });
-
-      const d = doc as JsPDFWithAutoTable;
-      startY = (d.lastAutoTable?.finalY ?? startY) + 4;
-    }
+    autoTable(doc, {
+      startY: 36,
+      head,
+      body,
+      styles: { fontSize: 8, cellPadding: 1.8, overflow: "linebreak" },
+      headStyles: { fillColor: [55, 75, 95], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      margin: { left: marginX, right: marginX },
+      tableWidth: "auto",
+      columnStyles: {
+        0: { cellWidth: 26 },
+        1: { cellWidth: 122 },
+        2: { cellWidth: 87 },
+        3: { cellWidth: 26 },
+      },
+    });
   }
 
   doc.save(`memorando-pagamento-${year}-${String(month).padStart(2, "0")}.pdf`);
