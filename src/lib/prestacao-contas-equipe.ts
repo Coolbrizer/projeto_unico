@@ -1,9 +1,14 @@
-import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
+import {
+  equipeLinhaEhResponsavel,
+  integranteNomeMatchResponsavelAtividade,
+} from "@/lib/equipe-page-helpers";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
 
 /**
- * Nomes dos integrantes que participam da atividade (critério da tela Equipe), um por linha,
- * ordenados alfabeticamente, sem indicar responsável nem matrícula.
+ * Nomes ligados à atividade: integrantes por setor (código ou linha de equipe no setor),
+ * integrantes cujo nome casa com cada linha da tabela `equipe`, responsável reconhecido,
+ * e textos de `equipe` sem integrante correspondente (como na coluna Equipes/funções).
+ * Um nome por linha, ordenados alfabeticamente.
  */
 export function textoEquipeParticipantes(
   atividade: Atividade,
@@ -32,17 +37,33 @@ export function textoEquipeParticipantes(
   );
   const codigoLc = codigo.toLowerCase();
 
-  const integrantesDoGrupo = integrantes.filter((i) => {
+  const porId = new Map<string, Integrante>();
+
+  const integrantesPorSetor = integrantes.filter((i) => {
     const s = (i.setor ?? "").trim().toLowerCase();
     if (!s) return false;
     if (s === codigoLc) return true;
     if (nomesEquipe.has(s)) return true;
     return false;
   });
-
-  const porId = new Map<string, Integrante>();
-  for (const i of integrantesDoGrupo) {
+  for (const i of integrantesPorSetor) {
     porId.set(i.id, i);
+  }
+
+  const linhasSemIntegrante: string[] = [];
+  for (const r of equipeRows) {
+    const line = (r.equipe ?? "").trim();
+    if (!line) continue;
+    let encontrou = false;
+    for (const i of integrantes) {
+      if (equipeLinhaEhResponsavel(line, i.nome)) {
+        porId.set(i.id, i);
+        encontrou = true;
+      }
+    }
+    if (!encontrou) {
+      linhasSemIntegrante.push(line);
+    }
   }
 
   const integResp = integrantes.find((i) =>
@@ -52,20 +73,28 @@ export function textoEquipeParticipantes(
     porId.set(integResp.id, integResp);
   }
 
-  const lista = [...porId.values()];
-  if (lista.length === 0 && atividade.responsavel?.trim()) {
+  const nomesDeIntegrantes = [...porId.values()]
+    .map((i) => (i.nome ?? "").trim())
+    .filter(Boolean);
+
+  const todos = [...nomesDeIntegrantes, ...linhasSemIntegrante];
+  const vistos = new Set<string>();
+  const unicos: string[] = [];
+  for (const n of todos) {
+    const k = n.toLowerCase();
+    if (!vistos.has(k)) {
+      vistos.add(k);
+      unicos.push(n);
+    }
+  }
+
+  if (unicos.length === 0 && atividade.responsavel?.trim()) {
     const raw = atividade.responsavel.trim();
     const pipe = raw.lastIndexOf("|");
     const nome = (pipe >= 0 ? raw.slice(pipe + 1) : raw).trim();
     return nome || "—";
   }
 
-  lista.sort((a, b) =>
-    (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR", { sensitivity: "base" })
-  );
-
-  return lista
-    .map((i) => (i.nome ?? "").trim())
-    .filter(Boolean)
-    .join("\n");
+  unicos.sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
+  return unicos.join("\n");
 }
