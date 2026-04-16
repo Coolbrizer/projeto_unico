@@ -105,7 +105,7 @@ export default function OrcamentoPage() {
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Orçamento</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Despesa da folha (integrantes × <code className="rounded bg-black/30 px-1">ref_pgto</code>),
+          Despesa da folha (integrantes × <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">ref_pgto</code>),
           projeções por período e, se houver, lançamentos por categoria.
         </p>
       </header>
@@ -113,23 +113,23 @@ export default function OrcamentoPage() {
       {mounted && !configured && <ConfigWarning />}
 
       {error && (
-        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-800">
+        <p className="mb-4 rounded-lg border border-[var(--danger)]/25 bg-[var(--danger)]/10 px-3 py-2 text-sm text-[var(--danger)]">
           {error}
         </p>
       )}
 
       {!loading && configured && (
-        <div className="mb-8 rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-5">
-          <p className="text-xs font-medium uppercase tracking-wide text-emerald-200/90">
+        <div className="mb-8 rounded-xl border border-[var(--success)]/25 bg-[var(--success)]/10 px-4 py-5">
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--success)]">
             Despesa mensal (folha integrantes)
           </p>
-          <p className="mt-2 text-2xl font-bold text-emerald-300">{formatMoney(folha.total)}</p>
+          <p className="mt-2 text-2xl font-bold text-[var(--success)]">{formatMoney(folha.total)}</p>
 
-          <div className="mt-5 border-t border-emerald-500/25 pt-4">
-            <p className="text-xs font-medium text-emerald-200/90">Projeções</p>
+          <div className="mt-5 border-t border-[var(--success)]/20 pt-4">
+            <p className="text-xs font-medium text-[var(--success)]">Projeções</p>
             <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
               <div>
-                <label className="block text-xs text-emerald-100/75">Multiplicar por meses</label>
+                <label className="block text-xs text-[var(--muted)]">Multiplicar por meses</label>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <input
                     type="number"
@@ -146,44 +146,44 @@ export default function OrcamentoPage() {
                       if (Number.isNaN(n)) return;
                       setMesesProjecao(Math.min(120, Math.max(1, n)));
                     }}
-                    className="w-20 rounded-lg border border-emerald-500/35 bg-[var(--background)] px-2 py-1.5 text-sm text-emerald-50 outline-none ring-emerald-400/30 focus:ring-2"
+                    className="w-20 rounded-lg border border-[var(--card-border)] bg-white px-2 py-1.5 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
                   />
-                  <span className="text-xs text-emerald-100/70">meses</span>
+                  <span className="text-xs text-[var(--muted)]">meses</span>
                   <div className="flex flex-wrap gap-1">
                     {[3, 6, 12].map((m) => (
                       <button
                         key={m}
                         type="button"
                         onClick={() => setMesesProjecao(m)}
-                        className="rounded border border-emerald-500/40 px-2 py-0.5 text-xs text-emerald-200 hover:bg-emerald-500/15"
+                        className="rounded border border-[var(--success)]/25 bg-white/70 px-2 py-0.5 text-xs font-medium text-[var(--success)] hover:bg-[var(--success)]/10"
                       >
                         {m}m
                       </button>
                     ))}
                   </div>
                 </div>
-                <p className="mt-2 text-sm text-emerald-100/90">
+                <p className="mt-2 text-sm text-[var(--foreground)]">
                   Total no período ({mesesValidos} {mesesValidos === 1 ? "mês" : "meses"}):{" "}
-                  <strong className="text-emerald-200">{formatMoney(despesaPeriodo)}</strong>
+                  <strong className="text-[var(--success)]">{formatMoney(despesaPeriodo)}</strong>
                 </p>
               </div>
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/30 px-3 py-2 sm:min-w-[200px]">
-                <p className="text-xs text-emerald-100/75">Despesa anual (12 meses)</p>
-                <p className="mt-1 text-lg font-semibold text-emerald-200">{formatMoney(despesaAnual)}</p>
+              <div className="rounded-lg border border-[var(--success)]/20 bg-white/65 px-3 py-2 sm:min-w-[200px]">
+                <p className="text-xs text-[var(--muted)]">Despesa anual (12 meses)</p>
+                <p className="mt-1 text-lg font-semibold text-[var(--success)]">{formatMoney(despesaAnual)}</p>
               </div>
             </div>
           </div>
 
-          <p className="mt-4 text-xs text-emerald-100/80">
+          <p className="mt-4 text-xs text-[var(--foreground)]">
             Valores com base na referência <strong>ref_pgto</strong> e nos integrantes. Ajuste dados no
             Supabase ou na tela de integrantes.
           </p>
           {folha.semCorrespondencia.length > 0 && (
-            <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
-              <p className="font-medium text-amber-200">
+            <div className="mt-3 rounded-lg border border-[var(--warning)]/25 bg-[#f4ead5] px-3 py-2 text-xs text-[#6f4d14]">
+              <p className="font-medium text-[#6f4d14]">
                 {folha.semCorrespondencia.length} integrante(s) com cargo/classe sem linha em ref_pgto:
               </p>
-              <ul className="mt-1 list-inside list-disc text-amber-100/90">
+              <ul className="mt-1 list-inside list-disc text-[#7c5a20]">
                 {folha.semCorrespondencia.slice(0, 8).map((x) => (
                   <li key={x.id}>
                     {x.nome} — {x.cargo || "—"} / {x.classe_padrao || "—"}
@@ -204,7 +204,7 @@ export default function OrcamentoPage() {
         </h3>
         <p className="mb-4 text-xs text-[var(--muted)]">
           Dados somente leitura nesta tela. Para incluir ou alterar linhas, use o Supabase (SQL em{" "}
-          <code className="rounded bg-black/30 px-1">supabase/migration_ref_pgto.sql</code> cria a tabela).
+          <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">supabase/migration_ref_pgto.sql</code> cria a tabela).
         </p>
         {refPgto.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">Nenhuma linha em ref_pgto.</p>
@@ -292,7 +292,7 @@ export default function OrcamentoPage() {
                   <button
                     type="button"
                     onClick={() => void removeOrc(r.id)}
-                    className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-700 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
+                    className="self-start rounded-lg border border-[var(--danger)]/30 bg-white/70 px-2 py-1.5 text-xs font-medium text-[var(--danger)] hover:bg-[var(--danger)]/10 sm:self-center disabled:opacity-50"
                   >
                     Excluir
                   </button>

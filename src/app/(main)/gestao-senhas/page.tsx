@@ -89,7 +89,7 @@ export default function GestaoSenhasPage() {
       </header>
 
       {error && (
-        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-800">
+        <p className="mb-4 rounded-lg border border-[var(--danger)]/25 bg-[var(--danger)]/10 px-3 py-2 text-sm text-[var(--danger)]">
           {error}
         </p>
       )}
@@ -99,9 +99,9 @@ export default function GestaoSenhasPage() {
       ) : rows.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">Nenhum integrante.</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-[var(--card-border)]">
+        <div className="overflow-x-auto rounded-xl border border-[var(--card-border)] bg-[var(--card)]">
           <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-            <thead className="border-b border-[var(--card-border)] bg-[var(--card)] text-xs uppercase text-[var(--muted)]">
+            <thead className="border-b border-[var(--card-border)] bg-[var(--accent-muted)]/85 text-xs uppercase text-[var(--muted)]">
               <tr>
                 <th className="px-3 py-2 font-medium">Nome</th>
                 <th className="px-3 py-2 font-medium">E-mail</th>
@@ -112,7 +112,7 @@ export default function GestaoSenhasPage() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-b border-[var(--card-border)]/60">
+                <tr key={r.id} className="border-b border-[var(--card-border)]/60 bg-[var(--card)] last:border-b-0">
                   <td className="px-3 py-2">
                     <span className="font-medium">{r.nome}</span>
                     <span className="text-xs text-[var(--muted)]"> · mat. {r.matricula}</span>
@@ -125,7 +125,7 @@ export default function GestaoSenhasPage() {
                       onChange={(e) =>
                         void alterarPerfil(r.id, e.target.value as PerfilIntegrante)
                       }
-                      className="max-w-[140px] rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2 py-1 text-xs outline-none ring-[var(--accent)]/40 focus:ring-2"
+                      className="max-w-[140px] rounded-lg border border-[var(--card-border)] bg-white px-2 py-1 text-xs text-[var(--foreground)] outline-none ring-[var(--accent)]/40 focus:ring-2"
                     >
                       <option value="basico">Básico</option>
                       <option value="gestor">Gestor</option>
@@ -140,7 +140,7 @@ export default function GestaoSenhasPage() {
                       type="button"
                       disabled={busyId === r.id}
                       onClick={() => void resetarSenha(r.id)}
-                      className="rounded-lg border border-amber-500/40 px-2 py-1 text-xs text-amber-200 hover:bg-amber-500/10 disabled:opacity-50"
+                      className="rounded-lg border border-[var(--warning)]/30 bg-[#f4ead5] px-2 py-1 text-xs font-medium text-[#6f4d14] hover:bg-[#eeddbd] disabled:opacity-50"
                     >
                       Redefinir senha
                     </button>
