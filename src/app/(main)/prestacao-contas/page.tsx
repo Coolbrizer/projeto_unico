@@ -6,6 +6,7 @@ import { canEditarDocumentos } from "@/lib/auth/roles";
 import { TIPOS_DOCUMENTO } from "@/lib/documentos-constants";
 import { useMounted } from "@/hooks/useMounted";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
+import { gerarPdfPrestacaoContas } from "@/lib/prestacao-contas-pdf";
 import type { Documento } from "@/types/database";
 
 const TIPO_IS = TIPOS_DOCUMENTO[0];
@@ -51,11 +52,17 @@ export default function PrestacaoContasPage() {
   const [linhas, setLinhas] = useState<LinhaPrestacao[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [loadingLinhas, setLoadingLinhas] = useState(false);
+  const [pdfGerando, setPdfGerando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const instrucoesServico = useMemo(
     () => documentos.filter((d) => (d.tipo?.trim() ?? "") === TIPO_IS),
     [documentos]
+  );
+
+  const documentoSelecionado = useMemo(
+    () => documentos.find((d) => d.id === documentoId) ?? null,
+    [documentos, documentoId]
   );
 
   const loadDocumentos = useCallback(async () => {
@@ -104,6 +111,19 @@ export default function PrestacaoContasPage() {
     }
     void loadLinhas(documentoId);
   }, [documentoId, loadLinhas]);
+
+  async function handleExtrairPdf() {
+    if (!documentoSelecionado || linhas.length === 0) return;
+    setPdfGerando(true);
+    setError(null);
+    try {
+      await gerarPdfPrestacaoContas(documentoSelecionado, linhas);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Não foi possível gerar o PDF.");
+    } finally {
+      setPdfGerando(false);
+    }
+  }
 
   if (!podeVer) {
     return (
@@ -169,7 +189,18 @@ export default function PrestacaoContasPage() {
           nas atividades (mesmo id deste documento).
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-[var(--card-border)] bg-[var(--card)]">
+        <div>
+          <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => void handleExtrairPdf()}
+              disabled={pdfGerando || loadingLinhas}
+              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--accent-foreground)] shadow-sm hover:bg-[var(--accent-hover)] disabled:opacity-50"
+            >
+              {pdfGerando ? "A gerar PDF…" : "Extrair PDF"}
+            </button>
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-[var(--card-border)] bg-[var(--card)]">
           <table className="w-full min-w-[880px] border-collapse text-left text-sm">
             <thead className="border-b border-[var(--card-border)] bg-[var(--accent-muted)]/85 text-xs uppercase text-[var(--muted)]">
               <tr>
@@ -225,6 +256,7 @@ export default function PrestacaoContasPage() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
