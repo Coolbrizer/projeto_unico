@@ -10,5 +10,6 @@ alter table public.integrantes
 
 comment on column public.integrantes.perfil is 'basico: consulta; gestor: + atividades/integrantes; admin: + orçamento e gestão de senhas';
 
--- Opcional: promover um administrador (ajuste o e-mail).
--- update public.integrantes set perfil = 'admin' where lower(btrim(email)) = 'seu-email@dominio.br';
+update public.integrantes
+set perfil = 'admin'
+where lower(btrim(email)) = 'alexandredamasceno@mpf.mp.br';
