@@ -19,6 +19,9 @@ const navBase = [
   { href: "/documentos", label: "Documentos" },
 ] as const;
 
+/** Gestor e administrador. */
+const navPrestacaoContas = [{ href: "/prestacao-contas", label: "Prestação de Contas" }] as const;
+
 const navAdmin = [
   { href: "/orcamento", label: "Orçamento" },
   { href: "/gestao-senhas", label: "Gestão de senhas" },
@@ -47,8 +50,10 @@ export function AppShell({
   }
 
   const navItems = isAdmin(role)
-    ? ([...navBase, ...navAdmin] as const)
-    : ([...navBase] as const);
+    ? ([...navBase, ...navPrestacaoContas, ...navAdmin] as const)
+    : role === "gestor"
+      ? ([...navBase, ...navPrestacaoContas] as const)
+      : ([...navBase] as const);
 
   return (
     <PerfilContext.Provider value={role}>
