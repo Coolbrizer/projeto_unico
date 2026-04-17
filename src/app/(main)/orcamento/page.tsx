@@ -306,32 +306,40 @@ export default function OrcamentoPage() {
       {integrantes.length > 0 && refPgto.length > 0 && (
         <section className="mt-10">
           <h3 className="mb-3 text-sm font-medium text-[var(--muted)]">Detalhe por integrante (mês)</h3>
-          <div className="overflow-x-auto rounded-xl border border-[var(--card-border)]">
-            <table className="w-full min-w-[480px] text-left text-sm">
-              <thead className="border-b border-[var(--card-border)] bg-[var(--card)] text-xs uppercase text-[var(--muted)]">
-                <tr>
-                  <th className="px-3 py-2">Nome</th>
-                  <th className="px-3 py-2">Cargo</th>
-                  <th className="px-3 py-2">Classe/Padrão</th>
-                  <th className="px-3 py-2 text-right">Valor/mês</th>
-                </tr>
-              </thead>
-              <tbody>
-                {integrantes.map((i) => {
-                  const v = valorMensalDoRef(refPgto, i.cargo, i.classe_padrao);
-                  return (
-                    <tr key={i.id} className="border-b border-[var(--card-border)]/60">
-                      <td className="px-3 py-2">{i.nome}</td>
-                      <td className="px-3 py-2 text-[var(--muted)]">{i.cargo || "—"}</td>
-                      <td className="px-3 py-2 text-[var(--muted)]">{i.classe_padrao || "—"}</td>
-                      <td className="px-3 py-2 text-right font-medium text-[var(--accent)]">
-                        {formatMoney(v)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)]">
+            <aside className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                Total de pessoas
+              </p>
+              <p className="mt-1 text-2xl font-semibold text-[var(--accent)]">{integrantes.length}</p>
+            </aside>
+            <div className="overflow-x-auto rounded-xl border border-[var(--card-border)]">
+              <table className="w-full min-w-[480px] text-left text-sm">
+                <thead className="border-b border-[var(--card-border)] bg-[var(--card)] text-xs uppercase text-[var(--muted)]">
+                  <tr>
+                    <th className="px-3 py-2">Nome</th>
+                    <th className="px-3 py-2">Cargo</th>
+                    <th className="px-3 py-2">Classe/Padrão</th>
+                    <th className="px-3 py-2 text-right">Valor/mês</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {integrantes.map((i) => {
+                    const v = valorMensalDoRef(refPgto, i.cargo, i.classe_padrao);
+                    return (
+                      <tr key={i.id} className="border-b border-[var(--card-border)]/60">
+                        <td className="px-3 py-2">{i.nome}</td>
+                        <td className="px-3 py-2 text-[var(--muted)]">{i.cargo || "—"}</td>
+                        <td className="px-3 py-2 text-[var(--muted)]">{i.classe_padrao || "—"}</td>
+                        <td className="px-3 py-2 text-right font-medium text-[var(--accent)]">
+                          {formatMoney(v)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       )}
