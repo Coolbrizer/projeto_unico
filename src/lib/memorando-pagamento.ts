@@ -171,7 +171,7 @@ export function gerarPdfMemorandoPagamento(
     }
 
     let startY = 36;
-    const head = [["Micro", "Matrícula", "Nome", "Total de dias"]];
+    const head = [["Setor", "Matrícula", "Nome", "Total de dias"]];
 
     for (let m = 0; m < macrosOrdenados.length; m++) {
       const macro = macrosOrdenados[m];
