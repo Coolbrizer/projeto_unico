@@ -15,6 +15,10 @@ function normalizarProgresso(valor: unknown): number {
   return Math.min(100, Math.max(0, emDegraus));
 }
 
+function isBlank(valor: string | null | undefined): boolean {
+  return !valor || valor.trim() === "";
+}
+
 function patchTouchesRelatorio(body: Record<string, unknown>): boolean {
   return (
     "progresso" in body || "etiqueta_relatorio" in body || "link_relatorio" in body
@@ -153,6 +157,30 @@ export async function PATCH(request: Request, ctx: Ctx) {
       : undefined;
     const link = touchedLink ? (body.link_relatorio ? String(body.link_relatorio).trim() : null) : undefined;
     const progresso = touchedProgresso ? normalizarProgresso(body.progresso) : undefined;
+
+    const { data: relatorioAtual, error: errRelatorioAtual } = await supabase
+      .from("etiqueta_relatorio")
+      .select("etiqueta, link, progresso")
+      .eq("codigo", codigoAtividade)
+      .maybeSingle();
+    if (errRelatorioAtual) {
+      return NextResponse.json({ error: errRelatorioAtual.message }, { status: 400 });
+    }
+
+    const etiquetaFinal = etiqueta !== undefined ? etiqueta : relatorioAtual?.etiqueta ?? null;
+    const linkFinal = link !== undefined ? link : relatorioAtual?.link ?? null;
+    const progressoFinal =
+      progresso !== undefined ? progresso : normalizarProgresso(relatorioAtual?.progresso ?? 0);
+
+    // Regra de negócio: com percentual em 100%, etiqueta e link são obrigatórios.
+    if (progressoFinal === 100 && (isBlank(etiquetaFinal) || isBlank(linkFinal))) {
+      return NextResponse.json(
+        {
+          error: "Com percentual de 100%, informe obrigatoriamente a etiqueta e o link do relatório.",
+        },
+        { status: 400 }
+      );
+    }
 
     if (etiqueta === null && link === null && !touchedProgresso) {
       const { error: deleteError } = await supabase

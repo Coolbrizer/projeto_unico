@@ -164,6 +164,12 @@ export default function AtividadesPage() {
 
   async function saveRelatorio(a: Atividade) {
     if (!podeEditarRelatorio(a)) return;
+    const etiqueta = relatorioEtiqueta.trim();
+    const link = relatorioLink.trim();
+    if (progressoEdit === 100 && (!etiqueta || !link)) {
+      setError("Com percentual de 100%, informe obrigatoriamente a etiqueta e o link do relatório.");
+      return;
+    }
     setSavingRelatorio(true);
     setError(null);
     const res = await fetch(`/api/atividades/${a.id}`, {
@@ -171,8 +177,8 @@ export default function AtividadesPage() {
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({
-        etiqueta_relatorio: relatorioEtiqueta.trim() || null,
-        link_relatorio: relatorioLink.trim() || null,
+        etiqueta_relatorio: etiqueta || null,
+        link_relatorio: link || null,
         progresso: progressoEdit,
       }),
     });
