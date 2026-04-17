@@ -65,7 +65,10 @@ export default function IntegrantesPage() {
   }, [load]);
 
   const filtradas = useMemo(
-    () => rows.filter((r) => integranteMatchesBusca(r, busca)),
+    () =>
+      rows
+        .filter((r) => integranteMatchesBusca(r, busca))
+        .sort((a, b) => (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR", { sensitivity: "base" })),
     [rows, busca]
   );
 
