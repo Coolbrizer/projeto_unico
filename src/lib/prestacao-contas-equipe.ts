@@ -1,5 +1,6 @@
 import {
   equipeLinhaEhResponsavel,
+  integranteCorrespondenteAResponsavel,
   integranteNomeMatchResponsavelAtividade,
 } from "@/lib/equipe-page-helpers";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
@@ -18,9 +19,7 @@ export function textoEquipeParticipantes(
   const codigo = String(atividade.codigo ?? "").trim();
 
   if (!codigo) {
-    const integ = integrantes.find((i) =>
-      integranteNomeMatchResponsavelAtividade(i.nome, atividade.responsavel)
-    );
+    const integ = integranteCorrespondenteAResponsavel(integrantes, atividade.responsavel);
     if (integ) return (integ.nome ?? "").trim();
     const raw = atividade.responsavel?.trim();
     if (raw) {
@@ -66,9 +65,7 @@ export function textoEquipeParticipantes(
     }
   }
 
-  const integResp = integrantes.find((i) =>
-    integranteNomeMatchResponsavelAtividade(i.nome, atividade.responsavel)
-  );
+  const integResp = integranteCorrespondenteAResponsavel(integrantes, atividade.responsavel);
   if (integResp && !porId.has(integResp.id)) {
     porId.set(integResp.id, integResp);
   }

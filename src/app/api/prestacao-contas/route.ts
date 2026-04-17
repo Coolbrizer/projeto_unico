@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
+import { integranteCorrespondenteAResponsavel } from "@/lib/equipe-page-helpers";
 import { textoEquipeParticipantes } from "@/lib/prestacao-contas-equipe";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -24,17 +24,6 @@ function normalizarProgresso(valor: unknown): number {
   if (!Number.isFinite(numero)) return 0;
   const emDegraus = Math.round(numero / 10) * 10;
   return Math.min(100, Math.max(0, emDegraus));
-}
-
-function integranteParaResponsavel(
-  integrantes: Integrante[],
-  responsavel: string | null | undefined
-): Integrante | null {
-  if (!responsavel?.trim()) return null;
-  for (const i of integrantes) {
-    if (integranteNomeMatchResponsavelAtividade(i.nome, responsavel)) return i;
-  }
-  return null;
 }
 
 /** Supabase pode retornar `link` ou, em bases antigas, `url`. */
@@ -117,7 +106,7 @@ export async function GET(request: Request) {
   const linhas = atividadesRaw.map((atividade) => {
     const relatorio = relatorioPorCodigo.get(chaveCodigo(atividade.codigo));
     const progresso = normalizarProgresso(relatorio?.progresso ?? atividade.progresso);
-    const integ = integranteParaResponsavel(integrantes, atividade.responsavel);
+    const integ = integranteCorrespondenteAResponsavel(integrantes, atividade.responsavel);
     const equipe = textoEquipeParticipantes(atividade, integrantes, todasEquipes);
 
     return {

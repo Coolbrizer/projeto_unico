@@ -1,3 +1,5 @@
+import type { Integrante } from "@/types/database";
+
 /** Compara nome na tabela equipe com o texto de responsável (ex.: "20256 | ANDREIA …"). */
 export function equipeLinhaEhResponsavel(
   nomeEquipe: string,
@@ -19,4 +21,31 @@ export function integranteNomeMatchResponsavelAtividade(
   responsavelAtividade: string | null | undefined
 ): boolean {
   return equipeLinhaEhResponsavel((nomeIntegrante ?? "").trim(), responsavelAtividade);
+}
+
+/** ASCII `|`, pipe fullwidth (｜) e barra vertical (│) usados em cópias de planilhas. */
+const PREFIXO_MATRICULA_RESPONSAVEL = /^\s*(\d+)\s*[|│｜]\s*/;
+
+/**
+ * Encontra o integrante do responsável pela atividade.
+ * Prioridade: matrícula no início (ex.: "21734 | TIAGO CESAR MORONTE"), depois o mesmo critério de nome já usado na UI.
+ */
+export function integranteCorrespondenteAResponsavel(
+  integrantes: Integrante[],
+  responsavel: string | null | undefined
+): Integrante | null {
+  if (!responsavel?.trim()) return null;
+  const raw = responsavel.trim();
+  const mat = raw.match(PREFIXO_MATRICULA_RESPONSAVEL);
+  if (mat) {
+    const n = Number(mat[1]);
+    if (Number.isFinite(n)) {
+      const porMatricula = integrantes.find((i) => Number(i.matricula) === n);
+      if (porMatricula) return porMatricula;
+    }
+  }
+  for (const i of integrantes) {
+    if (integranteNomeMatchResponsavelAtividade(i.nome, responsavel)) return i;
+  }
+  return null;
 }
