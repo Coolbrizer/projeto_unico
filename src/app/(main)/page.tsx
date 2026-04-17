@@ -166,8 +166,12 @@ export default function AtividadesPage() {
     if (!podeEditarRelatorio(a)) return;
     const etiqueta = relatorioEtiqueta.trim();
     const link = relatorioLink.trim();
-    if (progressoEdit === 100 && (!etiqueta || !link)) {
-      setError("Com percentual de 100%, informe obrigatoriamente a etiqueta e o link do relatório.");
+    if (progressoEdit === 100 && !etiqueta) {
+      setError("Informe a etiqueta para salvar o progresso");
+      return;
+    }
+    if (progressoEdit === 100 && !link) {
+      setError("Informe o link da etiqueta para salvar o progresso");
       return;
     }
     setSavingRelatorio(true);

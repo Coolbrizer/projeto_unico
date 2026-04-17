@@ -19,6 +19,12 @@ function isBlank(valor: string | null | undefined): boolean {
   return !valor || valor.trim() === "";
 }
 
+function mensagemErroProgresso100(etiqueta: string | null | undefined, link: string | null | undefined) {
+  if (isBlank(etiqueta)) return "Informe a etiqueta para salvar o progresso";
+  if (isBlank(link)) return "Informe o link da etiqueta para salvar o progresso";
+  return null;
+}
+
 function patchTouchesRelatorio(body: Record<string, unknown>): boolean {
   return (
     "progresso" in body || "etiqueta_relatorio" in body || "link_relatorio" in body
@@ -173,11 +179,11 @@ export async function PATCH(request: Request, ctx: Ctx) {
       progresso !== undefined ? progresso : normalizarProgresso(relatorioAtual?.progresso ?? 0);
 
     // Regra de negócio: com percentual em 100%, etiqueta e link são obrigatórios.
-    if (progressoFinal === 100 && (isBlank(etiquetaFinal) || isBlank(linkFinal))) {
+    const erroProgresso100 =
+      progressoFinal === 100 ? mensagemErroProgresso100(etiquetaFinal, linkFinal) : null;
+    if (erroProgresso100) {
       return NextResponse.json(
-        {
-          error: "Com percentual de 100%, informe obrigatoriamente a etiqueta e o link do relatório.",
-        },
+        { error: erroProgresso100 },
         { status: 400 }
       );
     }
