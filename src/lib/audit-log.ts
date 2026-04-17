@@ -1,15 +1,10 @@
 import type { SessionPayload } from "@/lib/auth/session";
-
-type SupabaseLike = {
-  from: (table: string) => {
-    insert: (values: Record<string, unknown>) => Promise<{ error: { message: string } | null }>;
-  };
-};
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type AuditAction = "insert" | "update" | "delete" | "upsert" | "auth";
 
 type WriteAuditInput = {
-  supabase: SupabaseLike;
+  supabase: SupabaseClient;
   action: AuditAction;
   entityTable: string;
   entityId?: string | null;
