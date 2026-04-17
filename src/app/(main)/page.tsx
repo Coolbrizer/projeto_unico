@@ -49,6 +49,14 @@ export default function AtividadesPage() {
   const [relatorioLink, setRelatorioLink] = useState("");
   const [savingRelatorio, setSavingRelatorio] = useState(false);
   const [progressoEdit, setProgressoEdit] = useState(0);
+  const [aviso, setAviso] = useState<{ tipo: "sucesso" | "erro"; texto: string } | null>(null);
+
+  const showAviso = useCallback((tipo: "sucesso" | "erro", texto: string) => {
+    setAviso({ tipo, texto });
+    window.setTimeout(() => {
+      setAviso((atual) => (atual?.tipo === tipo && atual?.texto === texto ? null : atual));
+    }, 3500);
+  }, []);
 
   const load = useCallback(async () => {
     setError(null);
@@ -167,11 +175,11 @@ export default function AtividadesPage() {
     const etiqueta = relatorioEtiqueta.trim();
     const link = relatorioLink.trim();
     if (progressoEdit === 100 && !etiqueta) {
-      setError("Informe a etiqueta para salvar o progresso");
+      showAviso("erro", "Progresso não salvo. Informe etiqueta");
       return;
     }
     if (progressoEdit === 100 && !link) {
-      setError("Informe o link da etiqueta para salvar o progresso");
+      showAviso("erro", "Progresso não salvo. Informe link");
       return;
     }
     setSavingRelatorio(true);
@@ -188,12 +196,27 @@ export default function AtividadesPage() {
     });
     const data = (await res.json()) as { error?: string };
     setSavingRelatorio(false);
-    if (!res.ok) setError(data.error ?? "Não foi possível guardar.");
-    else void load();
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível guardar.");
+    } else {
+      showAviso("sucesso", "Progresso salvo com sucesso");
+      void load();
+    }
   }
 
   return (
     <div className="mx-auto max-w-5xl">
+      {aviso && (
+        <div
+          className={`fixed right-4 top-4 z-50 rounded-lg border px-4 py-2 text-sm shadow-lg ${
+            aviso.tipo === "sucesso"
+              ? "border-emerald-300 bg-emerald-100 text-emerald-800"
+              : "border-red-300 bg-red-100 text-red-800"
+          }`}
+        >
+          {aviso.texto}
+        </div>
+      )}
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Atividades</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
