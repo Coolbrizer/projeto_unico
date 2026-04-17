@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { usePerfil } from "@/components/AppShell";
-import { canEditarAtividadesIntegrantes } from "@/lib/auth/roles";
+import { canEditarAtividadesIntegrantes, isAdmin, parsePerfil, type Perfil } from "@/lib/auth/roles";
 import { useMounted } from "@/hooks/useMounted";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import type { Integrante } from "@/types/database";
@@ -41,12 +41,13 @@ function macroDoSetor(setor: string | null | undefined): string {
 export default function IntegrantesPage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
-  const perfil = usePerfil();
-  const podeEditar = canEditarAtividadesIntegrantes(perfil);
+  const perfilUsuario = usePerfil();
+  const podeEditar = canEditarAtividadesIntegrantes(perfilUsuario);
   const [rows, setRows] = useState<Integrante[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
 
   const [matricula, setMatricula] = useState("");
@@ -55,6 +56,42 @@ export default function IntegrantesPage() {
   const [cargo, setCargo] = useState("");
   const [classePadrao, setClassePadrao] = useState("");
   const [email, setEmail] = useState("");
+  const [perfilIntegrante, setPerfilIntegrante] = useState<Perfil>("basico");
+
+  function limparFormulario() {
+    setMatricula("");
+    setNome("");
+    setSetor("");
+    setCargo("");
+    setClassePadrao("");
+    setEmail("");
+    setPerfilIntegrante("basico");
+    setEditingId(null);
+  }
+
+  function abrirNovo() {
+    limparFormulario();
+    setShowForm(true);
+  }
+
+  function abrirEdicao(r: Integrante) {
+    setEditingId(r.id);
+    setMatricula(String(r.matricula));
+    setNome(r.nome ?? "");
+    setSetor(r.setor ?? "");
+    setCargo(r.cargo ?? "");
+    setClassePadrao(r.classe_padrao ?? "");
+    setEmail(r.email ?? "");
+    setPerfilIntegrante(parsePerfil(r.perfil));
+    setShowForm(true);
+    setError(null);
+  }
+
+  function fecharFormulario() {
+    setShowForm(false);
+    limparFormulario();
+    setError(null);
+  }
 
   const load = useCallback(async () => {
     setError(null);
@@ -103,39 +140,41 @@ export default function IntegrantesPage() {
       return;
     }
     setError(null);
-    const res = await fetch("/api/integrantes", {
-      method: "POST",
+    const corpo: Record<string, unknown> = {
+      matricula,
+      nome: nome.trim(),
+      setor: setor.trim() || null,
+      cargo: cargo.trim() || null,
+      classe_padrao: classePadrao.trim() || null,
+      email: email.trim(),
+    };
+    if (isAdmin(perfilUsuario) && editingId) {
+      corpo.perfil = perfilIntegrante;
+    }
+    const res = await fetch(editingId ? `/api/integrantes/${editingId}` : "/api/integrantes", {
+      method: editingId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({
-        matricula,
-        nome: nome.trim(),
-        setor: setor.trim() || null,
-        cargo: cargo.trim() || null,
-        classe_padrao: classePadrao.trim() || null,
-        email: email.trim(),
-      }),
+      body: JSON.stringify(corpo),
     });
     const payload = (await res.json()) as { error?: string; aviso?: string };
     if (!res.ok) {
       setError(payload.error ?? "Não foi possível guardar.");
       return;
     }
-    setMatricula("");
-    setNome("");
-    setSetor("");
-    setCargo("");
-    setClassePadrao("");
-    setEmail("");
-    setShowForm(false);
+    fecharFormulario();
     if (payload.aviso) {
       window.alert(payload.aviso);
     }
     void load();
   }
 
-  async function remove(id: string) {
+  async function remove(id: string, nomeExibicao: string) {
     if (!podeEditar) return;
+    const ok = window.confirm(
+      `Excluir o integrante "${nomeExibicao}"? Esta ação não pode ser desfeita.`
+    );
+    if (!ok) return;
     setError(null);
     const res = await fetch(`/api/integrantes/${id}`, { method: "DELETE", credentials: "include" });
     const payload = (await res.json()) as { error?: string };
@@ -175,7 +214,7 @@ export default function IntegrantesPage() {
         {podeEditar && (
           <button
             type="button"
-            onClick={() => setShowForm((v) => !v)}
+            onClick={() => (showForm ? fecharFormulario() : abrirNovo())}
             className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]"
           >
             {showForm ? "Fechar formulário" : "Adicionar"}
@@ -188,7 +227,9 @@ export default function IntegrantesPage() {
           onSubmit={handleSubmit}
           className="mb-10 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-5"
         >
-          <h3 className="mb-4 text-sm font-medium text-[var(--muted)]">Novo integrante</h3>
+          <h3 className="mb-4 text-sm font-medium text-[var(--muted)]">
+            {editingId ? "Editar integrante" : "Novo integrante"}
+          </h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-xs text-[var(--muted)]">Matrícula</label>
@@ -243,17 +284,31 @@ export default function IntegrantesPage() {
                 className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
+            {editingId && isAdmin(perfilUsuario) && (
+              <div className="sm:col-span-2">
+                <label className="block text-xs text-[var(--muted)]">Perfil de acesso</label>
+                <select
+                  value={perfilIntegrante}
+                  onChange={(e) => setPerfilIntegrante(parsePerfil(e.target.value))}
+                  className="mt-1 w-full max-w-xs rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+                >
+                  <option value="basico">Básico</option>
+                  <option value="gestor">Gestor</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </div>
+            )}
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="submit"
               className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
             >
-              Guardar integrante
+              {editingId ? "Guardar alterações" : "Guardar integrante"}
             </button>
             <button
               type="button"
-              onClick={() => setShowForm(false)}
+              onClick={() => fecharFormulario()}
               className="rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm text-[var(--muted)] hover:bg-white/5"
             >
               Cancelar
@@ -318,13 +373,22 @@ export default function IntegrantesPage() {
                     </p>
                   </div>
                   {podeEditar && (
-                    <button
-                      type="button"
-                      onClick={() => void remove(r.id)}
-                      className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-700 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
-                    >
-                      Excluir
-                    </button>
+                    <div className="flex shrink-0 flex-wrap gap-2 self-start sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => abrirEdicao(r)}
+                        className="rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2 py-1.5 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--accent-muted)]/80"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void remove(r.id, r.nome?.trim() || r.email?.trim() || "este integrante")}
+                        className="rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-700 hover:bg-red-500/10 disabled:opacity-50"
+                      >
+                        Excluir
+                      </button>
+                    </div>
                   )}
                 </li>
               ))}

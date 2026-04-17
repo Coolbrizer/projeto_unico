@@ -1,8 +1,4 @@
-import {
-  equipeLinhaEhResponsavel,
-  integranteCorrespondenteAResponsavel,
-  integranteNomeMatchResponsavelAtividade,
-} from "@/lib/equipe-page-helpers";
+import { equipeLinhaEhResponsavel, integranteCorrespondenteAResponsavel } from "@/lib/equipe-page-helpers";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
 
 /**
