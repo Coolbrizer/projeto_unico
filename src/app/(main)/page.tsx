@@ -9,6 +9,11 @@ import { canEditarAtividadesIntegrantes, isAdmin } from "@/lib/auth/roles";
 import { formatarPeriodoAtividade, normalizarDataParaApi } from "@/lib/datas-atividade";
 import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
+import {
+  compararCodigoAtividade,
+  parsePartesCodigoAtividade,
+  tiposAtividadeDistintos,
+} from "@/lib/atividade-codigo";
 import type { Atividade } from "@/types/database";
 
 /** Busca em código, descrição e responsável: cada palavra deve aparecer em algum desses campos. */
@@ -36,6 +41,7 @@ export default function AtividadesPage() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [busca, setBusca] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState("");
 
   const [codigo, setCodigo] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -107,10 +113,23 @@ export default function AtividadesPage() {
     [perfil, nomeUsuario, sessionNomeCarregado]
   );
 
-  const filtradas = useMemo(
-    () => rows.filter((a) => atividadeMatchesBusca(a, busca)),
-    [rows, busca]
+  const tiposDisponiveis = useMemo(
+    () => tiposAtividadeDistintos(rows.map((a) => a.codigo)),
+    [rows]
   );
+
+  const filtradas = useMemo(() => {
+    let list = rows.filter((a) => atividadeMatchesBusca(a, busca));
+    if (filtroTipo) {
+      list = list.filter((a) => {
+        const p = parsePartesCodigoAtividade(a.codigo);
+        return p.reconhecido && p.tipo === filtroTipo;
+      });
+    }
+    return [...list].sort((a, b) =>
+      compararCodigoAtividade(a.codigo ?? "", b.codigo ?? "")
+    );
+  }, [rows, busca, filtroTipo]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -244,6 +263,21 @@ export default function AtividadesPage() {
             placeholder="Código, descrição ou responsável (várias palavras refinam a busca)"
             className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
           />
+        </div>
+        <div className="sm:w-52">
+          <label className="block text-xs text-[var(--muted)]">Tipo de atividade</label>
+          <select
+            value={filtroTipo}
+            onChange={(e) => setFiltroTipo(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+          >
+            <option value="">Todos os tipos</option>
+            {tiposDisponiveis.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
         </div>
         {podeEditar && (
           <button

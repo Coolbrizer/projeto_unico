@@ -1,3 +1,4 @@
+import { compararCodigoAtividade } from "@/lib/atividade-codigo";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
 
 export type GrupoAtividade = {
@@ -40,7 +41,7 @@ export function montarGrupos(
     if (a === "" && b === "") return 0;
     if (a === "") return 1;
     if (b === "") return -1;
-    return a.localeCompare(b, "pt-BR");
+    return compararCodigoAtividade(a, b);
   });
 
   const atividadePorCodigo = new Map<string, Atividade>();
