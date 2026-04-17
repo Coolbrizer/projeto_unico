@@ -4,6 +4,7 @@ import { getSessionFromCookies } from "@/lib/auth/getSession";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { ordenarDocumentosPorReferencia } from "@/lib/documentos-sort";
 import { parseCorpoDocumento } from "@/lib/documentos-validacao";
+import { writeAuditLog } from "@/lib/audit-log";
 import type { Documento } from "@/types/database";
 
 /** Supabase pode retornar `link` ou, em bases antigas, `url`. */
@@ -50,8 +51,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { response } = await requireGestorOuAdmin();
-  if (response) return response;
+  const auth = await requireGestorOuAdmin();
+  if (auth.response) return auth.response;
+  const session = auth.session;
 
   let body: {
     tipo_documento?: string;
@@ -98,6 +100,15 @@ export async function POST(request: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+
+  await writeAuditLog({
+    supabase,
+    action: "insert",
+    entityTable: "documentos",
+    entityId: String(data.id ?? ""),
+    session,
+    afterData: data,
+  });
 
   return NextResponse.json({ ok: true, documento: data });
 }

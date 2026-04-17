@@ -4,6 +4,7 @@ import { getSessionFromCookies } from "@/lib/auth/getSession";
 import { hashPassword } from "@/lib/auth/password";
 import { parsePerfil, type Perfil } from "@/lib/auth/roles";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
+import { writeAuditLog } from "@/lib/audit-log";
 
 const DEFAULT_PASSWORD = "123456";
 
@@ -119,6 +120,15 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+
+  await writeAuditLog({
+    supabase,
+    action: "insert",
+    entityTable: "integrantes",
+    entityId: String(data.id ?? ""),
+    session,
+    afterData: data,
+  });
 
   return NextResponse.json({
     ok: true,

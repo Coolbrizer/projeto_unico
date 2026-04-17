@@ -5,6 +5,7 @@ import { getSessionFromCookies } from "@/lib/auth/getSession";
 import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { isAdmin } from "@/lib/auth/roles";
+import { writeAuditLog } from "@/lib/audit-log";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -85,7 +86,7 @@ export async function PATCH(request: Request, ctx: Ctx) {
 
   const { data: atividadeRow, error: errAt } = await supabase
     .from("atividades")
-    .select("codigo, responsavel")
+    .select("*")
     .eq("id", id)
     .maybeSingle();
   if (errAt || !atividadeRow) {
@@ -210,12 +211,29 @@ export async function PATCH(request: Request, ctx: Ctx) {
     }
   }
 
+  await writeAuditLog({
+    supabase,
+    action: "update",
+    entityTable: "atividades",
+    entityId: id,
+    session,
+    beforeData: atividadeRow,
+    afterData: atividadeAtualizada ?? atividadeRow,
+    metadata: {
+      touched_relatorio: touchedRelatorioTabela,
+      touched_progresso: touchedProgresso,
+      touched_etiqueta: touchedEtiqueta,
+      touched_link: touchedLink,
+    },
+  });
+
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(_request: Request, ctx: Ctx) {
-  const { response } = await requireGestorOuAdmin();
-  if (response) return response;
+  const auth = await requireGestorOuAdmin();
+  if (auth.response) return auth.response;
+  const session = auth.session;
 
   const { id } = await ctx.params;
   if (!id) {
@@ -231,7 +249,7 @@ export async function DELETE(_request: Request, ctx: Ctx) {
 
   const { data: atividadeRow, error: errAtividade } = await supabase
     .from("atividades")
-    .select("codigo")
+    .select("*")
     .eq("id", id)
     .maybeSingle();
   if (errAtividade || !atividadeRow) {
@@ -254,6 +272,15 @@ export async function DELETE(_request: Request, ctx: Ctx) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+
+  await writeAuditLog({
+    supabase,
+    action: "delete",
+    entityTable: "atividades",
+    entityId: id,
+    session,
+    beforeData: atividadeRow,
+  });
 
   return NextResponse.json({ ok: true });
 }

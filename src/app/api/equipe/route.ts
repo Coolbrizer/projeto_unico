@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getSessionFromCookies } from "@/lib/auth/getSession";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export async function GET() {
   const session = await getSessionFromCookies();
@@ -26,8 +27,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { response } = await requireGestorOuAdmin();
-  if (response) return response;
+  const auth = await requireGestorOuAdmin();
+  if (auth.response) return auth.response;
+  const session = auth.session;
 
   let body: { codigo?: string; equipe?: string };
   try {
@@ -55,6 +57,15 @@ export async function POST(request: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+
+  await writeAuditLog({
+    supabase,
+    action: "insert",
+    entityTable: "equipe",
+    entityId: String(data.id ?? ""),
+    session,
+    afterData: data,
+  });
 
   return NextResponse.json({ ok: true, row: data });
 }
