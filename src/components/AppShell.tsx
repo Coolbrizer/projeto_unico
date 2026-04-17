@@ -26,6 +26,7 @@ const navAdmin = [
   { href: "/orcamento", label: "Orçamento" },
   { href: "/gestao-senhas", label: "Gestão de senhas" },
 ] as const;
+const navAuditoria = { href: "/auditoria", label: "Auditoria" } as const;
 
 const labelPerfil: Record<Perfil, string> = {
   basico: "Básico",
@@ -36,9 +37,11 @@ const labelPerfil: Record<Perfil, string> = {
 export function AppShell({
   children,
   role,
+  canViewAuditoria,
 }: {
   children: React.ReactNode;
   role: Perfil;
+  canViewAuditoria?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -49,11 +52,12 @@ export function AppShell({
     router.refresh();
   }
 
-  const navItems = isAdmin(role)
+  const navItemsBase = isAdmin(role)
     ? ([...navBase, ...navPrestacaoContas, ...navAdmin] as const)
     : role === "gestor"
       ? ([...navBase, ...navPrestacaoContas] as const)
       : ([...navBase] as const);
+  const navItems = canViewAuditoria ? [...navItemsBase, navAuditoria] : navItemsBase;
 
   return (
     <PerfilContext.Provider value={role}>
