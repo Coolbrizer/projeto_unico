@@ -14,6 +14,15 @@ function formatMoney(n: number | null) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
 }
 
+function macroDoSetor(setor: string | null | undefined): string {
+  const s = (setor ?? "").trim();
+  if (!s) return "(sem setor)";
+  const idx = s.indexOf("/");
+  if (idx < 0) return s.toUpperCase();
+  const macro = s.slice(idx + 1).trim();
+  return (macro || "(sem setor)").toUpperCase();
+}
+
 export default function OrcamentoPage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
@@ -90,6 +99,15 @@ export default function OrcamentoPage() {
     }
     return { prev, real, anyReal };
   }, [rows]);
+
+  const totalIntegrantesPorMacro = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const i of integrantes) {
+      const macro = macroDoSetor(i.setor);
+      map.set(macro, (map.get(macro) ?? 0) + 1);
+    }
+    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
+  }, [integrantes]);
 
   async function removeOrc(id: string) {
     if (!podeExcluirLancamento) return;
@@ -312,6 +330,19 @@ export default function OrcamentoPage() {
                 Total de pessoas
               </p>
               <p className="mt-1 text-2xl font-semibold text-[var(--accent)]">{integrantes.length}</p>
+              <div className="mt-3 border-t border-[var(--card-border)]/70 pt-2">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--muted)]">
+                  Por setor macro
+                </p>
+                <ul className="mt-1 space-y-0.5 text-xs text-[var(--muted)]">
+                  {totalIntegrantesPorMacro.map(([macro, total]) => (
+                    <li key={macro} className="flex items-center justify-between gap-2">
+                      <span className="truncate">{macro}</span>
+                      <span className="font-medium tabular-nums text-[var(--foreground)]">{total}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </aside>
             <div className="overflow-x-auto rounded-xl border border-[var(--card-border)]">
               <table className="w-full min-w-[480px] text-left text-sm">
