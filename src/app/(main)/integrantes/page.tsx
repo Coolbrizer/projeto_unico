@@ -254,24 +254,27 @@ export default function IntegrantesPage() {
               : "Configure o Supabase para ver os dados."}
           </p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             {filtradas.map((r) => (
               <li
                 key={r.id}
-                className="flex flex-col gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 sm:flex-row sm:items-start sm:justify-between"
+                className="flex flex-col gap-1 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div>
-                  <p className="font-medium">
+                  <p className="font-medium leading-snug">
                     <span className="text-[var(--accent)]">Mat. {r.matricula}</span>
                     {" · "}
                     {r.nome}
+                    {r.email && (
+                      <>
+                        {" · "}
+                        <span className="text-sm font-normal text-[var(--muted)]">{r.email}</span>
+                      </>
+                    )}
                   </p>
-                  <p className="mt-1 text-sm text-[var(--muted)]">
+                  <p className="text-sm text-[var(--muted)]">
                     {r.setor || "—"} · {r.cargo || "—"} · {r.classe_padrao || "—"}
                   </p>
-                  {r.email && (
-                    <p className="mt-1 text-xs text-[var(--muted)]">{r.email}</p>
-                  )}
                 </div>
                 {podeEditar && (
                   <button
