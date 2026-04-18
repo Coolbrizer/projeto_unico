@@ -7,7 +7,8 @@
     "dev:turbo": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "migrate:auth": "tsx scripts/migrate-to-auth.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
@@ -30,6 +31,7 @@
     "eslint": "^9",
     "eslint-config-next": "^15.2.4",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }
