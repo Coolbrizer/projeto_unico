@@ -1,21 +1,23 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { hashPassword, verifyPassword } from "@/lib/auth/password";
-import { parsePerfil } from "@/lib/auth/roles";
-import { SESSION_COOKIE, signSessionToken, verifySessionToken } from "@/lib/auth/session";
+import { getPublicSupabaseEnv } from "@/lib/supabase/env";
 
 export async function POST(request: Request) {
-  const jar = await cookies();
-  const raw = jar.get(SESSION_COOKIE)?.value;
-  if (!raw) {
-    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  let supabase;
+  try {
+    supabase = await createSupabaseServerClient();
+  } catch {
+    return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }
 
-  const session = await verifySessionToken(raw);
-  if (!session) {
-    return NextResponse.json({ error: "Sessão inválida." }, { status: 401 });
+  const { data: userRes, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !userRes.user) {
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   }
+  const user = userRes.user;
+  const email = (user.email ?? "").toLowerCase();
 
   let body: { currentPassword?: string; newPassword?: string };
   try {
@@ -30,55 +32,46 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Informe a senha atual e a nova senha." }, { status: 400 });
   }
 
-  let supabase;
-  try {
-    supabase = createServiceClient();
-  } catch {
+  // Validação da senha atual: usa um cliente isolado (sem cookies) para não
+  // bagunçar a sessão do usuário corrente.
+  const { url, anonKey } = getPublicSupabaseEnv();
+  if (!url || !anonKey) {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }
-
-  const { data: row, error: fetchErr } = await supabase
-    .from("integrantes")
-    .select("id,email,password_hash,perfil")
-    .eq("id", session.sub)
-    .maybeSingle();
-
-  if (fetchErr || !row?.password_hash) {
-    return NextResponse.json({ error: "Não foi possível validar a conta." }, { status: 400 });
-  }
-
-  if (!verifyPassword(currentPassword, row.password_hash)) {
+  const validator = createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { error: validateErr } = await validator.auth.signInWithPassword({
+    email,
+    password: currentPassword,
+  });
+  if (validateErr) {
     return NextResponse.json({ error: "Senha atual incorreta." }, { status: 400 });
   }
 
-  const newHash = hashPassword(newPassword);
-
-  const { error: upErr } = await supabase
-    .from("integrantes")
-    .update({ password_hash: newHash, must_change_password: false })
-    .eq("id", session.sub);
-
-  if (upErr) {
-    return NextResponse.json({ error: upErr.message }, { status: 500 });
+  const { error: updErr } = await supabase.auth.updateUser({ password: newPassword });
+  if (updErr) {
+    return NextResponse.json({ error: updErr.message }, { status: 400 });
   }
 
-  const role = parsePerfil(row.perfil as unknown);
+  // Limpa a flag must_change_password em integrantes — o trigger
+  // integrantes_sync_perfil propaga a mudança para auth.users.app_metadata.
+  try {
+    const admin = createServiceClient();
+    const integranteId =
+      typeof user.app_metadata?.integrante_id === "string"
+        ? (user.app_metadata.integrante_id as string)
+        : null;
 
-  const token = await signSessionToken({
-    sub: session.sub,
-    email: session.email,
-    mcp: false,
-    role,
-  });
+    if (integranteId) {
+      await admin
+        .from("integrantes")
+        .update({ must_change_password: false })
+        .eq("id", integranteId);
+    }
+  } catch {
+    // sem service role: a flag continua true; usuário será redirecionado de novo.
+  }
 
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
-
-  return res;
+  return NextResponse.json({ ok: true });
 }

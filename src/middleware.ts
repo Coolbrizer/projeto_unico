@@ -1,46 +1,54 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { isAdmin } from "@/lib/auth/roles";
-import type { Perfil } from "@/lib/auth/roles";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth/session";
+import { isAdmin, parsePerfil } from "@/lib/auth/roles";
+import { createSupabaseMiddlewareClient } from "@/lib/supabase/middleware";
 
 const LOGIN = "/login";
 const ALTERAR_SENHA = "/alterar-senha";
-
 const ADMIN_ONLY = ["/orcamento", "/gestao-senhas"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const { supabase, response } = createSupabaseMiddlewareClient(request);
 
-  const raw = request.cookies.get(SESSION_COOKIE)?.value;
-  const session = raw ? await verifySessionToken(raw) : null;
+  // Sem configuração do Supabase: deixa o app responder normalmente.
+  if (!supabase) return response;
+
+  const { data, error } = await supabase.auth.getUser();
+  const user = error ? null : data.user;
+
+  const meta = (user?.app_metadata ?? {}) as {
+    perfil?: unknown;
+    must_change_password?: unknown;
+  };
+  const role = parsePerfil(meta.perfil);
+  const mustChange = meta.must_change_password === true;
 
   if (pathname === LOGIN) {
-    if (session && session.mcp) {
+    if (user && mustChange) {
       return NextResponse.redirect(new URL(ALTERAR_SENHA, request.url));
     }
-    if (session && !session.mcp) {
+    if (user) {
       return NextResponse.redirect(new URL("/", request.url));
     }
-    return NextResponse.next();
+    return response;
   }
 
   if (pathname === ALTERAR_SENHA) {
-    if (!session) {
+    if (!user) {
       return NextResponse.redirect(new URL(LOGIN, request.url));
     }
-    return NextResponse.next();
+    return response;
   }
 
-  if (!session) {
+  if (!user) {
     return NextResponse.redirect(new URL(LOGIN, request.url));
   }
 
-  if (session.mcp) {
+  if (mustChange) {
     return NextResponse.redirect(new URL(ALTERAR_SENHA, request.url));
   }
 
-  const role = session.role as Perfil;
   const precisaAdmin = ADMIN_ONLY.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
   );
@@ -48,7 +56,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {

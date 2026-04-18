@@ -1,45 +1,24 @@
-import { SignJWT } from "jose/jwt/sign";
-import { jwtVerify } from "jose/jwt/verify";
 import type { Perfil } from "@/lib/auth/roles";
-import { parsePerfil } from "@/lib/auth/roles";
 
-export const SESSION_COOKIE = "app_session";
+/**
+ * Nome do cookie da sessão antiga (JWT caseiro).
+ * Mantido apenas para que o logout possa limpá-lo durante a transição.
+ */
+export const LEGACY_SESSION_COOKIE = "app_session";
 
+/**
+ * Forma da sessão usada por toda a aplicação.
+ *
+ * - `sub`: id da linha em `public.integrantes` (NÃO é o `auth.users.id`).
+ *   É preenchido a partir de `app_metadata.integrante_id`, que o trigger
+ *   `integrantes_sync_perfil` mantém atualizado.
+ * - `email`: e-mail do usuário em `auth.users`.
+ * - `mcp` (must change password): vem de `app_metadata.must_change_password`.
+ * - `role`: vem de `app_metadata.perfil`.
+ */
 export type SessionPayload = {
   sub: string;
   email: string;
-  /** must change password */
   mcp: boolean;
   role: Perfil;
 };
-
-function getSecret(): Uint8Array {
-  const raw = process.env.AUTH_SECRET?.trim();
-  if (!raw || raw.length < 16) {
-    throw new Error("AUTH_SECRET deve ter pelo menos 16 caracteres.");
-  }
-  return new TextEncoder().encode(raw);
-}
-
-export async function signSessionToken(payload: SessionPayload): Promise<string> {
-  return new SignJWT({ email: payload.email, mcp: payload.mcp, role: payload.role })
-    .setProtectedHeader({ alg: "HS256" })
-    .setSubject(payload.sub)
-    .setIssuedAt()
-    .setExpirationTime("7d")
-    .sign(getSecret());
-}
-
-export async function verifySessionToken(token: string): Promise<SessionPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, getSecret(), { algorithms: ["HS256"] });
-    const sub = typeof payload.sub === "string" ? payload.sub : "";
-    const email = typeof payload.email === "string" ? payload.email : "";
-    const mcp = payload.mcp === true;
-    const role = parsePerfil(payload.role);
-    if (!sub || !email) return null;
-    return { sub, email, mcp, role };
-  } catch {
-    return null;
-  }
-}

@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/service";
-import { verifyPassword } from "@/lib/auth/password";
-import { parsePerfil } from "@/lib/auth/roles";
-import { SESSION_COOKIE, signSessionToken } from "@/lib/auth/session";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { LEGACY_SESSION_COOKIE } from "@/lib/auth/session";
 
 export async function POST(request: Request) {
   let body: { email?: string; password?: string };
@@ -12,75 +10,47 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
   }
 
-  const emailRaw = body.email?.trim();
+  const email = body.email?.trim().toLowerCase();
   const password = body.password ?? "";
-  if (!emailRaw || !password) {
+  if (!email || !password) {
     return NextResponse.json({ error: "Informe e-mail e senha." }, { status: 400 });
   }
 
-  const email = emailRaw.toLowerCase();
-
   let supabase;
   try {
-    supabase = createServiceClient();
+    supabase = await createSupabaseServerClient();
   } catch {
     return NextResponse.json(
-      { error: "Servidor sem SUPABASE_SERVICE_ROLE_KEY. Configure no .env.local e na Vercel." },
+      { error: "Configuração do Supabase ausente. Verifique NEXT_PUBLIC_SUPABASE_URL e a chave pública." },
       { status: 500 }
     );
   }
 
-  const { data: row, error } = await supabase
-    .from("integrantes")
-    .select("id,email,nome,password_hash,must_change_password,perfil")
-    .eq("email", email)
-    .maybeSingle();
-
-  if (error || !row) {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error || !data.session || !data.user) {
     return NextResponse.json({ error: "E-mail ou senha incorretos." }, { status: 401 });
   }
 
-  if (!row.password_hash) {
-    return NextResponse.json(
-      { error: "Esta conta ainda não tem senha. Execute a migration SQL ou contacte o administrador." },
-      { status: 401 }
-    );
-  }
+  const meta = (data.user.app_metadata ?? {}) as {
+    must_change_password?: unknown;
+  };
+  const mustChange = meta.must_change_password === true;
 
-  if (!verifyPassword(password, row.password_hash)) {
-    return NextResponse.json({ error: "E-mail ou senha incorretos." }, { status: 401 });
-  }
-
-  const mustChange = row.must_change_password !== false;
-  const role = parsePerfil((row as { perfil?: unknown }).perfil);
-
-  let token: string;
-  try {
-    token = await signSessionToken({
-      sub: row.id,
-      email: row.email ?? email,
-      mcp: mustChange,
-      role,
-    });
-  } catch {
-    return NextResponse.json(
-      { error: "AUTH_SECRET inválido ou ausente. Defina uma variável com pelo menos 16 caracteres." },
-      { status: 500 }
-    );
-  }
+  const userMeta = (data.user.user_metadata ?? {}) as { nome?: unknown };
+  const nome = typeof userMeta.nome === "string" ? userMeta.nome : null;
 
   const res = NextResponse.json({
     ok: true,
     mustChangePassword: mustChange,
-    nome: row.nome,
+    nome,
   });
 
-  res.cookies.set(SESSION_COOKIE, token, {
+  res.cookies.set(LEGACY_SESSION_COOKIE, "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: 0,
   });
 
   return res;

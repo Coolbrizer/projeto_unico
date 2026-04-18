@@ -1,38 +1,32 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth/session";
-import { createServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { parsePerfil } from "@/lib/auth/roles";
 
 export async function GET() {
-  const jar = await cookies();
-  const raw = jar.get(SESSION_COOKIE)?.value;
-  if (!raw) {
-    return NextResponse.json({ user: null });
-  }
-  const session = await verifySessionToken(raw);
-  if (!session) {
+  let supabase;
+  try {
+    supabase = await createSupabaseServerClient();
+  } catch {
     return NextResponse.json({ user: null });
   }
 
-  let nome: string | null = null;
-  try {
-    const supabase = createServiceClient();
-    const { data } = await supabase
-      .from("integrantes")
-      .select("nome")
-      .eq("id", session.sub)
-      .maybeSingle();
-    nome = (data as { nome?: string } | null)?.nome?.trim() ?? null;
-  } catch {
-    // sem service client ou falha na leitura: segue sem nome
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) {
+    return NextResponse.json({ user: null });
   }
+
+  const meta = (data.user.app_metadata ?? {}) as {
+    perfil?: unknown;
+    must_change_password?: unknown;
+  };
+  const userMeta = (data.user.user_metadata ?? {}) as { nome?: unknown };
 
   return NextResponse.json({
     user: {
-      email: session.email,
-      mustChangePassword: session.mcp,
-      perfil: session.role,
-      nome,
+      email: (data.user.email ?? "").toLowerCase(),
+      mustChangePassword: meta.must_change_password === true,
+      perfil: parsePerfil(meta.perfil),
+      nome: typeof userMeta.nome === "string" ? userMeta.nome.trim() || null : null,
     },
   });
 }
