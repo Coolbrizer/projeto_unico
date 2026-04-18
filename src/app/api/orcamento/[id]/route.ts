@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/requireRole";
-import { writeAuditLog } from "@/lib/audit-log";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function DELETE(_request: Request, ctx: Ctx) {
   const auth = await requireAdmin();
   if (auth.response) return auth.response;
-  const session = auth.session;
 
   const { id } = await ctx.params;
   if (!id) {
@@ -17,26 +15,16 @@ export async function DELETE(_request: Request, ctx: Ctx) {
 
   let supabase;
   try {
-    supabase = createServiceClient();
+    supabase = await createSupabaseServerClient();
   } catch {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }
 
-  const { data: before } = await supabase.from("orcamento").select("*").eq("id", id).maybeSingle();
   const { error } = await supabase.from("orcamento").delete().eq("id", id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
-
-  await writeAuditLog({
-    supabase,
-    action: "delete",
-    entityTable: "orcamento",
-    entityId: id,
-    session,
-    beforeData: before,
-  });
 
   return NextResponse.json({ ok: true });
 }

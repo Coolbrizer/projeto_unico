@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { normalizarDataParaApi } from "@/lib/datas-atividade";
 import { createServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSessionFromCookies } from "@/lib/auth/getSession";
 import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
@@ -233,7 +234,6 @@ export async function PATCH(request: Request, ctx: Ctx) {
 export async function DELETE(_request: Request, ctx: Ctx) {
   const auth = await requireGestorOuAdmin();
   if (auth.response) return auth.response;
-  const session = auth.session;
 
   const { id } = await ctx.params;
   if (!id) {
@@ -242,7 +242,7 @@ export async function DELETE(_request: Request, ctx: Ctx) {
 
   let supabase;
   try {
-    supabase = createServiceClient();
+    supabase = await createSupabaseServerClient();
   } catch {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }
@@ -272,15 +272,6 @@ export async function DELETE(_request: Request, ctx: Ctx) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
-
-  await writeAuditLog({
-    supabase,
-    action: "delete",
-    entityTable: "atividades",
-    entityId: id,
-    session,
-    beforeData: atividadeRow,
-  });
 
   return NextResponse.json({ ok: true });
 }

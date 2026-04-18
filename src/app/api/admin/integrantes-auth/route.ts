@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdmin } from "@/lib/auth/requireRole";
+import { requireAdminMfaIfEnabled } from "@/lib/auth/requireAdminMfa";
 
 type IntegranteRow = {
   id: string;
@@ -14,6 +15,9 @@ type IntegranteRow = {
 export async function GET() {
   const { response } = await requireAdmin();
   if (response) return response;
+
+  const mfa = await requireAdminMfaIfEnabled();
+  if (mfa) return mfa;
 
   let admin;
   try {

@@ -2,12 +2,16 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { parsePerfil } from "@/lib/auth/roles";
 import { requireAdmin } from "@/lib/auth/requireRole";
+import { requireAdminMfaIfEnabled } from "@/lib/auth/requireAdminMfa";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, ctx: Ctx) {
   const { response } = await requireAdmin();
   if (response) return response;
+
+  const mfa = await requireAdminMfaIfEnabled();
+  if (mfa) return mfa;
 
   const { id } = await ctx.params;
   if (!id) {

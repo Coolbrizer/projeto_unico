@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { ordenarDocumentosPorReferencia } from "@/lib/documentos-sort";
 import { parseCorpoDocumento } from "@/lib/documentos-validacao";
-import { writeAuditLog } from "@/lib/audit-log";
 import type { Documento } from "@/types/database";
 
 /** Supabase pode retornar `link` ou, em bases antigas, `url`. */
@@ -45,7 +44,6 @@ export async function GET() {
 export async function POST(request: Request) {
   const auth = await requireGestorOuAdmin();
   if (auth.response) return auth.response;
-  const session = auth.session;
 
   let body: {
     tipo_documento?: string;
@@ -70,7 +68,7 @@ export async function POST(request: Request) {
 
   let supabase;
   try {
-    supabase = createServiceClient();
+    supabase = await createSupabaseServerClient();
   } catch {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }
@@ -92,15 +90,6 @@ export async function POST(request: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
-
-  await writeAuditLog({
-    supabase,
-    action: "insert",
-    entityTable: "documentos",
-    entityId: String(data.id ?? ""),
-    session,
-    afterData: data,
-  });
 
   return NextResponse.json({ ok: true, documento: data });
 }

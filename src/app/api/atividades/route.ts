@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { normalizarDataParaApi } from "@/lib/datas-atividade";
-import { createServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
-import { writeAuditLog } from "@/lib/audit-log";
 import type { Atividade } from "@/types/database";
 
 type EtiquetaRelatorioRow = {
@@ -61,7 +60,6 @@ export async function GET() {
 export async function POST(request: Request) {
   const auth = await requireGestorOuAdmin();
   if (auth.response) return auth.response;
-  const session = auth.session;
 
   let body: {
     codigo?: string;
@@ -79,7 +77,7 @@ export async function POST(request: Request) {
 
   let supabase;
   try {
-    supabase = createServiceClient();
+    supabase = await createSupabaseServerClient();
   } catch {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }
@@ -111,16 +109,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: relatorioError.message }, { status: 400 });
     }
   }
-
-  await writeAuditLog({
-    supabase,
-    action: "insert",
-    entityTable: "atividades",
-    entityId: String(data.id ?? ""),
-    session,
-    afterData: data,
-    metadata: { progresso },
-  });
 
   return NextResponse.json({ ok: true, atividade: data });
 }

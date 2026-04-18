@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdmin } from "@/lib/auth/requireRole";
+import { requireAdminMfaIfEnabled } from "@/lib/auth/requireAdminMfa";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -9,6 +10,9 @@ const DEFAULT_RESET = "123456";
 export async function POST(_request: Request, ctx: Ctx) {
   const { response } = await requireAdmin();
   if (response) return response;
+
+  const mfa = await requireAdminMfaIfEnabled();
+  if (mfa) return mfa;
 
   const { id } = await ctx.params;
   if (!id) {

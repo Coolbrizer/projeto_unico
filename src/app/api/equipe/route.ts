@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
-import { writeAuditLog } from "@/lib/audit-log";
 
 export async function GET() {
   const auth = await requireAuthedSupabase();
@@ -21,7 +20,6 @@ export async function GET() {
 export async function POST(request: Request) {
   const auth = await requireGestorOuAdmin();
   if (auth.response) return auth.response;
-  const session = auth.session;
 
   let body: { codigo?: string; equipe?: string };
   try {
@@ -32,7 +30,7 @@ export async function POST(request: Request) {
 
   let supabase;
   try {
-    supabase = createServiceClient();
+    supabase = await createSupabaseServerClient();
   } catch {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }
@@ -49,15 +47,6 @@ export async function POST(request: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
-
-  await writeAuditLog({
-    supabase,
-    action: "insert",
-    entityTable: "equipe",
-    entityId: String(data.id ?? ""),
-    session,
-    afterData: data,
-  });
 
   return NextResponse.json({ ok: true, row: data });
 }

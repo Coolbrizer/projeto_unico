@@ -1,24 +1,18 @@
 /* eslint-disable no-console */
 /**
- * Fase 2 da migração para Supabase Auth.
+ * Associação de `integrantes.auth_user_id` quando já existe utilizador em
+ * `auth.users` com o mesmo e-mail (Idempotente).
  *
- * Cria um usuário em `auth.users` para cada linha de `public.integrantes` que
- * ainda não tenha `auth_user_id` preenchido. Reaproveita o hash bcrypt já
- * existente em `password_hash` (Supabase aceita via Admin API), portanto os
- * usuários NÃO precisam redefinir a senha — eles continuam logando com a
- * mesma credencial atual após o switch para `signInWithPassword` (Fase 4).
+ * Este fluxo cobre projetos **após a Fase 7** (sem colunas `password_hash` /
+ * `must_change_password`). A criação em massa de contas com hash legado foi
+ * descontinuada — use o painel Supabase Auth ou a Admin API para criar
+ * utilizadores e corre novamente este script ou associe manualmente.
  *
  * Como rodar:
- *   1) Garanta que SUPABASE_SERVICE_ROLE_KEY e NEXT_PUBLIC_SUPABASE_URL
- *      estão definidos (em .env.local ou exportados no shell).
+ *   1) SUPABASE_SERVICE_ROLE_KEY e NEXT_PUBLIC_SUPABASE_URL definidos.
  *   2) npm run migrate:auth
  *
- * Características:
- *   - Idempotente: só processa quem ainda não tem auth_user_id; pode rodar
- *     quantas vezes quiser sem efeito colateral.
- *   - Tolerante a falhas: registra erro por usuário, segue adiante e mostra
- *     um sumário no final.
- *   - Dry-run: defina DRY_RUN=1 para apenas listar o que seria feito.
+ *   DRY_RUN=1 — apenas lista o que seria vinculado.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -28,8 +22,6 @@ type IntegranteRow = {
   email: string | null;
   nome: string | null;
   perfil: string | null;
-  password_hash: string | null;
-  must_change_password: boolean | null;
   auth_user_id: string | null;
 };
 
@@ -49,7 +41,6 @@ const admin = createClient(URL, SERVICE_KEY, {
 });
 
 async function findExistingAuthUserByEmail(email: string): Promise<string | null> {
-  // Admin API não tem busca direta por email; paginar até achar (poucos usuários).
   let page = 1;
   const perPage = 200;
   for (;;) {
@@ -67,7 +58,7 @@ async function findExistingAuthUserByEmail(email: string): Promise<string | null
 async function main() {
   const { data, error } = await admin
     .from("integrantes")
-    .select("id,email,nome,perfil,password_hash,must_change_password,auth_user_id")
+    .select("id,email,nome,perfil,auth_user_id")
     .is("auth_user_id", null);
 
   if (error) {
@@ -76,12 +67,11 @@ async function main() {
   }
 
   const rows = (data ?? []) as IntegranteRow[];
-  console.log(`Integrantes pendentes: ${rows.length}${DRY_RUN ? " (DRY-RUN)" : ""}`);
+  console.log(`Integrantes sem auth_user_id: ${rows.length}${DRY_RUN ? " (DRY-RUN)" : ""}`);
 
-  let criados = 0;
   let vinculados = 0;
-  let semSenha = 0;
   let semEmail = 0;
+  let semAuthUser = 0;
   let falhas = 0;
 
   for (const row of rows) {
@@ -91,51 +81,25 @@ async function main() {
       console.warn(`SKIP id=${row.id} sem e-mail`);
       continue;
     }
-    if (!row.password_hash) {
-      semSenha += 1;
-      console.warn(`SKIP ${email} sem password_hash`);
+
+    const existingId = await findExistingAuthUserByEmail(email);
+    if (!existingId) {
+      semAuthUser += 1;
+      console.warn(
+        `SKIP ${email}: não existe utilizador em auth.users — crie no painel ou Admin API e volte a correr o script.`
+      );
       continue;
     }
 
     if (DRY_RUN) {
-      console.log(`DRY: criaria/vincularia ${email} (perfil=${row.perfil})`);
+      console.log(`DRY: vincularia ${email} -> auth.users.id=${existingId}`);
       continue;
     }
 
     try {
-      let authUserId: string | null = null;
-
-      const { data: created, error: createErr } = await admin.auth.admin.createUser({
-        email,
-        password_hash: row.password_hash,
-        email_confirm: true,
-        user_metadata: { nome: row.nome ?? "" },
-        app_metadata: {
-          perfil: row.perfil ?? "basico",
-          integrante_id: row.id,
-          must_change_password: row.must_change_password ?? false,
-        },
-      });
-
-      if (createErr) {
-        // Provavelmente o usuário já existe em auth.users (criado em tentativa anterior
-        // que falhou no UPDATE da tabela integrantes). Tenta localizar e só vincular.
-        const existingId = await findExistingAuthUserByEmail(email);
-        if (!existingId) {
-          falhas += 1;
-          console.error(`FAIL ${email}: ${createErr.message}`);
-          continue;
-        }
-        authUserId = existingId;
-        vinculados += 1;
-      } else {
-        authUserId = created.user.id;
-        criados += 1;
-      }
-
       const { error: updErr } = await admin
         .from("integrantes")
-        .update({ auth_user_id: authUserId })
+        .update({ auth_user_id: existingId })
         .eq("id", row.id);
 
       if (updErr) {
@@ -144,23 +108,20 @@ async function main() {
         continue;
       }
 
-      console.log(`OK ${email} -> ${authUserId}`);
+      vinculados += 1;
+      console.log(`OK ${email} -> ${existingId}`);
     } catch (err) {
       falhas += 1;
-      console.error(
-        `FAIL ${email}:`,
-        err instanceof Error ? err.message : String(err)
-      );
+      console.error(`FAIL ${email}:`, err instanceof Error ? err.message : String(err));
     }
   }
 
   console.log("\n===== Resumo =====");
-  console.log(`Criados em auth.users:  ${criados}`);
-  console.log(`Apenas vinculados:      ${vinculados}`);
-  console.log(`Sem e-mail (skip):      ${semEmail}`);
-  console.log(`Sem password_hash:      ${semSenha}`);
-  console.log(`Falhas:                 ${falhas}`);
-  console.log(`Total processado:       ${rows.length}`);
+  console.log(`Vinculados (auth já existia): ${vinculados}`);
+  console.log(`Sem e-mail (skip):           ${semEmail}`);
+  console.log(`Sem utilizador em Auth:      ${semAuthUser}`);
+  console.log(`Falhas:                      ${falhas}`);
+  console.log(`Total analisados:            ${rows.length}`);
 }
 
 main().catch((err) => {

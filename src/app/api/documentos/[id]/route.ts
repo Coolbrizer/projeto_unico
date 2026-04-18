@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { parseCorpoDocumento } from "@/lib/documentos-validacao";
-import { writeAuditLog } from "@/lib/audit-log";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, ctx: Ctx) {
   const auth = await requireGestorOuAdmin();
   if (auth.response) return auth.response;
-  const session = auth.session;
 
   const { id } = await ctx.params;
   if (!id) {
@@ -39,12 +37,10 @@ export async function PATCH(request: Request, ctx: Ctx) {
 
   let supabase;
   try {
-    supabase = createServiceClient();
+    supabase = await createSupabaseServerClient();
   } catch {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }
-
-  const { data: before } = await supabase.from("documentos").select("*").eq("id", id).maybeSingle();
 
   const { data, error } = await supabase
     .from("documentos")
@@ -64,23 +60,12 @@ export async function PATCH(request: Request, ctx: Ctx) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  await writeAuditLog({
-    supabase,
-    action: "update",
-    entityTable: "documentos",
-    entityId: id,
-    session,
-    beforeData: before,
-    afterData: data,
-  });
-
   return NextResponse.json({ ok: true, documento: data });
 }
 
 export async function DELETE(_request: Request, ctx: Ctx) {
   const auth = await requireGestorOuAdmin();
   if (auth.response) return auth.response;
-  const session = auth.session;
 
   const { id } = await ctx.params;
   if (!id) {
@@ -89,26 +74,16 @@ export async function DELETE(_request: Request, ctx: Ctx) {
 
   let supabase;
   try {
-    supabase = createServiceClient();
+    supabase = await createSupabaseServerClient();
   } catch {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }
 
-  const { data: before } = await supabase.from("documentos").select("*").eq("id", id).maybeSingle();
   const { error } = await supabase.from("documentos").delete().eq("id", id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
-
-  await writeAuditLog({
-    supabase,
-    action: "delete",
-    entityTable: "documentos",
-    entityId: id,
-    session,
-    beforeData: before,
-  });
 
   return NextResponse.json({ ok: true });
 }

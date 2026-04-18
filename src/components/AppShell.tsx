@@ -25,6 +25,7 @@ const navPrestacaoContas = [{ href: "/prestacao-contas", label: "Prestação de 
 const navAdmin = [
   { href: "/orcamento", label: "Orçamento" },
   { href: "/gestao-senhas", label: "Gestão de senhas" },
+  { href: "/configurar-mfa", label: "MFA" },
 ] as const;
 const navAuditoria = { href: "/auditoria", label: "Auditoria" } as const;
 
