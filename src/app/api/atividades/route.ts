@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { normalizarDataParaApi } from "@/lib/datas-atividade";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
-import { getSessionFromCookies } from "@/lib/auth/getSession";
+import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
 import { writeAuditLog } from "@/lib/audit-log";
 import type { Atividade } from "@/types/database";
 
@@ -25,17 +25,9 @@ function normalizarProgresso(valor: unknown): number {
 }
 
 export async function GET() {
-  const session = await getSessionFromCookies();
-  if (!session) {
-    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
-  }
-
-  let supabase;
-  try {
-    supabase = createServiceClient();
-  } catch {
-    return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
-  }
+  const auth = await requireAuthedSupabase();
+  if (auth.response) return auth.response;
+  const { supabase } = auth;
 
   const [atividadesResult, relatorioResult] = await Promise.all([
     supabase.from("atividades").select("*").order("created_at", { ascending: false }),

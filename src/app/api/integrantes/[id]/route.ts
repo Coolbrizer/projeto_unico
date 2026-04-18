@@ -94,6 +94,26 @@ export async function PATCH(request: Request, ctx: Ctx) {
     patch.perfil = perfilNovo;
   }
 
+  // Se o e-mail mudou e há vínculo com auth.users, sincroniza primeiro lá.
+  // Se falhar, abortamos o update do integrante para evitar inconsistência.
+  const beforeRow = before as { email?: string | null; auth_user_id?: string | null };
+  const emailMudou = (beforeRow.email ?? "").toLowerCase() !== email;
+  if (emailMudou && beforeRow.auth_user_id) {
+    const { error: authErr } = await supabase.auth.admin.updateUserById(
+      beforeRow.auth_user_id,
+      { email, email_confirm: true }
+    );
+    if (authErr) {
+      if (authErr.message.toLowerCase().includes("already")) {
+        return NextResponse.json(
+          { error: "Já existe usuário no Supabase Auth com este e-mail." },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json({ error: authErr.message }, { status: 400 });
+    }
+  }
+
   const { data, error } = await supabase
     .from("integrantes")
     .update(patch)
@@ -102,6 +122,13 @@ export async function PATCH(request: Request, ctx: Ctx) {
     .single();
 
   if (error) {
+    // Rollback do email no auth.users se já tinha sido alterado.
+    if (emailMudou && beforeRow.auth_user_id && beforeRow.email) {
+      await supabase.auth.admin.updateUserById(beforeRow.auth_user_id, {
+        email: beforeRow.email,
+        email_confirm: true,
+      });
+    }
     if (error.code === "23505" || error.message.includes("duplicate") || error.message.includes("unique")) {
       return NextResponse.json(
         { error: "Já existe integrante com este e-mail. E-mails devem ser únicos para login." },
@@ -146,6 +173,16 @@ export async function DELETE(_request: Request, ctx: Ctx) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  // Remove o usuário correspondente em auth.users (se houver vínculo).
+  // Falhas aqui são apenas logadas — o registro principal já foi removido.
+  const beforeRow = before as { auth_user_id?: string | null } | null;
+  if (beforeRow?.auth_user_id) {
+    const { error: authErr } = await supabase.auth.admin.deleteUser(beforeRow.auth_user_id);
+    if (authErr) {
+      console.error("Falha ao remover usuário do Supabase Auth:", authErr.message);
+    }
   }
 
   await writeAuditLog({

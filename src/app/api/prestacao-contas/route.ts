@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { integranteCorrespondenteAResponsavel } from "@/lib/equipe-page-helpers";
 import { textoEquipeParticipantes } from "@/lib/prestacao-contas-equipe";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
-import { createServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Atividade, Documento, Equipe, Integrante } from "@/types/database";
 
 const UUID_RE =
@@ -55,7 +55,7 @@ export async function GET(request: Request) {
 
   let supabase;
   try {
-    supabase = createServiceClient();
+    supabase = await createSupabaseServerClient();
   } catch {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }

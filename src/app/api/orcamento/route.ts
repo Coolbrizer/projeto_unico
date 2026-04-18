@@ -1,20 +1,11 @@
 import { NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/service";
-import { getSessionFromCookies } from "@/lib/auth/getSession";
+import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
 
-/** Dados agregados para a tela Orçamento (service role, sessão obrigatória). */
+/** Dados agregados para a tela Orçamento. */
 export async function GET() {
-  const session = await getSessionFromCookies();
-  if (!session) {
-    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
-  }
-
-  let supabase;
-  try {
-    supabase = createServiceClient();
-  } catch {
-    return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
-  }
+  const auth = await requireAuthedSupabase();
+  if (auth.response) return auth.response;
+  const { supabase } = auth;
 
   const [o, i, r] = await Promise.all([
     supabase.from("orcamento").select("*").order("created_at", { ascending: false }),

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { getSessionFromCookies } from "@/lib/auth/getSession";
+import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
 import { hashPassword } from "@/lib/auth/password";
 import { parsePerfil, type Perfil } from "@/lib/auth/roles";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
@@ -9,17 +9,9 @@ import { writeAuditLog } from "@/lib/audit-log";
 const DEFAULT_PASSWORD = "123456";
 
 export async function GET() {
-  const session = await getSessionFromCookies();
-  if (!session) {
-    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
-  }
-
-  let supabase;
-  try {
-    supabase = createServiceClient();
-  } catch {
-    return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
-  }
+  const auth = await requireAuthedSupabase();
+  if (auth.response) return auth.response;
+  const { supabase } = auth;
 
   const { data, error } = await supabase
     .from("integrantes")
@@ -85,17 +77,45 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Informe uma matrícula numérica inteira válida." }, { status: 400 });
   }
 
-  let supabase;
+  let admin;
   try {
-    supabase = createServiceClient();
+    admin = createServiceClient();
   } catch {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }
 
-  const password_hash = hashPassword(DEFAULT_PASSWORD);
   const must_change_password = true;
+  const password_hash = hashPassword(DEFAULT_PASSWORD);
 
-  const { data, error } = await supabase
+  // 1) Criar primeiro em auth.users (Admin API).
+  const { data: authCreated, error: authErr } = await admin.auth.admin.createUser({
+    email,
+    password: DEFAULT_PASSWORD,
+    email_confirm: true,
+    user_metadata: { nome },
+    app_metadata: {
+      perfil: perfilNovo,
+      must_change_password,
+    },
+  });
+
+  if (authErr || !authCreated.user) {
+    if (authErr?.message?.toLowerCase().includes("already")) {
+      return NextResponse.json(
+        { error: "Já existe usuário no Supabase Auth com este e-mail." },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json(
+      { error: authErr?.message ?? "Falha ao criar usuário no Supabase Auth." },
+      { status: 400 }
+    );
+  }
+
+  // 2) Inserir na tabela integrantes vinculando ao auth.users via auth_user_id.
+  //    O trigger integrantes_sync_perfil propaga perfil/must_change_password
+  //    para auth.users.app_metadata automaticamente.
+  const { data, error } = await admin
     .from("integrantes")
     .insert({
       matricula: m,
@@ -107,11 +127,15 @@ export async function POST(request: Request) {
       password_hash,
       must_change_password,
       perfil: perfilNovo,
+      auth_user_id: authCreated.user.id,
     })
     .select("id, matricula, nome, setor, cargo, classe_padrao, email, perfil, created_at")
     .single();
 
   if (error) {
+    // Rollback: remove o usuário criado em auth.users para manter coerência.
+    await admin.auth.admin.deleteUser(authCreated.user.id);
+
     if (error.code === "23505" || error.message.includes("duplicate") || error.message.includes("unique")) {
       return NextResponse.json(
         { error: "Já existe integrante com este e-mail. E-mails devem ser únicos para login." },
@@ -122,7 +146,7 @@ export async function POST(request: Request) {
   }
 
   await writeAuditLog({
-    supabase,
+    supabase: admin,
     action: "insert",
     entityTable: "integrantes",
     entityId: String(data.id ?? ""),

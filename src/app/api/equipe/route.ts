@@ -1,21 +1,13 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { getSessionFromCookies } from "@/lib/auth/getSession";
+import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { writeAuditLog } from "@/lib/audit-log";
 
 export async function GET() {
-  const session = await getSessionFromCookies();
-  if (!session) {
-    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
-  }
-
-  let supabase;
-  try {
-    supabase = createServiceClient();
-  } catch {
-    return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
-  }
+  const auth = await requireAuthedSupabase();
+  if (auth.response) return auth.response;
+  const { supabase } = auth;
 
   const { data, error } = await supabase.from("equipe").select("*").order("created_at", { ascending: false });
 
