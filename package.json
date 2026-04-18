@@ -13,8 +13,6 @@
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.102.1",
-    "bcryptjs": "^3.0.3",
-    "jose": "^6.2.2",
     "jspdf": "^2.5.2",
     "jspdf-autotable": "^3.8.4",
     "next": "^15.2.4",
@@ -24,7 +22,6 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
-    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

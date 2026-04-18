@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { LEGACY_SESSION_COOKIE } from "@/lib/auth/session";
 
 export async function POST(request: Request) {
   let body: { email?: string; password?: string };
@@ -39,19 +38,9 @@ export async function POST(request: Request) {
   const userMeta = (data.user.user_metadata ?? {}) as { nome?: unknown };
   const nome = typeof userMeta.nome === "string" ? userMeta.nome : null;
 
-  const res = NextResponse.json({
+  return NextResponse.json({
     ok: true,
     mustChangePassword: mustChange,
     nome,
   });
-
-  res.cookies.set(LEGACY_SESSION_COOKIE, "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 0,
-  });
-
-  return res;
 }

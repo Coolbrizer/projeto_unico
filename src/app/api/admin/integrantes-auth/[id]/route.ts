@@ -38,7 +38,7 @@ export async function PATCH(request: Request, ctx: Ctx) {
     .from("integrantes")
     .update({ perfil })
     .eq("id", id)
-    .select("id, matricula, nome, email, perfil, must_change_password")
+    .select("id, matricula, nome, email, perfil")
     .single();
 
   if (error) {

@@ -54,21 +54,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: updErr.message }, { status: 400 });
   }
 
-  // Limpa a flag must_change_password em integrantes — o trigger
-  // integrantes_sync_perfil propaga a mudança para auth.users.app_metadata.
+  // Limpa a flag must_change_password no app_metadata (fonte de verdade
+  // após a Fase 7) preservando os demais campos.
   try {
     const admin = createServiceClient();
-    const integranteId =
-      typeof user.app_metadata?.integrante_id === "string"
-        ? (user.app_metadata.integrante_id as string)
-        : null;
-
-    if (integranteId) {
-      await admin
-        .from("integrantes")
-        .update({ must_change_password: false })
-        .eq("id", integranteId);
-    }
+    const currentMeta = (user.app_metadata ?? {}) as Record<string, unknown>;
+    await admin.auth.admin.updateUserById(user.id, {
+      app_metadata: { ...currentMeta, must_change_password: false },
+    });
   } catch {
     // sem service role: a flag continua true; usuário será redirecionado de novo.
   }

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
-import { hashPassword } from "@/lib/auth/password";
 import { parsePerfil, type Perfil } from "@/lib/auth/roles";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { writeAuditLog } from "@/lib/audit-log";
@@ -84,10 +83,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }
 
-  const must_change_password = true;
-  const password_hash = hashPassword(DEFAULT_PASSWORD);
-
-  // 1) Criar primeiro em auth.users (Admin API).
+  // 1) Criar primeiro em auth.users (Admin API). O campo
+  //    must_change_password vive somente em app_metadata após a Fase 7.
   const { data: authCreated, error: authErr } = await admin.auth.admin.createUser({
     email,
     password: DEFAULT_PASSWORD,
@@ -95,7 +92,7 @@ export async function POST(request: Request) {
     user_metadata: { nome },
     app_metadata: {
       perfil: perfilNovo,
-      must_change_password,
+      must_change_password: true,
     },
   });
 
@@ -113,8 +110,8 @@ export async function POST(request: Request) {
   }
 
   // 2) Inserir na tabela integrantes vinculando ao auth.users via auth_user_id.
-  //    O trigger integrantes_sync_perfil propaga perfil/must_change_password
-  //    para auth.users.app_metadata automaticamente.
+  //    O trigger integrantes_sync_perfil propaga perfil/integrante_id para
+  //    auth.users.app_metadata automaticamente.
   const { data, error } = await admin
     .from("integrantes")
     .insert({
@@ -124,8 +121,6 @@ export async function POST(request: Request) {
       cargo: body.cargo?.trim() || null,
       classe_padrao: body.classe_padrao?.trim() || null,
       email,
-      password_hash,
-      must_change_password,
       perfil: perfilNovo,
       auth_user_id: authCreated.user.id,
     })

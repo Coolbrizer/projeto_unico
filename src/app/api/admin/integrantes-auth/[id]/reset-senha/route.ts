@@ -39,21 +39,25 @@ export async function POST(_request: Request, ctx: Ctx) {
     );
   }
 
-  const { error: pwdErr } = await admin.auth.admin.updateUserById(integrante.auth_user_id, {
-    password: DEFAULT_RESET,
-  });
-  if (pwdErr) {
-    return NextResponse.json({ error: pwdErr.message }, { status: 400 });
+  // Lê o app_metadata atual para preservar perfil/integrante_id ao gravar
+  // a flag must_change_password=true.
+  const { data: authUser, error: getErr } = await admin.auth.admin.getUserById(
+    integrante.auth_user_id
+  );
+  if (getErr || !authUser?.user) {
+    return NextResponse.json(
+      { error: getErr?.message ?? "Usuário Auth não encontrado." },
+      { status: 400 }
+    );
   }
+  const currentMeta = (authUser.user.app_metadata ?? {}) as Record<string, unknown>;
 
-  // Marca must_change_password=true em integrantes; o trigger propaga ao app_metadata.
-  const { error: flagErr } = await admin
-    .from("integrantes")
-    .update({ must_change_password: true })
-    .eq("id", id);
-
-  if (flagErr) {
-    return NextResponse.json({ error: flagErr.message }, { status: 400 });
+  const { error: updErr } = await admin.auth.admin.updateUserById(integrante.auth_user_id, {
+    password: DEFAULT_RESET,
+    app_metadata: { ...currentMeta, must_change_password: true },
+  });
+  if (updErr) {
+    return NextResponse.json({ error: updErr.message }, { status: 400 });
   }
 
   return NextResponse.json({

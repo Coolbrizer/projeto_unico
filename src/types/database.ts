@@ -31,10 +31,10 @@ export type Integrante = {
   classe_padrao: string | null;
   email: string | null;
   perfil?: PerfilIntegrante | null;
-  /** Não expor ao cliente; ausente nas queries da UI. */
-  password_hash?: string | null;
-  must_change_password?: boolean | null;
+  /** Vínculo 1:1 com auth.users(id); preenchido pelo POST /api/integrantes. */
+  auth_user_id?: string | null;
   created_at: string;
+  updated_at?: string;
 };
 
 export type RefPgto = {
