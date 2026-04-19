@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getPublicSupabaseEnv } from "@/lib/supabase/env";
+
+/** Por utilizador autenticado + IP — evita força bruta na validação da senha atual. */
+const CHPWD_LIMIT = 12;
+const CHPWD_WINDOW_MS = 60_000;
 
 export async function POST(request: Request) {
   let supabase;
@@ -18,6 +23,22 @@ export async function POST(request: Request) {
   }
   const user = userRes.user;
   const email = (user.email ?? "").toLowerCase();
+
+  const ip = clientIp(request);
+  const rl = checkRateLimit(
+    `auth:change-password:${user.id}:${ip}`,
+    CHPWD_LIMIT,
+    CHPWD_WINDOW_MS
+  );
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Demasiados pedidos. Aguarde e tente novamente." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rl.retryAfterSec) },
+      }
+    );
+  }
 
   let body: { currentPassword?: string; newPassword?: string };
   try {

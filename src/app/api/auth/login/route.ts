@@ -1,7 +1,24 @@
 import { NextResponse } from "next/server";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+/** ~30 tentativas por IP e minuto (ajuste conforme necessidade). */
+const LOGIN_LIMIT = 30;
+const LOGIN_WINDOW_MS = 60_000;
+
 export async function POST(request: Request) {
+  const ip = clientIp(request);
+  const rl = checkRateLimit(`auth:login:${ip}`, LOGIN_LIMIT, LOGIN_WINDOW_MS);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Demasiados pedidos de login. Aguarde e tente novamente." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rl.retryAfterSec) },
+      }
+    );
+  }
+
   let body: { email?: string; password?: string };
   try {
     body = (await request.json()) as { email?: string; password?: string };

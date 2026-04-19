@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth/requireRole";
 import { readSupabaseEnvFromProcess } from "@/lib/supabase/env";
 
 function parseEnvKeysOnly(filePath: string): string[] {
@@ -21,8 +22,18 @@ function parseEnvKeysOnly(filePath: string): string[] {
   }
 }
 
-/** Diagnóstico sem expor segredos. Em desenvolvimento inclui pasta de trabalho e se .env.local existe. */
-export function GET() {
+/**
+ * Diagnóstico sem expor segredos. Só disponível em desenvolvimento e só para
+ * administrador autenticado. Em produção responde 404.
+ */
+export async function GET() {
+  if (process.env.NODE_ENV === "production") {
+    return new NextResponse(null, { status: 404 });
+  }
+
+  const auth = await requireAdmin();
+  if (auth.response) return auth.response;
+
   const { hasUrl, hasKey } = readSupabaseEnvFromProcess();
   const isDev = process.env.NODE_ENV === "development";
 

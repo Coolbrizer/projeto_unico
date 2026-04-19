@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdmin } from "@/lib/auth/requireRole";
 import { requireAdminMfaIfEnabled } from "@/lib/auth/requireAdminMfa";
@@ -7,12 +8,28 @@ type Ctx = { params: Promise<{ id: string }> };
 
 const DEFAULT_RESET = "123456";
 
-export async function POST(_request: Request, ctx: Ctx) {
+/** Redefinições em massa por admin: limite por IP (por hora). */
+const RESET_LIMIT = 40;
+const RESET_WINDOW_MS = 3_600_000;
+
+export async function POST(request: Request, ctx: Ctx) {
   const { response } = await requireAdmin();
   if (response) return response;
 
   const mfa = await requireAdminMfaIfEnabled();
   if (mfa) return mfa;
+
+  const ip = clientIp(request);
+  const rl = checkRateLimit(`admin:reset-senha:${ip}`, RESET_LIMIT, RESET_WINDOW_MS);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Demasiados pedidos de redefinição. Tente mais tarde." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rl.retryAfterSec) },
+      }
+    );
+  }
 
   const { id } = await ctx.params;
   if (!id) {

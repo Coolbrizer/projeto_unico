@@ -1,3 +1,18 @@
+-- =============================================================================
+-- ESQUEMA BASE (referência para novo ambiente / reprodução).
+--
+-- O estado completo e atual da BD é composto por ESTE ficheiro +
+-- as migrações incrementais em supabase/migration_*.sql e migration_auth_*.sql
+-- (por ordem de execução). Em projetos já em produção, NÃO volte a aplicar
+-- este script inteiro sem backup — use apenas migrações novas.
+--
+-- Senhas residem em auth.users (Supabase Auth); não existem colunas de senha em
+-- public.integrantes (ver migration_auth_phase7_drop_legacy_columns.sql).
+--
+-- As políticas abaixo são "anon_all" permissivas; as políticas restringidas por
+-- perfil estão em migration_auth_phase5_restrict_rls_main.sql.
+-- =============================================================================
+
 -- Execute no SQL Editor do Supabase.
 -- ATENÇÃO: o bloco abaixo remove e recria atividades, equipe e integrantes (dados antigos serão perdidos).
 -- Orçamento e Documentos são mantidos se já existirem.
@@ -31,7 +46,7 @@ create table public.equipe (
   created_at timestamptz not null default now()
 );
 
--- Integrantes: Matrícula (inteiro grande), Nome, Setor, Cargo, Classe/Padrão, E-mail, senha (bcrypt)
+-- Integrantes: vínculo opcional 1:1 com auth.users; autenticação via Supabase Auth.
 create table public.integrantes (
   id uuid primary key default gen_random_uuid(),
   matricula bigint not null,
@@ -40,8 +55,7 @@ create table public.integrantes (
   cargo text,
   classe_padrao text,
   email text,
-  password_hash text,
-  must_change_password boolean not null default true,
+  auth_user_id uuid unique references auth.users (id) on delete set null,
   perfil text not null default 'basico' check (perfil in ('basico', 'gestor', 'admin')),
   created_at timestamptz not null default now()
 );
