@@ -7,7 +7,6 @@ import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpe
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { isAdmin } from "@/lib/auth/roles";
 import { writeAuditLog } from "@/lib/audit-log";
-import { isUuidString } from "@/lib/uuid";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -40,8 +39,7 @@ function patchTouchesCamposGestor(body: Record<string, unknown>): boolean {
     "descricao" in body ||
     "responsavel" in body ||
     "inicio" in body ||
-    "fim" in body ||
-    "instrucao_servico" in body
+    "fim" in body
   );
 }
 
@@ -135,21 +133,6 @@ export async function PATCH(request: Request, ctx: Ctx) {
       raw === null || raw === undefined || String(raw).trim() === ""
         ? null
         : normalizarDataParaApi(String(raw));
-  }
-  if ("instrucao_servico" in body) {
-    const raw = body.instrucao_servico;
-    const sid =
-      raw === null || raw === undefined ? "" : String(raw).trim();
-    if (!sid) {
-      return NextResponse.json(
-        { error: "A Instrução de Serviço não pode ser removida." },
-        { status: 400 }
-      );
-    }
-    if (!isUuidString(sid)) {
-      return NextResponse.json({ error: "instrucao_servico inválida (UUID esperado)." }, { status: 400 });
-    }
-    patch.instrucao_servico = sid;
   }
   const hasAtividadePatch = Object.keys(patch).length > 0;
   let atividadeAtualizada: Record<string, unknown> | null = null;

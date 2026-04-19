@@ -65,6 +65,8 @@ export default function AtividadesPage() {
   const [filtroTipo, setFiltroTipo] = useState("");
   const [documentosIs, setDocumentosIs] = useState<Documento[]>([]);
   const [instrucaoServicoId, setInstrucaoServicoId] = useState("");
+  /** Vazio = mostrar todas as IS; UUID = só atividades dessa IS. */
+  const [filtroInstrucaoId, setFiltroInstrucaoId] = useState("");
 
   const [codigo, setCodigo] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -163,8 +165,20 @@ export default function AtividadesPage() {
     [documentosIs]
   );
 
+  const contagensPorIs = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of rows) {
+      const id = a.instrucao_servico;
+      m.set(id, (m.get(id) ?? 0) + 1);
+    }
+    return m;
+  }, [rows]);
+
   const filtradas = useMemo(() => {
     let list = rows.filter((a) => atividadeMatchesBusca(a, busca));
+    if (filtroInstrucaoId) {
+      list = list.filter((a) => a.instrucao_servico === filtroInstrucaoId);
+    }
     if (filtroTipo) {
       list = list.filter((a) => {
         const p = parsePartesCodigoAtividade(a.codigo);
@@ -174,7 +188,7 @@ export default function AtividadesPage() {
     return [...list].sort((a, b) =>
       compararCodigoAtividade(a.codigo ?? "", b.codigo ?? "")
     );
-  }, [rows, busca, filtroTipo]);
+  }, [rows, busca, filtroTipo, filtroInstrucaoId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -207,24 +221,6 @@ export default function AtividadesPage() {
     setProgressoNovo(0);
     setInstrucaoServicoId(defaultIsId(documentosIs));
     setShowForm(false);
-    void load();
-  }
-
-  async function salvarInstrucaoAtividade(id: string, documentoId: string) {
-    if (!podeEditar) return;
-    setError(null);
-    const res = await fetch(`/api/atividades/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ instrucao_servico: documentoId }),
-    });
-    const data = (await res.json()) as { error?: string };
-    if (!res.ok) {
-      setError(data.error ?? "Não foi possível atualizar a Instrução de Serviço.");
-      return;
-    }
-    showAviso("sucesso", "Instrução de Serviço atualizada.");
     void load();
   }
 
@@ -289,7 +285,7 @@ export default function AtividadesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-7xl">
       {aviso && (
         <div
           className={`fixed right-4 top-4 z-50 rounded-lg border px-4 py-2 text-sm shadow-lg ${
@@ -301,6 +297,58 @@ export default function AtividadesPage() {
           {aviso.texto}
         </div>
       )}
+      <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
+        <aside className="w-full shrink-0 lg:sticky lg:top-20 lg:w-72">
+          <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-[var(--foreground)]">Instrução de Serviço</h3>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Escolha uma IS para ver só as atividades vinculadas a ela.
+            </p>
+            <ul className="mt-3 max-h-[min(70vh,28rem)] space-y-1 overflow-y-auto pr-1">
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setFiltroInstrucaoId("")}
+                  className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                    filtroInstrucaoId === ""
+                      ? "border border-[var(--accent)]/25 bg-[var(--accent-muted)] font-medium text-[var(--accent)] shadow-sm"
+                      : "border border-transparent text-[var(--foreground)] hover:bg-[var(--accent-muted)]/60"
+                  }`}
+                >
+                  <span>Todas</span>
+                  <span className="shrink-0 tabular-nums text-xs text-[var(--muted)]">{rows.length}</span>
+                </button>
+              </li>
+              {documentosIs.map((d) => {
+                const n = contagensPorIs.get(d.id) ?? 0;
+                const ativo = filtroInstrucaoId === d.id;
+                return (
+                  <li key={d.id}>
+                    <button
+                      type="button"
+                      onClick={() => setFiltroInstrucaoId(d.id)}
+                      className={`flex w-full items-start justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                        ativo
+                          ? "border border-[var(--accent)]/25 bg-[var(--accent-muted)] font-medium text-[var(--accent)] shadow-sm"
+                          : "border border-transparent text-[var(--foreground)] hover:bg-[var(--accent-muted)]/60"
+                      }`}
+                    >
+                      <span className="min-w-0 leading-snug">{rotuloInstrucaoServico(d)}</span>
+                      <span className="shrink-0 tabular-nums text-xs text-[var(--muted)]">{n}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            {documentosIs.length === 0 && !loading && (
+              <p className="mt-3 text-xs text-[var(--muted)]">
+                Nenhuma IS em Documentos. Cadastre uma Instrução de Serviço para filtrar.
+              </p>
+            )}
+          </div>
+        </aside>
+
+        <div className="min-w-0 flex-1">
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Atividades</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
@@ -308,7 +356,7 @@ export default function AtividadesPage() {
           Informe código, descrição, responsável e datas de início e fim (DD/MM/AAAA). O memorando de
           pagamento usa esse período para filtrar por mês. Progresso, etiqueta e link do relatório só
           podem ser alterados pelo responsável cadastrado (administradores também podem). A busca cobre
-          código, descrição e responsável.
+          código, descrição e responsável. A IS não pode ser alterada depois de criada a atividade.
         </p>
       </header>
 
@@ -490,11 +538,11 @@ export default function AtividadesPage() {
           <p className="text-sm text-[var(--muted)]">Carregando…</p>
         ) : filtradas.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">
-            {configured
-              ? rows.length === 0
+            {!configured
+              ? "Configure o Supabase para ver os dados."
+              : rows.length === 0
                 ? "Nenhuma atividade ainda."
-                : "Nenhum resultado para a busca."
-              : "Configure o Supabase para ver os dados."}
+                : "Nenhum resultado com os critérios actuais (busca, Instrução de Serviço ou tipo de atividade)."}
           </p>
         ) : (
           <ul className="space-y-3">
@@ -550,37 +598,18 @@ export default function AtividadesPage() {
                       {expandedId === a.id ? "Clique para fechar o relatório" : "Clique para ver o relatório"}
                     </p>
                   </button>
-                  <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
-                    {podeEditar && documentosIs.length > 0 && (
-                      <label className="w-full max-w-[14rem] sm:max-w-none">
-                        <span className="sr-only">Instrução de Serviço</span>
-                        <select
-                          value={a.instrucao_servico}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => void salvarInstrucaoAtividade(a.id, e.target.value)}
-                          className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2 py-1.5 text-[10px] outline-none ring-[var(--accent)]/40 focus:ring-2 sm:text-xs"
-                        >
-                          {documentosIs.map((d) => (
-                            <option key={d.id} value={d.id}>
-                              {rotuloInstrucaoServico(d)}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    {podeEditar && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void remove(a.id);
-                        }}
-                        className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-700 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
-                      >
-                        Excluir
-                      </button>
-                    )}
-                  </div>
+                  {podeEditar && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void remove(a.id);
+                      }}
+                      className="shrink-0 self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-700 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
+                    >
+                      Excluir
+                    </button>
+                  )}
                 </div>
                 {expandedId === a.id && (
                   <div className="border-t border-[var(--card-border)] bg-[var(--background)]/50 px-4 py-4">
@@ -678,6 +707,8 @@ export default function AtividadesPage() {
           </ul>
         )}
       </section>
+        </div>
+      </div>
     </div>
   );
 }
