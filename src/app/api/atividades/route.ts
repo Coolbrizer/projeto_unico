@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
 import type { Atividade } from "@/types/database";
+import { isUuidString } from "@/lib/uuid";
 
 type EtiquetaRelatorioRow = {
   codigo: string;
@@ -68,11 +69,20 @@ export async function POST(request: Request) {
     inicio?: string | null;
     fim?: string | null;
     progresso?: number;
+    instrucao_servico?: string;
   };
   try {
     body = (await request.json()) as typeof body;
   } catch {
     return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
+  }
+
+  const instrucaoId = body.instrucao_servico?.trim() ?? "";
+  if (!instrucaoId || !isUuidString(instrucaoId)) {
+    return NextResponse.json(
+      { error: "Selecione uma Instrução de Serviço válida (campo obrigatório)." },
+      { status: 400 }
+    );
   }
 
   let supabase;
@@ -92,6 +102,7 @@ export async function POST(request: Request) {
       responsavel: body.responsavel?.trim() || null,
       inicio: normalizarDataParaApi(body.inicio ?? undefined),
       fim: normalizarDataParaApi(body.fim ?? undefined),
+      instrucao_servico: instrucaoId,
     })
     .select("*")
     .single();

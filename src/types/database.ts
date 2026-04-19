@@ -3,8 +3,8 @@ export type Atividade = {
   codigo: string;
   descricao: string | null;
   responsavel: string | null;
-  /** Id do documento (Instrução de Serviço) em `documentos.id`. */
-  instrucao_servico?: string | null;
+  /** UUID do documento (Instrução de Serviço) em `documentos.id`. */
+  instrucao_servico: string;
   inicio: string | null;
   fim: string | null;
   progresso?: number | null;

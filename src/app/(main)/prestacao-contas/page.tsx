@@ -183,11 +183,8 @@ export default function PrestacaoContasPage() {
         <p className="text-sm text-[var(--muted)]">Carregando…</p>
       ) : linhas.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">
-          Nenhuma atividade vinculada a esta Instrução de Serviço. Associe a coluna{" "}
-          <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">
-            instrucao_servico
-          </code>{" "}
-          nas atividades (mesmo id deste documento).
+          Nenhuma atividade vinculada a esta Instrução de Serviço. Em Atividades, edite cada linha e
+          escolha esta IS no campo correspondente (ou crie novas atividades já com a IS selecionada).
         </p>
       ) : (
         <div>

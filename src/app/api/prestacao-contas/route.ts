@@ -4,9 +4,7 @@ import { textoEquipeParticipantes } from "@/lib/prestacao-contas-equipe";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Atividade, Documento, Equipe, Integrante } from "@/types/database";
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+import { UUID_REGEX } from "@/lib/uuid";
 
 type EtiquetaRelatorioRow = {
   codigo: string;
@@ -49,7 +47,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const documentoId = url.searchParams.get("documentoId")?.trim() ?? "";
-  if (!documentoId || !UUID_RE.test(documentoId)) {
+  if (!documentoId || !UUID_REGEX.test(documentoId)) {
     return NextResponse.json({ error: "Informe documentoId (UUID) válido." }, { status: 400 });
   }
 

@@ -14,7 +14,28 @@ import {
   parsePartesCodigoAtividade,
   tiposAtividadeDistintos,
 } from "@/lib/atividade-codigo";
-import type { Atividade } from "@/types/database";
+import { TIPOS_DOCUMENTO } from "@/lib/documentos-constants";
+import { ordenarDocumentosPorReferencia } from "@/lib/documentos-sort";
+import type { Atividade, Documento } from "@/types/database";
+
+const TIPO_IS = TIPOS_DOCUMENTO[0];
+
+function defaultIsId(docs: Documento[]): string {
+  const is = docs.filter((d) => d.tipo === TIPO_IS);
+  const y = is.find((d) => Number(d.numero) === 1 && Number(d.ano) === 2026);
+  if (y) return y.id;
+  return is[0]?.id ?? "";
+}
+
+function rotuloInstrucaoServico(d: Documento): string {
+  const temRef =
+    d.numero != null &&
+    d.ano != null &&
+    String(d.numero).trim() !== "" &&
+    String(d.ano).trim() !== "";
+  if (temRef) return `${d.tipo ?? TIPO_IS} nº ${d.numero}/${d.ano}`;
+  return d.tipo ?? TIPO_IS;
+}
 
 /** Busca em código, descrição e responsável: cada palavra deve aparecer em algum desses campos. */
 function atividadeMatchesBusca(a: Atividade, raw: string): boolean {
@@ -42,6 +63,8 @@ export default function AtividadesPage() {
   const [showForm, setShowForm] = useState(false);
   const [busca, setBusca] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
+  const [documentosIs, setDocumentosIs] = useState<Documento[]>([]);
+  const [instrucaoServicoId, setInstrucaoServicoId] = useState("");
 
   const [codigo, setCodigo] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -66,12 +89,23 @@ export default function AtividadesPage() {
 
   const load = useCallback(async () => {
     setError(null);
-    const res = await fetch("/api/atividades", { credentials: "include" });
-    const data = (await res.json()) as { error?: string; atividades?: Atividade[] };
-    if (!res.ok) {
-      setError(data.error ?? "Não foi possível carregar as atividades.");
+    const [resAt, resDoc] = await Promise.all([
+      fetch("/api/atividades", { credentials: "include" }),
+      fetch("/api/documentos", { credentials: "include" }),
+    ]);
+    const dataAt = (await resAt.json()) as { error?: string; atividades?: Atividade[] };
+    const dataDoc = (await resDoc.json()) as { error?: string; documentos?: Documento[] };
+    if (!resAt.ok) {
+      setError(dataAt.error ?? "Não foi possível carregar as atividades.");
+      setRows([]);
     } else {
-      setRows(data.atividades ?? []);
+      setRows(dataAt.atividades ?? []);
+    }
+    if (resDoc.ok && dataDoc.documentos) {
+      const is = dataDoc.documentos.filter((d) => d.tipo === TIPO_IS);
+      setDocumentosIs(ordenarDocumentosPorReferencia(is));
+    } else {
+      setDocumentosIs([]);
     }
     setLoading(false);
   }, []);
@@ -79,6 +113,12 @@ export default function AtividadesPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (showForm && !instrucaoServicoId && documentosIs.length > 0) {
+      setInstrucaoServicoId(defaultIsId(documentosIs));
+    }
+  }, [showForm, instrucaoServicoId, documentosIs]);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,6 +158,11 @@ export default function AtividadesPage() {
     [rows]
   );
 
+  const docPorId = useMemo(
+    () => new Map(documentosIs.map((d) => [d.id, d] as const)),
+    [documentosIs]
+  );
+
   const filtradas = useMemo(() => {
     let list = rows.filter((a) => atividadeMatchesBusca(a, busca));
     if (filtroTipo) {
@@ -146,6 +191,7 @@ export default function AtividadesPage() {
         inicio: normalizarDataParaApi(inicio) ?? null,
         fim: normalizarDataParaApi(fim) ?? null,
         progresso: progressoNovo,
+        instrucao_servico: instrucaoServicoId,
       }),
     });
     const data = (await res.json()) as { error?: string };
@@ -159,7 +205,26 @@ export default function AtividadesPage() {
     setInicio("");
     setFim("");
     setProgressoNovo(0);
+    setInstrucaoServicoId(defaultIsId(documentosIs));
     setShowForm(false);
+    void load();
+  }
+
+  async function salvarInstrucaoAtividade(id: string, documentoId: string) {
+    if (!podeEditar) return;
+    setError(null);
+    const res = await fetch(`/api/atividades/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ instrucao_servico: documentoId }),
+    });
+    const data = (await res.json()) as { error?: string };
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível atualizar a Instrução de Serviço.");
+      return;
+    }
+    showAviso("sucesso", "Instrução de Serviço atualizada.");
     void load();
   }
 
@@ -239,7 +304,8 @@ export default function AtividadesPage() {
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Atividades</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Código, descrição, responsável e datas de início e fim (formato DD/MM/AAAA). O memorando de
+          Cada atividade deve estar vinculada a uma Instrução de Serviço cadastrada em Documentos.
+          Informe código, descrição, responsável e datas de início e fim (DD/MM/AAAA). O memorando de
           pagamento usa esse período para filtrar por mês. Progresso, etiqueta e link do relatório só
           podem ser alterados pelo responsável cadastrado (administradores também podem). A busca cobre
           código, descrição e responsável.
@@ -282,7 +348,13 @@ export default function AtividadesPage() {
         {podeEditar && (
           <button
             type="button"
-            onClick={() => setShowForm((v) => !v)}
+            onClick={() => {
+              setShowForm((v) => {
+                const abrir = !v;
+                if (abrir) setInstrucaoServicoId(defaultIsId(documentosIs));
+                return abrir;
+              });
+            }}
             className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]"
           >
             {showForm ? "Fechar formulário" : "Adicionar"}
@@ -297,6 +369,34 @@ export default function AtividadesPage() {
         >
           <h3 className="mb-4 text-sm font-medium text-[var(--muted)]">Nova atividade</h3>
           <div className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="block text-xs text-[var(--muted)]">
+                Instrução de Serviço <span className="text-red-600">*</span>
+              </label>
+              <select
+                required
+                value={instrucaoServicoId}
+                onChange={(e) => setInstrucaoServicoId(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+              >
+                {documentosIs.length === 0 ? (
+                  <option value="">Cadastre uma IS em Documentos</option>
+                ) : (
+                  documentosIs.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {rotuloInstrucaoServico(d)}
+                      {d.etiqueta?.trim() ? ` — ${d.etiqueta.trim()}` : ""}
+                    </option>
+                  ))
+                )}
+              </select>
+              {documentosIs.length === 0 && (
+                <p className="mt-1 text-xs text-amber-800">
+                  Não há Instruções de Serviço na base. Aceda a Documentos e registe pelo menos uma (ex.: IS
+                  nº 01/2026).
+                </p>
+              )}
+            </div>
             <div>
               <label className="block text-xs text-[var(--muted)]">Código</label>
               <input
@@ -368,6 +468,7 @@ export default function AtividadesPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="submit"
+              disabled={!instrucaoServicoId || documentosIs.length === 0}
               className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
             >
               Guardar atividade
@@ -421,6 +522,12 @@ export default function AtividadesPage() {
                       Responsável: {a.responsavel || "—"}
                     </p>
                     <p className="mt-1 text-xs text-[var(--muted)]">
+                      <span className="font-medium text-[var(--foreground)]">IS: </span>
+                      {docPorId.get(a.instrucao_servico)
+                        ? rotuloInstrucaoServico(docPorId.get(a.instrucao_servico)!)
+                        : "—"}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--muted)]">
                       Período: {formatarPeriodoAtividade(a)}
                     </p>
                     <div className="mt-3">
@@ -443,18 +550,37 @@ export default function AtividadesPage() {
                       {expandedId === a.id ? "Clique para fechar o relatório" : "Clique para ver o relatório"}
                     </p>
                   </button>
-                  {podeEditar && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void remove(a.id);
-                      }}
-                      className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-700 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
-                    >
-                      Excluir
-                    </button>
-                  )}
+                  <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+                    {podeEditar && documentosIs.length > 0 && (
+                      <label className="w-full max-w-[14rem] sm:max-w-none">
+                        <span className="sr-only">Instrução de Serviço</span>
+                        <select
+                          value={a.instrucao_servico}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => void salvarInstrucaoAtividade(a.id, e.target.value)}
+                          className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2 py-1.5 text-[10px] outline-none ring-[var(--accent)]/40 focus:ring-2 sm:text-xs"
+                        >
+                          {documentosIs.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {rotuloInstrucaoServico(d)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    {podeEditar && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void remove(a.id);
+                        }}
+                        className="self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-700 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
+                      >
+                        Excluir
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {expandedId === a.id && (
                   <div className="border-t border-[var(--card-border)] bg-[var(--background)]/50 px-4 py-4">
