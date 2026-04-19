@@ -57,14 +57,14 @@ export type Orcamento = {
 
 export type Documento = {
   id: string;
-  /** Resumo interno / legado; gerado na API ao salvar. */
-  titulo: string;
   tipo: string | null;
-  numero: string | null;
-  ano: string | null;
+  /** integer no Supabase; aceitamos number ou string (PostgREST coage). */
+  numero: number | string | null;
+  /** smallint no Supabase; aceitamos number ou string. */
+  ano: number | string | null;
   etiqueta: string | null;
   /** URL do documento (coluna `link` no Supabase). */
   link: string | null;
-  observacoes: string | null;
   created_at: string;
+  updated_at?: string | null;
 };

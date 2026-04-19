@@ -1,6 +1,6 @@
 import type { Documento } from "@/types/database";
 
-function parseIntSeguro(s: string | null | undefined): number {
+function parseIntSeguro(s: string | number | null | undefined): number {
   const n = parseInt(String(s ?? "").trim(), 10);
   return Number.isFinite(n) ? n : -1;
 }

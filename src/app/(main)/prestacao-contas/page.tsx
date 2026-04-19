@@ -24,7 +24,9 @@ function labelDocumento(r: Documento): string {
     r.ano != null &&
     String(r.numero).trim() !== "" &&
     String(r.ano).trim() !== "";
-  const linhaPrincipal = temRef ? `${r.tipo ?? r.titulo} nº ${r.numero}/${r.ano}` : r.titulo;
+  const linhaPrincipal = temRef
+    ? `${r.tipo ?? "Documento"} nº ${r.numero}/${r.ano}`
+    : r.tipo ?? "Documento";
   const etiquetaTxt = r.etiqueta?.trim();
   return etiquetaTxt ? `${linhaPrincipal} — ${etiquetaTxt}` : linhaPrincipal;
 }

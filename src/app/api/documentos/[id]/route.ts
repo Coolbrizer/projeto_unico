@@ -33,7 +33,6 @@ export async function PATCH(request: Request, ctx: Ctx) {
   }
 
   const { tipo_documento: tipoRaw, numero, ano, etiqueta, link } = parsed.data;
-  const titulo = `${tipoRaw} nº ${numero}/${ano}`;
 
   let supabase;
   try {
@@ -45,10 +44,9 @@ export async function PATCH(request: Request, ctx: Ctx) {
   const { data, error } = await supabase
     .from("documentos")
     .update({
-      titulo,
       tipo: tipoRaw,
-      numero,
-      ano,
+      numero: Number(numero),
+      ano: Number(ano),
       etiqueta,
       link,
     })

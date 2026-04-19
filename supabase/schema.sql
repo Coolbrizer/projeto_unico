@@ -24,19 +24,24 @@ drop table if exists public.integrantes cascade;
 drop table if exists public.equipe cascade;
 drop table if exists public.atividades cascade;
 
--- Atividades: Código, Descrição, Responsável, Início, Final, relatório (tudo texto)
+-- Atividades: vínculo obrigatório a um documento (Instrução de Serviço)
 create table public.atividades (
   id uuid primary key default gen_random_uuid(),
   codigo text not null default '',
   descricao text,
   responsavel text,
-  inicio text,
-  fim text,
+  inicio date,
+  fim date,
   progresso smallint not null default 0,
   etiqueta_relatorio text,
   link_relatorio text,
-  created_at timestamptz not null default now()
+  instrucao_servico uuid not null references public.documentos (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz
 );
+
+create index if not exists atividades_instrucao_servico_idx
+  on public.atividades (instrucao_servico);
 
 -- Equipe: Código, Equipe (linhas duplicadas permitidas — sem restrição de unicidade)
 create table public.equipe (
@@ -77,14 +82,13 @@ create table if not exists public.orcamento (
 
 create table if not exists public.documentos (
   id uuid primary key default gen_random_uuid(),
-  titulo text not null,
   tipo text,
-  numero text,
-  ano text,
+  numero integer,
+  ano smallint,
   etiqueta text,
   link text,
-  observacoes text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz
 );
 
 -- Referência de pagamento: valor mensal por combinação cargo + classe/padrão (para cálculo de folha)

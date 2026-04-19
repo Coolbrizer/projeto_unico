@@ -64,7 +64,6 @@ export async function POST(request: Request) {
   }
 
   const { tipo_documento: tipoRaw, numero, ano, etiqueta, link } = parsed.data;
-  const titulo = `${tipoRaw} nº ${numero}/${ano}`;
 
   let supabase;
   try {
@@ -76,13 +75,11 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from("documentos")
     .insert({
-      titulo,
       tipo: tipoRaw,
-      numero,
-      ano,
+      numero: Number(numero),
+      ano: Number(ano),
       etiqueta,
       link,
-      observacoes: null,
     })
     .select("*")
     .single();

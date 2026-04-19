@@ -21,7 +21,7 @@ function tituloInstrucaoServico(d: Documento): string {
   if (temRef) {
     return `Instrução de Serviço nº ${String(d.numero).trim()}/${String(d.ano).trim()}`;
   }
-  return (d.titulo ?? "").trim() || "Instrução de Serviço";
+  return "Instrução de Serviço";
 }
 
 function hrefSeguro(url: string): string {

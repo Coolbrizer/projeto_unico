@@ -236,8 +236,8 @@ export default function DocumentosPage() {
                 String(r.numero).trim() !== "" &&
                 String(r.ano).trim() !== "";
               const linhaPrincipal = temRef
-                ? `${r.tipo ?? r.titulo} nº ${r.numero}/${r.ano}`
-                : r.titulo;
+                ? `${r.tipo ?? "Documento"} nº ${r.numero}/${r.ano}`
+                : r.tipo ?? "Documento";
               const etiquetaTxt = r.etiqueta?.trim();
 
               const temLink = Boolean(r.link?.trim());
@@ -249,9 +249,6 @@ export default function DocumentosPage() {
                       <span className="font-medium text-[var(--accent)]">{linhaPrincipal}</span>
                       {etiquetaTxt ? (
                         <span className="text-[var(--muted)]">— {etiquetaTxt}</span>
-                      ) : null}
-                      {r.observacoes && !temRef ? (
-                        <span className="text-[var(--muted)]">— {r.observacoes}</span>
                       ) : null}
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
