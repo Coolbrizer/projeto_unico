@@ -8,6 +8,7 @@ import { TIPOS_DOCUMENTO } from "@/lib/documentos-constants";
 import { isTipoDocumento } from "@/lib/documentos-validacao";
 import { useMounted } from "@/hooks/useMounted";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
+import { rotuloDocumentoNumeroAno } from "@/lib/documento-referencia";
 import type { Documento } from "@/types/database";
 
 function apenasDigitos(valor: string): string {
@@ -230,14 +231,7 @@ export default function DocumentosPage() {
         ) : (
           <ul className="divide-y divide-[var(--card-border)] rounded-lg border border-[var(--card-border)] bg-[var(--card)] shadow-sm">
             {rows.map((r) => {
-              const temRef =
-                r.numero != null &&
-                r.ano != null &&
-                String(r.numero).trim() !== "" &&
-                String(r.ano).trim() !== "";
-              const linhaPrincipal = temRef
-                ? `${r.tipo ?? "Documento"} nº ${r.numero}/${r.ano}`
-                : r.tipo ?? "Documento";
+              const linhaPrincipal = rotuloDocumentoNumeroAno(r);
               const etiquetaTxt = r.etiqueta?.trim();
 
               const temLink = Boolean(r.link?.trim());

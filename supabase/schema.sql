@@ -35,6 +35,13 @@ create table public.atividades (
   progresso smallint not null default 0,
   etiqueta_relatorio text,
   link_relatorio text,
+  etapa smallint,
+  status_execucao text,
+  constraint atividades_etapa_check check (etapa is null or etapa between 1 and 4),
+  constraint atividades_status_execucao_check check (
+    status_execucao is null
+    or status_execucao in ('antecedencia', 'no_prazo', 'atraso')
+  ),
   instrucao_servico uuid not null references public.documentos (id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz
@@ -42,6 +49,11 @@ create table public.atividades (
 
 create index if not exists atividades_instrucao_servico_idx
   on public.atividades (instrucao_servico);
+
+-- Ver migration_passivo_consolidate_etiqueta_etapa_status.sql (etiqueta no registo; tabela etiqueta_relatorio removida)
+create unique index if not exists atividades_codigo_instrucao_unique
+  on public.atividades (instrucao_servico, (btrim(codigo)))
+  where btrim(codigo) <> '';
 
 -- Equipe: Código, Equipe (linhas duplicadas permitidas — sem restrição de unicidade)
 create table public.equipe (

@@ -16,6 +16,7 @@ import {
 } from "@/lib/atividade-codigo";
 import { TIPOS_DOCUMENTO } from "@/lib/documentos-constants";
 import { ordenarDocumentosPorReferencia } from "@/lib/documentos-sort";
+import { rotuloDocumentoNumeroAno } from "@/lib/documento-referencia";
 import type { Atividade, Documento } from "@/types/database";
 
 const TIPO_IS = TIPOS_DOCUMENTO[0];
@@ -28,13 +29,11 @@ function defaultIsId(docs: Documento[]): string {
 }
 
 function rotuloInstrucaoServico(d: Documento): string {
-  const temRef =
-    d.numero != null &&
-    d.ano != null &&
-    String(d.numero).trim() !== "" &&
-    String(d.ano).trim() !== "";
-  if (temRef) return `${d.tipo ?? TIPO_IS} nº ${d.numero}/${d.ano}`;
-  return d.tipo ?? TIPO_IS;
+  return rotuloDocumentoNumeroAno({
+    tipo: d.tipo ?? TIPO_IS,
+    numero: d.numero,
+    ano: d.ano,
+  });
 }
 
 /** Busca em código, descrição e responsável: cada palavra deve aparecer em algum desses campos. */

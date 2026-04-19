@@ -7,6 +7,7 @@ import { TIPOS_DOCUMENTO } from "@/lib/documentos-constants";
 import { useMounted } from "@/hooks/useMounted";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import { gerarPdfPrestacaoContas } from "@/lib/prestacao-contas-pdf";
+import { rotuloDocumentoNumeroAno } from "@/lib/documento-referencia";
 import type { Documento } from "@/types/database";
 
 const TIPO_IS = TIPOS_DOCUMENTO[0];
@@ -19,14 +20,7 @@ function hrefSeguro(url: string): string {
 }
 
 function labelDocumento(r: Documento): string {
-  const temRef =
-    r.numero != null &&
-    r.ano != null &&
-    String(r.numero).trim() !== "" &&
-    String(r.ano).trim() !== "";
-  const linhaPrincipal = temRef
-    ? `${r.tipo ?? "Documento"} nº ${r.numero}/${r.ano}`
-    : r.tipo ?? "Documento";
+  const linhaPrincipal = rotuloDocumentoNumeroAno(r);
   const etiquetaTxt = r.etiqueta?.trim();
   return etiquetaTxt ? `${linhaPrincipal} — ${etiquetaTxt}` : linhaPrincipal;
 }

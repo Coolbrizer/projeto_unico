@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Documento } from "@/types/database";
+import { rotuloDocumentoNumeroAno } from "@/lib/documento-referencia";
 
 export type LinhaPrestacaoPdf = {
   codigo: string;
@@ -13,15 +14,11 @@ export type LinhaPrestacaoPdf = {
 };
 
 function tituloInstrucaoServico(d: Documento): string {
-  const temRef =
-    d.numero != null &&
-    d.ano != null &&
-    String(d.numero).trim() !== "" &&
-    String(d.ano).trim() !== "";
-  if (temRef) {
-    return `Instrução de Serviço nº ${String(d.numero).trim()}/${String(d.ano).trim()}`;
-  }
-  return "Instrução de Serviço";
+  return rotuloDocumentoNumeroAno({
+    tipo: "Instrução de Serviço",
+    numero: d.numero,
+    ano: d.ano,
+  });
 }
 
 function hrefSeguro(url: string): string {

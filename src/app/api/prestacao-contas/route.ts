@@ -6,17 +6,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Atividade, Documento, Equipe, Integrante } from "@/types/database";
 import { UUID_REGEX } from "@/lib/uuid";
 
-type EtiquetaRelatorioRow = {
-  codigo: string;
-  etiqueta: string | null;
-  link: string | null;
-  progresso: number | null;
-};
-
-function chaveCodigo(codigo: string | null | undefined): string {
-  return String(codigo ?? "").trim();
-}
-
 function normalizarProgresso(valor: unknown): number {
   const numero = Number(valor ?? 0);
   if (!Number.isFinite(numero)) return 0;
@@ -58,18 +47,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }
 
-  const [docResult, atividadesResult, integrantesResult, equipeResult, relatorioResult] =
-    await Promise.all([
-      supabase.from("documentos").select("*").eq("id", documentoId).maybeSingle(),
-      supabase
-        .from("atividades")
-        .select("*")
-        .eq("instrucao_servico", documentoId)
-        .order("codigo", { ascending: true }),
-      supabase.from("integrantes").select("id, matricula, nome, setor"),
-      supabase.from("equipe").select("id, codigo, equipe"),
-      supabase.from("etiqueta_relatorio").select("codigo, etiqueta, link, progresso"),
-    ]);
+  const [docResult, atividadesResult, integrantesResult, equipeResult] = await Promise.all([
+    supabase.from("documentos").select("*").eq("id", documentoId).maybeSingle(),
+    supabase
+      .from("atividades")
+      .select("*")
+      .eq("instrucao_servico", documentoId)
+      .order("codigo", { ascending: true }),
+    supabase.from("integrantes").select("id, matricula, nome, setor"),
+    supabase.from("equipe").select("id, codigo, equipe"),
+  ]);
 
   if (docResult.error) {
     return NextResponse.json({ error: docResult.error.message }, { status: 400 });
@@ -90,20 +77,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: equipeResult.error.message }, { status: 400 });
   }
 
-  const relatorioPorCodigo = new Map<string, EtiquetaRelatorioRow>();
-  if (!relatorioResult.error && relatorioResult.data) {
-    ((relatorioResult.data as EtiquetaRelatorioRow[]) ?? []).forEach((row) => {
-      relatorioPorCodigo.set(chaveCodigo(row.codigo), row);
-    });
-  }
-
   const integrantes = (integrantesResult.data as Integrante[]) ?? [];
   const todasEquipes = (equipeResult.data as Equipe[]) ?? [];
   const atividadesRaw = (atividadesResult.data as Atividade[]) ?? [];
 
   const linhas = atividadesRaw.map((atividade) => {
-    const relatorio = relatorioPorCodigo.get(chaveCodigo(atividade.codigo));
-    const progresso = normalizarProgresso(relatorio?.progresso ?? atividade.progresso);
+    const progresso = normalizarProgresso(atividade.progresso);
     const integ = integranteCorrespondenteAResponsavel(integrantes, atividade.responsavel);
     const equipe = textoEquipeParticipantes(atividade, integrantes, todasEquipes);
 
@@ -114,8 +93,8 @@ export async function GET(request: Request) {
       equipe,
       setor_responsavel: integ?.setor ?? null,
       progresso,
-      etiqueta_relatorio: relatorio?.etiqueta ?? atividade.etiqueta_relatorio ?? null,
-      link_relatorio: relatorio?.link ?? atividade.link_relatorio ?? null,
+      etiqueta_relatorio: atividade.etiqueta_relatorio ?? null,
+      link_relatorio: atividade.link_relatorio ?? null,
     };
   });
 

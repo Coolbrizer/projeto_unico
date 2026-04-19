@@ -158,6 +158,8 @@ export async function PATCH(request: Request, ctx: Ctx) {
       );
     }
 
+    const base = (atividadeAtualizada ?? atividadeRow) as Record<string, unknown>;
+
     const etiqueta = touchedEtiqueta
       ? body.etiqueta_relatorio
         ? String(body.etiqueta_relatorio).trim()
@@ -166,49 +168,41 @@ export async function PATCH(request: Request, ctx: Ctx) {
     const link = touchedLink ? (body.link_relatorio ? String(body.link_relatorio).trim() : null) : undefined;
     const progresso = touchedProgresso ? normalizarProgresso(body.progresso) : undefined;
 
-    const { data: relatorioAtual, error: errRelatorioAtual } = await supabase
-      .from("etiqueta_relatorio")
-      .select("etiqueta, link, progresso")
-      .eq("codigo", codigoAtividade)
-      .maybeSingle();
-    if (errRelatorioAtual) {
-      return NextResponse.json({ error: errRelatorioAtual.message }, { status: 400 });
-    }
-
-    const etiquetaFinal = etiqueta !== undefined ? etiqueta : relatorioAtual?.etiqueta ?? null;
-    const linkFinal = link !== undefined ? link : relatorioAtual?.link ?? null;
+    const etiquetaFinal =
+      etiqueta !== undefined ? etiqueta : ((base.etiqueta_relatorio as string | null) ?? null);
+    const linkFinal = link !== undefined ? link : ((base.link_relatorio as string | null) ?? null);
     const progressoFinal =
-      progresso !== undefined ? progresso : normalizarProgresso(relatorioAtual?.progresso ?? 0);
+      progresso !== undefined ? progresso : normalizarProgresso(base.progresso);
 
-    // Regra de negócio: com percentual em 100%, etiqueta e link são obrigatórios.
     const erroProgresso100 =
       progressoFinal === 100 ? mensagemErroProgresso100(etiquetaFinal, linkFinal) : null;
     if (erroProgresso100) {
-      return NextResponse.json(
-        { error: erroProgresso100 },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: erroProgresso100 }, { status: 400 });
     }
 
-    if (etiqueta === null && link === null && !touchedProgresso) {
-      const { error: deleteError } = await supabase
-        .from("etiqueta_relatorio")
-        .delete()
-        .eq("codigo", codigoAtividade);
-      if (deleteError) {
-        return NextResponse.json({ error: deleteError.message }, { status: 400 });
-      }
+    const limparEtiquetaELink = etiqueta === null && link === null && !touchedProgresso;
+    const updateRel: Record<string, string | number | null> = {};
+
+    if (limparEtiquetaELink) {
+      updateRel.etiqueta_relatorio = null;
+      updateRel.link_relatorio = null;
     } else {
-      const upsertPayload: Record<string, string | number | null> = { codigo: codigoAtividade };
-      if (etiqueta !== undefined) upsertPayload.etiqueta = etiqueta;
-      if (link !== undefined) upsertPayload.link = link;
-      if (progresso !== undefined) upsertPayload.progresso = progresso;
-      const { error: upsertError } = await supabase
-        .from("etiqueta_relatorio")
-        .upsert(upsertPayload, { onConflict: "codigo" });
-      if (upsertError) {
-        return NextResponse.json({ error: upsertError.message }, { status: 400 });
+      if (etiqueta !== undefined) updateRel.etiqueta_relatorio = etiqueta;
+      if (link !== undefined) updateRel.link_relatorio = link;
+      if (progresso !== undefined) updateRel.progresso = progressoFinal;
+    }
+
+    if (Object.keys(updateRel).length > 0) {
+      const { data: relatorioData, error: relatorioErr } = await supabase
+        .from("atividades")
+        .update(updateRel)
+        .eq("id", id)
+        .select("*")
+        .single();
+      if (relatorioErr) {
+        return NextResponse.json({ error: relatorioErr.message }, { status: 400 });
       }
+      atividadeAtualizada = relatorioData as Record<string, unknown>;
     }
   }
 
@@ -254,17 +248,6 @@ export async function DELETE(_request: Request, ctx: Ctx) {
     .maybeSingle();
   if (errAtividade || !atividadeRow) {
     return NextResponse.json({ error: "Atividade não encontrada." }, { status: 404 });
-  }
-
-  const codigo = String((atividadeRow as { codigo?: string | null }).codigo ?? "").trim();
-  if (codigo) {
-    const { error: deleteRelatorioError } = await supabase
-      .from("etiqueta_relatorio")
-      .delete()
-      .eq("codigo", codigo);
-    if (deleteRelatorioError) {
-      return NextResponse.json({ error: deleteRelatorioError.message }, { status: 400 });
-    }
   }
 
   const { error } = await supabase.from("atividades").delete().eq("id", id);

@@ -6,17 +6,6 @@ import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
 import type { Atividade } from "@/types/database";
 import { isUuidString } from "@/lib/uuid";
 
-type EtiquetaRelatorioRow = {
-  codigo: string;
-  etiqueta: string | null;
-  link: string | null;
-  progresso: number | null;
-};
-
-function chaveCodigo(codigo: string | null | undefined): string {
-  return String(codigo ?? "").trim();
-}
-
 function normalizarProgresso(valor: unknown): number {
   const numero = Number(valor ?? 0);
   if (!Number.isFinite(numero)) return 0;
@@ -29,31 +18,19 @@ export async function GET() {
   if (auth.response) return auth.response;
   const { supabase } = auth;
 
-  const [atividadesResult, relatorioResult] = await Promise.all([
-    supabase.from("atividades").select("*").order("created_at", { ascending: false }),
-    supabase.from("etiqueta_relatorio").select("codigo, etiqueta, link, progresso"),
-  ]);
+  const atividadesResult = await supabase
+    .from("atividades")
+    .select("*")
+    .order("created_at", { ascending: false });
 
   if (atividadesResult.error) {
     return NextResponse.json({ error: atividadesResult.error.message }, { status: 400 });
   }
 
-  const relatorioPorCodigo = new Map<string, EtiquetaRelatorioRow>();
-  if (!relatorioResult.error) {
-    ((relatorioResult.data as EtiquetaRelatorioRow[] | null) ?? []).forEach((row) => {
-      relatorioPorCodigo.set(chaveCodigo(row.codigo), row);
-    });
-  }
-
-  const atividades = ((atividadesResult.data as Atividade[] | null) ?? []).map((atividade) => {
-    const relatorio = relatorioPorCodigo.get(chaveCodigo(atividade.codigo));
-    return {
-      ...atividade,
-      etiqueta_relatorio: relatorio?.etiqueta ?? null,
-      link_relatorio: relatorio?.link ?? null,
-      progresso: normalizarProgresso(relatorio?.progresso ?? atividade.progresso),
-    };
-  });
+  const atividades = ((atividadesResult.data as Atividade[] | null) ?? []).map((atividade) => ({
+    ...atividade,
+    progresso: normalizarProgresso(atividade.progresso),
+  }));
 
   return NextResponse.json({ ok: true, atividades });
 }
@@ -103,22 +80,13 @@ export async function POST(request: Request) {
       inicio: normalizarDataParaApi(body.inicio ?? undefined),
       fim: normalizarDataParaApi(body.fim ?? undefined),
       instrucao_servico: instrucaoId,
+      progresso,
     })
     .select("*")
     .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
-  }
-
-  const codigo = String(data.codigo ?? "").trim();
-  if (codigo) {
-    const { error: relatorioError } = await supabase
-      .from("etiqueta_relatorio")
-      .upsert({ codigo, progresso }, { onConflict: "codigo" });
-    if (relatorioError) {
-      return NextResponse.json({ error: relatorioError.message }, { status: 400 });
-    }
   }
 
   return NextResponse.json({ ok: true, atividade: data });

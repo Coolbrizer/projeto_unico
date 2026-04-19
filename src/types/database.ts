@@ -1,3 +1,6 @@
+/** Valores previstos no passivo importado / relatório de situação. */
+export type StatusExecucaoAtividade = "antecedencia" | "no_prazo" | "atraso";
+
 export type Atividade = {
   id: string;
   codigo: string;
@@ -10,6 +13,9 @@ export type Atividade = {
   progresso?: number | null;
   etiqueta_relatorio?: string | null;
   link_relatorio?: string | null;
+  /** 1–4 conforme etapas do projeto (importação passivo). */
+  etapa?: number | null;
+  status_execucao?: StatusExecucaoAtividade | null;
   created_at: string;
 };
 
