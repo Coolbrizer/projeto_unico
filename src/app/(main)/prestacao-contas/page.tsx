@@ -40,11 +40,10 @@ export default function PrestacaoContasPage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
   const perfil = usePerfil();
-  const { instrucaoServicoId, setInstrucaoServicoId } = useInstrucaoServicoSelecionada();
+  const { instrucaoServicoId } = useInstrucaoServicoSelecionada();
   const podeVer = canEditarDocumentos(perfil);
 
   const [documentos, setDocumentos] = useState<Documento[]>([]);
-  const [documentoId, setDocumentoId] = useState("");
   const [linhas, setLinhas] = useState<LinhaPrestacao[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [loadingLinhas, setLoadingLinhas] = useState(false);
@@ -57,8 +56,8 @@ export default function PrestacaoContasPage() {
   );
 
   const documentoSelecionado = useMemo(
-    () => documentos.find((d) => d.id === documentoId) ?? null,
-    [documentos, documentoId]
+    () => documentos.find((d) => d.id === instrucaoServicoId) ?? null,
+    [documentos, instrucaoServicoId]
   );
 
   const loadDocumentos = useCallback(async () => {
@@ -79,13 +78,6 @@ export default function PrestacaoContasPage() {
   useEffect(() => {
     void loadDocumentos();
   }, [loadDocumentos]);
-
-  useEffect(() => {
-    setDocumentoId((atual) => {
-      if (!instrucaoServicoId) return atual;
-      return atual || instrucaoServicoId;
-    });
-  }, [instrucaoServicoId]);
 
   const loadLinhas = useCallback(async (id: string) => {
     if (!id) {
@@ -108,12 +100,12 @@ export default function PrestacaoContasPage() {
   }, []);
 
   useEffect(() => {
-    if (!documentoId) {
+    if (!instrucaoServicoId) {
       setLinhas([]);
       return;
     }
-    void loadLinhas(documentoId);
-  }, [documentoId, loadLinhas]);
+    void loadLinhas(instrucaoServicoId);
+  }, [instrucaoServicoId, loadLinhas]);
 
   async function handleExtrairPdf() {
     if (!documentoSelecionado || linhas.length === 0) return;
@@ -143,8 +135,8 @@ export default function PrestacaoContasPage() {
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Prestação de Contas</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Selecione uma Instrução de Serviço cadastrada em Documentos para ver as atividades vinculadas e o
-          resumo por responsável e relatório.
+          A Instrução de Serviço selecionada no topo da página define os dados exibidos aqui (atividades
+          vinculadas e resumo por responsável e relatório).
         </p>
       </header>
 
@@ -159,24 +151,10 @@ export default function PrestacaoContasPage() {
       )}
 
       <div className="mb-8 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-sm">
-        <label className="block text-xs font-medium text-[var(--muted)]">Instrução de Serviço</label>
-        <select
-          value={documentoId}
-          onChange={(e) => {
-            const valor = e.target.value;
-            setDocumentoId(valor);
-            setInstrucaoServicoId(valor);
-          }}
-          disabled={loadingDocs || !configured}
-          className="mt-2 w-full max-w-xl rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--input-text)] outline-none ring-[var(--input-focus-ring)] focus:ring-2"
-        >
-          <option value="">Selecione uma Instrução de Serviço</option>
-          {instrucoesServico.map((d) => (
-            <option key={d.id} value={d.id}>
-              {labelDocumento(d)}
-            </option>
-          ))}
-        </select>
+        <p className="text-xs font-medium text-[var(--muted)]">Instrução de Serviço ativa no topo</p>
+        <p className="mt-2 text-sm text-[var(--foreground)]">
+          {documentoSelecionado ? labelDocumento(documentoSelecionado) : "Nenhuma Instrução de Serviço selecionada."}
+        </p>
         {!loadingDocs && configured && instrucoesServico.length === 0 && (
           <p className="mt-2 text-xs text-[var(--muted)]">
             Nenhuma Instrução de Serviço cadastrada. Inclua documentos do tipo &quot;{TIPO_IS}&quot; em
@@ -185,7 +163,11 @@ export default function PrestacaoContasPage() {
         )}
       </div>
 
-      {!documentoId ? null : loadingLinhas ? (
+      {!instrucaoServicoId ? (
+        <p className="text-sm text-[var(--muted)]">
+          Selecione uma Instrução de Serviço no campo superior para exibir a prestação de contas.
+        </p>
+      ) : loadingLinhas ? (
         <p className="text-sm text-[var(--muted)]">Carregando…</p>
       ) : linhas.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">
