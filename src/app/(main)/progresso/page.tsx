@@ -22,7 +22,7 @@ export default function ProgressoPage() {
   const [error, setError] = useState<string | null>(null);
   const [filtroProgresso, setFiltroProgresso] = useState<string>("todos");
   const [filtroTipo, setFiltroTipo] = useState("");
-  const [ordemProgresso, setOrdemProgresso] = useState<"asc" | "desc">("asc");
+  const [ordemProgresso, setOrdemProgresso] = useState<"asc" | "desc">("desc");
 
   const load = useCallback(async () => {
     setError(null);
