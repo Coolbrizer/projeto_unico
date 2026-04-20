@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
-import { usePerfil } from "@/components/AppShell";
+import { useInstrucaoServicoSelecionada, usePerfil } from "@/components/AppShell";
 import { canEditarEquipe } from "@/lib/auth/roles";
 import { formatarPeriodoAtividade } from "@/lib/datas-atividade";
 import { parsePartesCodigoAtividade, tiposAtividadeDistintos } from "@/lib/atividade-codigo";
@@ -35,6 +35,7 @@ export default function EquipePage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
   const perfil = usePerfil();
+  const { instrucaoServicoId } = useInstrucaoServicoSelecionada();
   const podeEditar = canEditarEquipe(perfil);
   const [equipes, setEquipes] = useState<Equipe[]>([]);
   const [atividades, setAtividades] = useState<Atividade[]>([]);
@@ -60,9 +61,13 @@ export default function EquipePage() {
 
   const load = useCallback(async () => {
     setError(null);
+    setLoading(true);
+    const filtro = instrucaoServicoId
+      ? `?instrucaoServicoId=${encodeURIComponent(instrucaoServicoId)}`
+      : "";
     const [resEq, resAt, resInt] = await Promise.all([
       fetch("/api/equipe", { credentials: "include" }),
-      fetch("/api/atividades", { credentials: "include" }),
+      fetch(`/api/atividades${filtro}`, { credentials: "include" }),
       fetch("/api/integrantes", { credentials: "include" }),
     ]);
     const jEq = (await resEq.json()) as { error?: string; equipe?: Equipe[] };
@@ -75,7 +80,7 @@ export default function EquipePage() {
     if (!resInt.ok) setError(jInt.error ?? "Não foi possível carregar integrantes.");
     else setIntegrantes(jInt.integrantes ?? []);
     setLoading(false);
-  }, []);
+  }, [instrucaoServicoId]);
 
   useEffect(() => {
     void load();

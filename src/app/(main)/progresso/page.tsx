@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useInstrucaoServicoSelecionada } from "@/components/AppShell";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { useMounted } from "@/hooks/useMounted";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
@@ -14,6 +15,7 @@ function progressoSeguro(valor: number | null | undefined): number {
 export default function ProgressoPage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
+  const { instrucaoServicoId } = useInstrucaoServicoSelecionada();
   const [rows, setRows] = useState<Atividade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +24,11 @@ export default function ProgressoPage() {
 
   const load = useCallback(async () => {
     setError(null);
-    const res = await fetch("/api/atividades", { credentials: "include" });
+    setLoading(true);
+    const filtro = instrucaoServicoId
+      ? `?instrucaoServicoId=${encodeURIComponent(instrucaoServicoId)}`
+      : "";
+    const res = await fetch(`/api/atividades${filtro}`, { credentials: "include" });
     const data = (await res.json()) as { error?: string; atividades?: Atividade[] };
 
     if (!res.ok) {
@@ -32,7 +38,7 @@ export default function ProgressoPage() {
     }
 
     setLoading(false);
-  }, []);
+  }, [instrucaoServicoId]);
 
   useEffect(() => {
     void load();

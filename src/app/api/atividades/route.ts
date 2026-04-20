@@ -5,6 +5,7 @@ import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
 import type { Atividade } from "@/types/database";
 import { isUuidString } from "@/lib/uuid";
+import { extrairInstrucaoServicoIdSelecionada } from "@/lib/instrucao-servico-filtro";
 
 function normalizarProgresso(valor: unknown): number {
   const numero = Number(valor ?? 0);
@@ -13,15 +14,17 @@ function normalizarProgresso(valor: unknown): number {
   return Math.min(100, Math.max(0, emDegraus));
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireAuthedSupabase();
   if (auth.response) return auth.response;
   const { supabase } = auth;
+  const instrucaoServicoId = extrairInstrucaoServicoIdSelecionada(request);
 
-  const atividadesResult = await supabase
-    .from("atividades")
-    .select("*")
-    .order("created_at", { ascending: false });
+  let query = supabase.from("atividades").select("*").order("created_at", { ascending: false });
+  if (instrucaoServicoId) {
+    query = query.eq("instrucao_servico", instrucaoServicoId);
+  }
+  const atividadesResult = await query;
 
   if (atividadesResult.error) {
     return NextResponse.json({ error: atividadesResult.error.message }, { status: 400 });

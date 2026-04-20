@@ -5,6 +5,7 @@ import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Atividade, Documento, Equipe, Integrante } from "@/types/database";
 import { UUID_REGEX } from "@/lib/uuid";
+import { extrairInstrucaoServicoIdSelecionada } from "@/lib/instrucao-servico-filtro";
 
 function normalizarProgresso(valor: unknown): number {
   const numero = Number(valor ?? 0);
@@ -35,7 +36,8 @@ export async function GET(request: Request) {
   if (auth.response) return auth.response;
 
   const url = new URL(request.url);
-  const documentoId = url.searchParams.get("documentoId")?.trim() ?? "";
+  const documentoId =
+    url.searchParams.get("documentoId")?.trim() ?? extrairInstrucaoServicoIdSelecionada(request);
   if (!documentoId || !UUID_REGEX.test(documentoId)) {
     return NextResponse.json({ error: "Informe documentoId (UUID) válido." }, { status: 400 });
   }

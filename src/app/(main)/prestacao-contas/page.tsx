@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { usePerfil } from "@/components/AppShell";
+import { useInstrucaoServicoSelecionada, usePerfil } from "@/components/AppShell";
 import { canEditarDocumentos } from "@/lib/auth/roles";
 import { TIPOS_DOCUMENTO } from "@/lib/documentos-constants";
 import { useMounted } from "@/hooks/useMounted";
@@ -40,6 +40,7 @@ export default function PrestacaoContasPage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
   const perfil = usePerfil();
+  const { instrucaoServicoId, setInstrucaoServicoId } = useInstrucaoServicoSelecionada();
   const podeVer = canEditarDocumentos(perfil);
 
   const [documentos, setDocumentos] = useState<Documento[]>([]);
@@ -78,6 +79,13 @@ export default function PrestacaoContasPage() {
   useEffect(() => {
     void loadDocumentos();
   }, [loadDocumentos]);
+
+  useEffect(() => {
+    setDocumentoId((atual) => {
+      if (!instrucaoServicoId) return atual;
+      return atual || instrucaoServicoId;
+    });
+  }, [instrucaoServicoId]);
 
   const loadLinhas = useCallback(async (id: string) => {
     if (!id) {
@@ -154,7 +162,11 @@ export default function PrestacaoContasPage() {
         <label className="block text-xs font-medium text-[var(--muted)]">Instrução de Serviço</label>
         <select
           value={documentoId}
-          onChange={(e) => setDocumentoId(e.target.value)}
+          onChange={(e) => {
+            const valor = e.target.value;
+            setDocumentoId(valor);
+            setInstrucaoServicoId(valor);
+          }}
           disabled={loadingDocs || !configured}
           className="mt-2 w-full max-w-xl rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--input-text)] outline-none ring-[var(--input-focus-ring)] focus:ring-2"
         >

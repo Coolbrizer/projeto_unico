@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { useMounted } from "@/hooks/useMounted";
-import { usePerfil } from "@/components/AppShell";
+import { useInstrucaoServicoSelecionada, usePerfil } from "@/components/AppShell";
 import { canEditarAtividadesIntegrantes, isAdmin } from "@/lib/auth/roles";
 import { formatarPeriodoAtividade, normalizarDataParaApi } from "@/lib/datas-atividade";
 import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
@@ -53,6 +53,7 @@ export default function AtividadesPage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
   const perfil = usePerfil();
+  const { instrucaoServicoId: instrucaoServicoGlobalId } = useInstrucaoServicoSelecionada();
   const podeEditar = canEditarAtividadesIntegrantes(perfil);
   const [nomeUsuario, setNomeUsuario] = useState<string | null>(null);
   const [sessionNomeCarregado, setSessionNomeCarregado] = useState(false);
@@ -64,8 +65,6 @@ export default function AtividadesPage() {
   const [filtroTipo, setFiltroTipo] = useState("");
   const [documentosIs, setDocumentosIs] = useState<Documento[]>([]);
   const [instrucaoServicoId, setInstrucaoServicoId] = useState("");
-  /** Vazio = mostrar todas as IS; UUID = só atividades dessa IS. */
-  const [filtroInstrucaoId, setFiltroInstrucaoId] = useState("");
 
   const [codigo, setCodigo] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -90,8 +89,12 @@ export default function AtividadesPage() {
 
   const load = useCallback(async () => {
     setError(null);
+    setLoading(true);
+    const filtro = instrucaoServicoGlobalId
+      ? `?instrucaoServicoId=${encodeURIComponent(instrucaoServicoGlobalId)}`
+      : "";
     const [resAt, resDoc] = await Promise.all([
-      fetch("/api/atividades", { credentials: "include" }),
+      fetch(`/api/atividades${filtro}`, { credentials: "include" }),
       fetch("/api/documentos", { credentials: "include" }),
     ]);
     const dataAt = (await resAt.json()) as { error?: string; atividades?: Atividade[] };
@@ -109,7 +112,7 @@ export default function AtividadesPage() {
       setDocumentosIs([]);
     }
     setLoading(false);
-  }, []);
+  }, [instrucaoServicoGlobalId]);
 
   useEffect(() => {
     void load();
@@ -117,9 +120,9 @@ export default function AtividadesPage() {
 
   useEffect(() => {
     if (showForm && !instrucaoServicoId && documentosIs.length > 0) {
-      setInstrucaoServicoId(defaultIsId(documentosIs));
+      setInstrucaoServicoId(instrucaoServicoGlobalId || defaultIsId(documentosIs));
     }
-  }, [showForm, instrucaoServicoId, documentosIs]);
+  }, [showForm, instrucaoServicoId, documentosIs, instrucaoServicoGlobalId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -164,20 +167,8 @@ export default function AtividadesPage() {
     [documentosIs]
   );
 
-  const contagensPorIs = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const a of rows) {
-      const id = a.instrucao_servico;
-      m.set(id, (m.get(id) ?? 0) + 1);
-    }
-    return m;
-  }, [rows]);
-
   const filtradas = useMemo(() => {
     let list = rows.filter((a) => atividadeMatchesBusca(a, busca));
-    if (filtroInstrucaoId) {
-      list = list.filter((a) => a.instrucao_servico === filtroInstrucaoId);
-    }
     if (filtroTipo) {
       list = list.filter((a) => {
         const p = parsePartesCodigoAtividade(a.codigo);
@@ -187,7 +178,7 @@ export default function AtividadesPage() {
     return [...list].sort((a, b) =>
       compararCodigoAtividade(a.codigo ?? "", b.codigo ?? "")
     );
-  }, [rows, busca, filtroTipo, filtroInstrucaoId]);
+  }, [rows, busca, filtroTipo]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -296,58 +287,7 @@ export default function AtividadesPage() {
           {aviso.texto}
         </div>
       )}
-      <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
-        <aside className="w-full shrink-0 lg:sticky lg:top-20 lg:w-72">
-          <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-sm">
-            <h3 className="text-sm font-semibold text-[var(--foreground)]">Instrução de Serviço</h3>
-            <p className="mt-1 text-xs text-[var(--muted)]">
-              Escolha uma IS para ver só as atividades vinculadas a ela.
-            </p>
-            <ul className="mt-3 max-h-[min(70vh,28rem)] space-y-1 overflow-y-auto pr-1">
-              <li>
-                <button
-                  type="button"
-                  onClick={() => setFiltroInstrucaoId("")}
-                  className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                    filtroInstrucaoId === ""
-                      ? "border border-[var(--accent)]/25 bg-[var(--accent-muted)] font-medium text-[var(--accent)] shadow-sm"
-                      : "border border-transparent text-[var(--foreground)] hover:bg-[var(--accent-muted)]/60"
-                  }`}
-                >
-                  <span>Todas</span>
-                  <span className="shrink-0 tabular-nums text-xs text-[var(--muted)]">{rows.length}</span>
-                </button>
-              </li>
-              {documentosIs.map((d) => {
-                const n = contagensPorIs.get(d.id) ?? 0;
-                const ativo = filtroInstrucaoId === d.id;
-                return (
-                  <li key={d.id}>
-                    <button
-                      type="button"
-                      onClick={() => setFiltroInstrucaoId(d.id)}
-                      className={`flex w-full items-start justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                        ativo
-                          ? "border border-[var(--accent)]/25 bg-[var(--accent-muted)] font-medium text-[var(--accent)] shadow-sm"
-                          : "border border-transparent text-[var(--foreground)] hover:bg-[var(--accent-muted)]/60"
-                      }`}
-                    >
-                      <span className="min-w-0 leading-snug">{rotuloInstrucaoServico(d)}</span>
-                      <span className="shrink-0 tabular-nums text-xs text-[var(--muted)]">{n}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-            {documentosIs.length === 0 && !loading && (
-              <p className="mt-3 text-xs text-[var(--muted)]">
-                Nenhuma IS em Documentos. Cadastre uma Instrução de Serviço para filtrar.
-              </p>
-            )}
-          </div>
-        </aside>
-
-        <div className="min-w-0 flex-1">
+      <div className="min-w-0">
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Atividades</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
@@ -541,7 +481,7 @@ export default function AtividadesPage() {
               ? "Configure o Supabase para ver os dados."
               : rows.length === 0
                 ? "Nenhuma atividade ainda."
-                : "Nenhum resultado com os critérios actuais (busca, Instrução de Serviço ou tipo de atividade)."}
+                : "Nenhum resultado com os critérios atuais (busca ou tipo de atividade)."}
           </p>
         ) : (
           <ul className="space-y-3">
@@ -706,7 +646,6 @@ export default function AtividadesPage() {
           </ul>
         )}
       </section>
-        </div>
       </div>
     </div>
   );
