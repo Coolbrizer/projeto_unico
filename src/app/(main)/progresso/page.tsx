@@ -6,6 +6,7 @@ import { useInstrucaoServicoSelecionada } from "@/components/AppShell";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { useMounted } from "@/hooks/useMounted";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
+import { parsePartesCodigoAtividade, tiposAtividadeDistintos } from "@/lib/atividade-codigo";
 import type { Atividade } from "@/types/database";
 
 function progressoSeguro(valor: number | null | undefined): number {
@@ -20,6 +21,7 @@ export default function ProgressoPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filtroProgresso, setFiltroProgresso] = useState<string>("todos");
+  const [filtroTipo, setFiltroTipo] = useState("");
   const [ordemProgresso, setOrdemProgresso] = useState<"asc" | "desc">("asc");
 
   const load = useCallback(async () => {
@@ -44,9 +46,22 @@ export default function ProgressoPage() {
     void load();
   }, [load]);
 
+  const tiposDisponiveis = useMemo(
+    () => tiposAtividadeDistintos(rows.map((a) => a.codigo)),
+    [rows]
+  );
+
+  const rowsPorTipo = useMemo(() => {
+    if (!filtroTipo) return rows;
+    return rows.filter((a) => {
+      const p = parsePartesCodigoAtividade(a.codigo);
+      return p.reconhecido && p.tipo === filtroTipo;
+    });
+  }, [rows, filtroTipo]);
+
   const atividadesOrdenadas = useMemo(
     () =>
-      [...rows].sort((a, b) => {
+      [...rowsPorTipo].sort((a, b) => {
         const progressoA = progressoSeguro(a.progresso);
         const progressoB = progressoSeguro(b.progresso);
         if (progressoA !== progressoB) {
@@ -54,7 +69,7 @@ export default function ProgressoPage() {
         }
         return (a.codigo ?? "").localeCompare(b.codigo ?? "", "pt-BR", { sensitivity: "base" });
       }),
-    [rows, ordemProgresso]
+    [rowsPorTipo, ordemProgresso]
   );
 
   const atividadesFiltradas = useMemo(() => {
@@ -84,8 +99,8 @@ export default function ProgressoPage() {
       <section className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5">
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <h3 className="text-sm font-medium text-[var(--muted)]">Gráfico de barras</h3>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="sm:w-56">
+          <div className="grid w-full gap-2 sm:max-w-none sm:grid-cols-3">
+            <div className="sm:min-w-0">
               <label className="block text-xs text-[var(--muted)]">Filtrar por progresso</label>
               <select
                 value={filtroProgresso}
@@ -100,7 +115,22 @@ export default function ProgressoPage() {
                 ))}
               </select>
             </div>
-            <div className="sm:w-56">
+            <div className="sm:min-w-0">
+              <label className="block text-xs text-[var(--muted)]">Tipo de atividade</label>
+              <select
+                value={filtroTipo}
+                onChange={(e) => setFiltroTipo(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2.5 py-1.5 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+              >
+                <option value="">Todos os tipos</option>
+                {tiposDisponiveis.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:min-w-0">
               <label className="block text-xs text-[var(--muted)]">Ordenação</label>
               <select
                 value={ordemProgresso}
@@ -119,7 +149,7 @@ export default function ProgressoPage() {
         ) : atividadesFiltradas.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">
             {configured
-              ? "Nenhuma atividade encontrada para esse percentual."
+              ? "Nenhuma atividade encontrada para os filtros selecionados."
               : "Configure o Supabase para ver os dados."}
           </p>
         ) : (
