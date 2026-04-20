@@ -190,8 +190,8 @@ export default function PrestacaoContasPage() {
           <table className="w-full min-w-[1100px] table-fixed border-collapse text-left text-sm">
             <colgroup>
               <col className="w-[8%]" />
-              <col className="w-[28%]" />
-              <col className="w-[34%]" />
+              <col className="w-[32%]" />
+              <col className="w-[30%]" />
               <col className="w-[11%]" />
               <col className="w-[7%]" />
               <col className="w-[12%]" />
@@ -233,7 +233,7 @@ export default function PrestacaoContasPage() {
                     <td className="px-3 py-2.5 text-right font-medium tabular-nums text-[var(--foreground)]">
                       {r.progresso}%
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className="whitespace-nowrap px-3 py-2.5">
                       {!temEtiqueta && !temLink ? (
                         "—"
                       ) : temLink && temEtiqueta ? (
@@ -241,7 +241,7 @@ export default function PrestacaoContasPage() {
                           href={hrefSeguro(r.link_relatorio!)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-700 underline decoration-blue-700 underline-offset-2 hover:text-blue-900"
+                          className="whitespace-nowrap text-blue-700 underline decoration-blue-700 underline-offset-2 hover:text-blue-900"
                         >
                           {r.etiqueta_relatorio}
                         </a>
@@ -250,12 +250,12 @@ export default function PrestacaoContasPage() {
                           href={hrefSeguro(r.link_relatorio!)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-700 underline decoration-blue-700 underline-offset-2 hover:text-blue-900"
+                          className="whitespace-nowrap text-blue-700 underline decoration-blue-700 underline-offset-2 hover:text-blue-900"
                         >
                           Abrir link
                         </a>
                       ) : (
-                        <span>{r.etiqueta_relatorio}</span>
+                        <span className="whitespace-nowrap">{r.etiqueta_relatorio}</span>
                       )}
                     </td>
                   </tr>
