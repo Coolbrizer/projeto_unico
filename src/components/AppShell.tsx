@@ -142,9 +142,11 @@ export function AppShell({
                   <h1 className="truncate text-lg font-semibold leading-snug text-[var(--foreground)]">
                     Modernização do Único
                   </h1>
-                  <span className="shrink-0 rounded-md border border-[var(--card-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--accent)]">
-                    {labelPerfil[role]}
-                  </span>
+                  {role !== "admin" && (
+                    <span className="shrink-0 rounded-md border border-[var(--card-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--accent)]">
+                      {labelPerfil[role]}
+                    </span>
+                  )}
                 </div>
               </div>
               <nav className="flex min-w-0 flex-1 flex-wrap items-center gap-1 overflow-x-auto pb-1 md:justify-end">
