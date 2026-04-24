@@ -13,6 +13,16 @@ function progressoSeguro(valor: number | null | undefined): number {
   return Math.min(100, Math.max(0, Number(valor ?? 0) || 0));
 }
 
+function corPorProgresso(percentual: number): string {
+  const p = progressoSeguro(percentual) / 100;
+  const inicio = { r: 220, g: 38, b: 38 }; // vermelho
+  const fim = { r: 37, g: 99, b: 235 }; // azul
+  const r = Math.round(inicio.r + (fim.r - inicio.r) * p);
+  const g = Math.round(inicio.g + (fim.g - inicio.g) * p);
+  const b = Math.round(inicio.b + (fim.b - inicio.b) * p);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
 export default function ProgressoPage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
@@ -156,6 +166,7 @@ export default function ProgressoPage() {
           <ul className="space-y-0">
             {atividadesFiltradas.map((atividade) => {
               const progresso = progressoSeguro(atividade.progresso);
+              const cor = corPorProgresso(progresso);
               const codigo = atividade.codigo?.trim() || "SEM-CODIGO";
               return (
                 <li key={atividade.id}>
@@ -167,11 +178,14 @@ export default function ProgressoPage() {
                       <p className="truncate text-sm font-medium leading-tight text-[var(--accent)]">{codigo}</p>
                       <div className="h-3 w-full min-w-0 overflow-hidden rounded-full bg-slate-200/80">
                         <div
-                          className="h-full rounded-full bg-[var(--accent)]/70"
-                          style={{ width: `${progresso}%` }}
+                          className="h-full rounded-full"
+                          style={{ width: `${progresso}%`, backgroundColor: cor }}
                         />
                       </div>
-                      <p className="text-right text-sm font-medium leading-tight tabular-nums text-[var(--foreground)]">
+                      <p
+                        className="text-right text-sm font-medium leading-tight tabular-nums"
+                        style={{ color: cor }}
+                      >
                         {progresso}%
                       </p>
                     </div>
