@@ -7,6 +7,7 @@ import { isAdmin } from "@/lib/auth/roles";
 import { useMounted } from "@/hooks/useMounted";
 import {
   breakdownDespesaFolhaAno,
+  DATA_ORCAMENTO_INICIO_ISO,
   despesaFolhaPeriodo,
   diasNoMes,
   totalDespesaMensalFolha,
@@ -40,15 +41,11 @@ export default function OrcamentoPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [anoSelecionado, setAnoSelecionado] = useState(() => new Date().getFullYear());
-  const [dataInicioPeriodo, setDataInicioPeriodo] = useState(() => {
-    const y = new Date().getFullYear();
-    return `${y}-01-01`;
-  });
-  const [dataFimPeriodo, setDataFimPeriodo] = useState(() => {
-    const y = new Date().getFullYear();
-    return `${y}-12-31`;
-  });
+  const [anoSelecionado, setAnoSelecionado] = useState(() =>
+    Math.max(new Date().getFullYear(), 2026)
+  );
+  const [dataInicioPeriodo, setDataInicioPeriodo] = useState(DATA_ORCAMENTO_INICIO_ISO);
+  const [dataFimPeriodo, setDataFimPeriodo] = useState("2026-12-31");
 
   const load = useCallback(async () => {
     setError(null);
@@ -75,6 +72,13 @@ export default function OrcamentoPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const minDataFimPeriodo =
+    dataInicioPeriodo > DATA_ORCAMENTO_INICIO_ISO ? dataInicioPeriodo : DATA_ORCAMENTO_INICIO_ISO;
+
+  useEffect(() => {
+    if (dataFimPeriodo < minDataFimPeriodo) setDataFimPeriodo(minDataFimPeriodo);
+  }, [dataFimPeriodo, minDataFimPeriodo]);
 
   const folha = useMemo(
     () => totalDespesaMensalFolha(integrantes, refPgto),
@@ -107,8 +111,9 @@ export default function OrcamentoPage() {
   );
 
   const anosDisponiveis = useMemo(() => {
-    const centro = new Date().getFullYear();
-    return Array.from({ length: 11 }, (_, i) => centro - 5 + i);
+    const primeiroAno = 2026;
+    const ultimoAno = Math.max(primeiroAno + 10, new Date().getFullYear() + 5);
+    return Array.from({ length: ultimoAno - primeiroAno + 1 }, (_, i) => primeiroAno + i);
   }, []);
 
   const totais = useMemo(() => {
@@ -149,7 +154,7 @@ export default function OrcamentoPage() {
         <h2 className="text-2xl font-semibold tracking-tight">Orçamento</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Despesa da folha (integrantes ×{" "}
-          <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">ref_pgto</code>), valores mês a mês no ano civil (janeiro, junho e dezembro proporcionais), estimativa por intervalo de datas e, se houver, lançamentos por categoria.
+          <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">ref_pgto</code>), valores a partir de 12/06/2026, mês a mês no ano civil (janeiro, junho e dezembro proporcionais), estimativa por intervalo de datas e, se houver, lançamentos por categoria.
         </p>
       </header>
 
@@ -191,16 +196,21 @@ export default function OrcamentoPage() {
                     Estimativa no período
                   </label>
                   <p className="mt-0.5 text-[11px] leading-snug text-[var(--muted)]">
-                    Informe o intervalo; cada dia válido soma uma fração da folha de mês cheio conforme as regras de
-                    calendário.
+                    Somente a partir de 12/06/2026. Cada dia válido soma uma fração da folha de mês cheio conforme as
+                    regras de calendário.
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <div className="flex flex-col gap-0.5">
                       <span className="text-[11px] text-[var(--muted)]">Data inicial</span>
                       <input
                         type="date"
+                        min={DATA_ORCAMENTO_INICIO_ISO}
                         value={dataInicioPeriodo}
-                        onChange={(e) => setDataInicioPeriodo(e.target.value)}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setDataInicioPeriodo(v);
+                          if (v > dataFimPeriodo) setDataFimPeriodo(v);
+                        }}
                         className="rounded-lg border border-[var(--card-border)] bg-white px-2 py-1.5 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
                       />
                     </div>
@@ -211,6 +221,7 @@ export default function OrcamentoPage() {
                       <span className="text-[11px] text-[var(--muted)]">Data final</span>
                       <input
                         type="date"
+                        min={minDataFimPeriodo}
                         value={dataFimPeriodo}
                         onChange={(e) => setDataFimPeriodo(e.target.value)}
                         className="rounded-lg border border-[var(--card-border)] bg-white px-2 py-1.5 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
@@ -291,9 +302,10 @@ export default function OrcamentoPage() {
           </div>
 
           <p className="mt-4 text-xs text-[var(--foreground)]">
-            A referência <strong>ref_pgto</strong> é o valor de mês inteiro por integrante. Janeiro considera apenas
-            a partir do dia 7; junho, a partir do dia 12; dezembro, do dia 1 ao 19. Demais meses usam o mês completo. A
-            estimativa por período soma, dia a dia, apenas os dias cobertos por essas regras (proporção{" "}
+            Nada antes de <strong>12/06/2026</strong> entra na projeção. A referência{" "}
+            <strong>ref_pgto</strong> é o valor de mês inteiro por integrante; depois dessa data, janeiro considera
+            apenas a partir do dia 7; junho, a partir do dia 12; dezembro, do dia 1 ao 19. Demais meses usam o mês
+            completo. A estimativa por período soma, dia a dia, apenas os dias cobertos (proporção{" "}
             <code className="rounded bg-[var(--accent-muted)] px-1">folha ÷ dias do mês</code> por dia válido). Ajuste
             dados no Supabase ou na tela de integrantes.
           </p>
