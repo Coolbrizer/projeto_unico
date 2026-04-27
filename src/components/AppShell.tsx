@@ -138,16 +138,13 @@ export function AppShell({
                 <p className="text-xs font-medium uppercase tracking-wider text-[var(--muted)]">
                   Projeto
                 </p>
-                <div className="flex flex-wrap items-baseline gap-2">
-                  <h1 className="truncate text-lg font-semibold leading-snug text-[var(--foreground)]">
-                    Modernização do Único
-                  </h1>
-                  {role !== "admin" && (
-                    <span className="shrink-0 rounded-md border border-[var(--card-border)] bg-[var(--accent-muted)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--accent)]">
-                      {labelPerfil[role]}
-                    </span>
-                  )}
-                </div>
+                <h1 className="truncate text-lg font-semibold leading-snug text-[var(--foreground)]">
+                  Modernização do Único
+                </h1>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  Perfil:{" "}
+                  <span className="font-medium text-[var(--foreground)]">{labelPerfil[role]}</span>
+                </p>
               </div>
               <nav className="flex min-w-0 flex-1 flex-wrap items-center gap-1 overflow-x-auto pb-1 md:justify-end">
                 {navItems.map((item) => {
