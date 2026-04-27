@@ -348,7 +348,7 @@ export default function EquipePage() {
                   )}
                 </div>
 
-                <div className="grid gap-6 p-4 md:grid-cols-2">
+                <div className="p-4">
                   <div>
                     <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
                       Equipes / funções
@@ -356,7 +356,7 @@ export default function EquipePage() {
                     {g.equipeRows.length === 0 ? (
                       <p className="text-sm text-[var(--muted)]">Nenhum registro de equipe.</p>
                     ) : (
-                      <ul className="space-y-2">
+                      <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2 sm:gap-x-3 sm:gap-y-1">
                         {g.equipeRows.map((r) => {
                           const ehResp = equipeLinhaEhResponsavel(
                             r.equipe ?? "",
@@ -365,19 +365,19 @@ export default function EquipePage() {
                           return (
                             <li
                               key={r.id}
-                              className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm ${
+                              className={`flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-sm ${
                                 ehResp
                                   ? "border border-[var(--success)]/35 bg-[var(--success)]/12 ring-1 ring-[var(--success)]/15"
                                   : "border border-[var(--card-border)] bg-[var(--background)]/60"
                               }`}
                             >
-                              <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                              <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
                                 <span className={ehResp ? "font-medium text-[var(--success)]" : ""}>
                                   {r.equipe || "—"}
                                 </span>
                                 {ehResp && (
-                                  <span className="shrink-0 rounded bg-[var(--success)]/16 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--success)]">
-                                    Responsável pela atividade
+                                  <span className="shrink-0 rounded bg-[var(--success)]/16 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--success)]">
+                                    Responsável
                                   </span>
                                 )}
                               </span>
@@ -393,29 +393,6 @@ export default function EquipePage() {
                             </li>
                           );
                         })}
-                      </ul>
-                    )}
-                  </div>
-                  <div>
-                    <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-                      Integrantes (setor alinhado a este código ou à equipe)
-                    </h4>
-                    {g.integrantes.length === 0 ? (
-                      <p className="text-sm text-[var(--muted)]">Nenhum integrante associado.</p>
-                    ) : (
-                      <ul className="space-y-2">
-                        {g.integrantes.map((i) => (
-                          <li
-                            key={i.id}
-                            className="rounded-lg border border-[var(--card-border)] bg-[var(--background)]/60 px-3 py-2 text-sm"
-                          >
-                            <span className="font-medium text-[var(--foreground)]">{i.nome}</span>
-                            <span className="text-[var(--muted)]"> · Mat. {i.matricula}</span>
-                            {i.setor && (
-                              <p className="mt-0.5 text-xs text-[var(--muted)]">Setor: {i.setor}</p>
-                            )}
-                          </li>
-                        ))}
                       </ul>
                     )}
                   </div>
