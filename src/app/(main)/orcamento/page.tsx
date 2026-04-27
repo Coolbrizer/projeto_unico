@@ -5,7 +5,12 @@ import { ConfigWarning } from "@/components/ConfigWarning";
 import { usePerfil } from "@/components/AppShell";
 import { isAdmin } from "@/lib/auth/roles";
 import { useMounted } from "@/hooks/useMounted";
-import { totalDespesaMensalFolha, valorMensalDoRef } from "@/lib/orcamento-folha";
+import {
+  breakdownDespesaFolhaAno,
+  diasNoMes,
+  totalDespesaMensalFolha,
+  valorMensalDoRef,
+} from "@/lib/orcamento-folha";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import type { Integrante, Orcamento, RefPgto } from "@/types/database";
 
@@ -34,7 +39,7 @@ export default function OrcamentoPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [mesesProjecao, setMesesProjecao] = useState(1);
+  const [anoSelecionado, setAnoSelecionado] = useState(() => new Date().getFullYear());
 
   const load = useCallback(async () => {
     setError(null);
@@ -82,9 +87,15 @@ export default function OrcamentoPage() {
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b, "pt-BR"));
   }, [refPgto]);
 
-  const mesesValidos = Math.max(1, Math.min(120, Math.floor(Number(mesesProjecao)) || 1));
-  const despesaPeriodo = folha.total * mesesValidos;
-  const despesaAnual = folha.total * 12;
+  const folhaPorMesAno = useMemo(
+    () => breakdownDespesaFolhaAno(anoSelecionado, folha.total),
+    [anoSelecionado, folha.total]
+  );
+
+  const anosDisponiveis = useMemo(() => {
+    const centro = new Date().getFullYear();
+    return Array.from({ length: 11 }, (_, i) => centro - 5 + i);
+  }, []);
 
   const totais = useMemo(() => {
     let prev = 0;
@@ -123,8 +134,8 @@ export default function OrcamentoPage() {
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Orçamento</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Despesa da folha (integrantes × <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">ref_pgto</code>),
-          projeções por período e, se houver, lançamentos por categoria.
+          Despesa da folha (integrantes ×{" "}
+          <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">ref_pgto</code>), valores mês a mês no ano civil (junho e dezembro proporcionais) e, se houver, lançamentos por categoria.
         </p>
       </header>
 
@@ -144,56 +155,74 @@ export default function OrcamentoPage() {
           <p className="mt-2 text-2xl font-bold text-[var(--success)]">{formatMoney(folha.total)}</p>
 
           <div className="mt-5 border-t border-[var(--success)]/20 pt-4">
-            <p className="text-xs font-medium text-[var(--success)]">Projeções</p>
-            <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
               <div>
-                <label className="block text-xs text-[var(--muted)]">Multiplicar por meses</label>
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <input
-                    type="number"
-                    min={1}
-                    max={120}
-                    value={mesesProjecao}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      if (raw === "") {
-                        setMesesProjecao(1);
-                        return;
-                      }
-                      const n = parseInt(raw, 10);
-                      if (Number.isNaN(n)) return;
-                      setMesesProjecao(Math.min(120, Math.max(1, n)));
-                    }}
-                    className="w-20 rounded-lg border border-[var(--card-border)] bg-white px-2 py-1.5 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
-                  />
-                  <span className="text-xs text-[var(--muted)]">meses</span>
-                  <div className="flex flex-wrap gap-1">
-                    {[3, 6, 12].map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setMesesProjecao(m)}
-                        className="rounded border border-[var(--success)]/25 bg-white/70 px-2 py-0.5 text-xs font-medium text-[var(--success)] hover:bg-[var(--success)]/10"
-                      >
-                        {m}m
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <p className="mt-2 text-sm text-[var(--foreground)]">
-                  Total no período ({mesesValidos} {mesesValidos === 1 ? "mês" : "meses"}):{" "}
-                  <strong className="text-[var(--success)]">{formatMoney(despesaPeriodo)}</strong>
+                <p className="text-xs font-medium text-[var(--success)]">Despesa da folha por mês</p>
+                <label className="mt-2 block text-xs text-[var(--muted)]">Ano civil</label>
+                <select
+                  value={anoSelecionado}
+                  onChange={(e) => setAnoSelecionado(Number(e.target.value))}
+                  className="mt-1 rounded-lg border border-[var(--card-border)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
+                >
+                  {anosDisponiveis.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="rounded-lg border border-[var(--success)]/20 bg-white/65 px-3 py-2 sm:min-w-[220px]">
+                <p className="text-xs text-[var(--muted)]">Total no ano ({anoSelecionado})</p>
+                <p className="mt-1 text-lg font-semibold text-[var(--success)]">
+                  {formatMoney(folhaPorMesAno.totalAno)}
                 </p>
               </div>
-              <div className="rounded-lg border border-[var(--success)]/20 bg-white/65 px-3 py-2 sm:min-w-[200px]">
-                <p className="text-xs text-[var(--muted)]">Despesa anual (12 meses)</p>
-                <p className="mt-1 text-lg font-semibold text-[var(--success)]">{formatMoney(despesaAnual)}</p>
-              </div>
+            </div>
+
+            <div className="mt-4 overflow-x-auto rounded-lg border border-[var(--success)]/20 bg-white/65">
+              <table className="w-full min-w-[420px] border-collapse text-left text-sm">
+                <thead className="border-b border-[var(--success)]/20 bg-white/90 text-xs uppercase tracking-wide text-[var(--muted)]">
+                  <tr>
+                    <th className="px-3 py-2.5 font-medium">Mês</th>
+                    <th className="px-3 py-2.5 text-right font-medium">Dias no mês</th>
+                    <th className="px-3 py-2.5 text-right font-medium">Dias pagos</th>
+                    <th className="px-3 py-2.5 text-right font-medium">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {folhaPorMesAno.meses.map((row) => {
+                    const dim = diasNoMes(anoSelecionado, row.mes);
+                    const nota =
+                      row.mes === 6 ? "12 → fim" : row.mes === 12 ? "1–19" : null;
+                    return (
+                      <tr
+                        key={row.mes}
+                        className="border-b border-[var(--card-border)]/40 last:border-b-0"
+                      >
+                        <td className="px-3 py-2">
+                          <span className="text-[var(--foreground)]">{row.nomeMes}</span>
+                          {nota && (
+                            <span className="ml-1.5 text-[11px] text-[var(--muted)]">({nota})</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums text-[var(--muted)]">{dim}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-[var(--muted)]">
+                          {row.diasConsiderados}
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium tabular-nums text-[var(--success)]">
+                          {formatMoney(row.valor)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
 
           <p className="mt-4 text-xs text-[var(--foreground)]">
-            Valores com base na referência <strong>ref_pgto</strong> e nos integrantes. Ajuste dados no
+            A referência <strong>ref_pgto</strong> é o valor de mês inteiro por integrante. Junho considera apenas
+            do dia 12 ao fim do mês; dezembro, do dia 1 ao 19. Demais meses usam o mês completo. Ajuste dados no
             Supabase ou na tela de integrantes.
           </p>
           {folha.semCorrespondencia.length > 0 && (
