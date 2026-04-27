@@ -35,9 +35,10 @@ export function diasNoMes(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
 }
 
-/** Proporção da folha de “mês cheio” aplicável ao mês civil (junho/dezembro proporcionais). */
+/** Proporção da folha de “mês cheio” aplicável ao mês civil (meses parciais proporcionais). */
 export function fatorProporcaoFolhaMes(year: number, month: number): number {
   const dim = diasNoMes(year, month);
+  if (month === 1) return (dim - 6) / dim;
   if (month === 6) return (dim - 11) / dim;
   if (month === 12) return 19 / dim;
   return 1;
@@ -68,12 +69,13 @@ const NOMES_MESES = [
 
 function diasPagosNoMes(year: number, month: number): number {
   const dim = diasNoMes(year, month);
+  if (month === 1) return dim - 6;
   if (month === 6) return dim - 11;
   if (month === 12) return 19;
   return dim;
 }
 
-/** Doze meses do ano civil com valores proporcionais em junho e dezembro. */
+/** Doze meses do ano civil com valores proporcionais em janeiro, junho e dezembro. */
 export function breakdownDespesaFolhaAno(year: number, folhaTotalMesCheio: number): {
   meses: MesFolhaBreakdown[];
   totalAno: number;

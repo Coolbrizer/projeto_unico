@@ -135,7 +135,7 @@ export default function OrcamentoPage() {
         <h2 className="text-2xl font-semibold tracking-tight">Orçamento</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Despesa da folha (integrantes ×{" "}
-          <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">ref_pgto</code>), valores mês a mês no ano civil (junho e dezembro proporcionais) e, se houver, lançamentos por categoria.
+          <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">ref_pgto</code>), valores mês a mês no ano civil (janeiro, junho e dezembro proporcionais) e, se houver, lançamentos por categoria.
         </p>
       </header>
 
@@ -193,7 +193,13 @@ export default function OrcamentoPage() {
                   {folhaPorMesAno.meses.map((row) => {
                     const dim = diasNoMes(anoSelecionado, row.mes);
                     const nota =
-                      row.mes === 6 ? "12 → fim" : row.mes === 12 ? "1–19" : null;
+                      row.mes === 1
+                        ? "7 → fim"
+                        : row.mes === 6
+                          ? "12 → fim"
+                          : row.mes === 12
+                            ? "1–19"
+                            : null;
                     return (
                       <tr
                         key={row.mes}
@@ -221,8 +227,9 @@ export default function OrcamentoPage() {
           </div>
 
           <p className="mt-4 text-xs text-[var(--foreground)]">
-            A referência <strong>ref_pgto</strong> é o valor de mês inteiro por integrante. Junho considera apenas
-            do dia 12 ao fim do mês; dezembro, do dia 1 ao 19. Demais meses usam o mês completo. Ajuste dados no
+            A referência <strong>ref_pgto</strong> é o valor de mês inteiro por integrante. Janeiro considera apenas
+            a partir do dia 7; junho, a partir do dia 12; dezembro, do dia 1 ao 19. Demais meses usam o mês completo.
+            Ajuste dados no
             Supabase ou na tela de integrantes.
           </p>
           {folha.semCorrespondencia.length > 0 && (
