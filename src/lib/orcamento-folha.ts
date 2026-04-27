@@ -75,6 +75,65 @@ function diasPagosNoMes(year: number, month: number): number {
   return dim;
 }
 
+/** Dia civil conta para folha naquele mês (alinhado a `fatorProporcaoFolhaMes`). */
+export function diaContaPagamentoFolha(year: number, month: number, day: number): boolean {
+  const dim = diasNoMes(year, month);
+  if (day < 1 || day > dim) return false;
+  if (month === 1) return day >= 7;
+  if (month === 6) return day >= 12;
+  if (month === 12) return day <= 19;
+  return true;
+}
+
+function parseISODateLocal(iso: string): { y: number; m: number; d: number } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((iso ?? "").trim());
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (mo < 1 || mo > 12 || !Number.isFinite(y)) return null;
+  const dt = new Date(y, mo - 1, d);
+  if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null;
+  return { y, m: mo, d };
+}
+
+/**
+ * Estimativa da folha no intervalo [início, fim], somando para cada dia “pago”
+ * `folhaTotalMesCheio / diasNoMes` (mesmas regras de jan/jun/dez que o breakdown anual).
+ */
+export function despesaFolhaPeriodo(
+  folhaTotalMesCheio: number,
+  inicioISO: string,
+  fimISO: string
+): { total: number; diasPagosContados: number; erro?: string } {
+  const pi = parseISODateLocal(inicioISO);
+  const pf = parseISODateLocal(fimISO);
+  if (!pi || !pf) return { total: 0, diasPagosContados: 0, erro: "Informe datas válidas." };
+  const t0 = new Date(pi.y, pi.m - 1, pi.d);
+  const t1 = new Date(pf.y, pf.m - 1, pf.d);
+  if (t1 < t0)
+    return {
+      total: 0,
+      diasPagosContados: 0,
+      erro: "A data final deve ser igual ou posterior à inicial.",
+    };
+
+  let total = 0;
+  let diasPagosContados = 0;
+  const cursor = new Date(t0);
+  while (cursor <= t1) {
+    const y = cursor.getFullYear();
+    const mo = cursor.getMonth() + 1;
+    const d = cursor.getDate();
+    if (diaContaPagamentoFolha(y, mo, d)) {
+      total += folhaTotalMesCheio / diasNoMes(y, mo);
+      diasPagosContados += 1;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return { total: Math.round(total * 100) / 100, diasPagosContados };
+}
+
 /** Doze meses do ano civil com valores proporcionais em janeiro, junho e dezembro. */
 export function breakdownDespesaFolhaAno(year: number, folhaTotalMesCheio: number): {
   meses: MesFolhaBreakdown[];
