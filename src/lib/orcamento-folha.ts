@@ -44,11 +44,10 @@ function ymdNum(y: number, m: number, d: number): number {
 
 const CORTE_ORCAMENTO = ymdNum(2026, 6, 12);
 
-/** Proporção só com regras de calendário (jan/jun/dez), sem corte de vigência. */
+/** Proporção só com regras de calendário (jan/dez), sem corte de vigência. */
 function fatorRegrasCalendario(year: number, month: number): number {
   const dim = diasNoMes(year, month);
   if (month === 1) return (dim - 6) / dim;
-  if (month === 6) return (dim - 11) / dim;
   if (month === 12) return 19 / dim;
   return 1;
 }
@@ -87,7 +86,6 @@ function diasPagosNoMes(year: number, month: number): number {
   const dim = diasNoMes(year, month);
   if (ymdNum(year, month, dim) < CORTE_ORCAMENTO) return 0;
   if (month === 1) return dim - 6;
-  if (month === 6) return dim - 11;
   if (month === 12) return 19;
   return dim;
 }
@@ -98,7 +96,6 @@ export function diaContaPagamentoFolha(year: number, month: number, day: number)
   if (day < 1 || day > dim) return false;
   if (ymdNum(year, month, day) < CORTE_ORCAMENTO) return false;
   if (month === 1) return day >= 7;
-  if (month === 6) return day >= 12;
   if (month === 12) return day <= 19;
   return true;
 }
@@ -117,7 +114,7 @@ function parseISODateLocal(iso: string): { y: number; m: number; d: number } | n
 
 /**
  * Estimativa da folha no intervalo [início, fim], somando para cada dia “pago”
- * `folhaTotalMesCheio / diasNoMes` (mesmas regras de jan/jun/dez que o breakdown anual).
+ * `folhaTotalMesCheio / diasNoMes` (mesmas regras de jan/dez que o breakdown anual).
  */
 export function despesaFolhaPeriodo(
   folhaTotalMesCheio: number,
@@ -152,7 +149,7 @@ export function despesaFolhaPeriodo(
   return { total: Math.round(total * 100) / 100, diasPagosContados };
 }
 
-/** Doze meses do ano civil com valores proporcionais em janeiro, junho e dezembro. */
+/** Doze meses do ano civil com valores proporcionais em janeiro e dezembro. */
 export function breakdownDespesaFolhaAno(year: number, folhaTotalMesCheio: number): {
   meses: MesFolhaBreakdown[];
   totalAno: number;

@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
-import { usePerfil } from "@/components/AppShell";
+import { useInstrucaoServicoSelecionada, usePerfil } from "@/components/AppShell";
 import { isAdmin } from "@/lib/auth/roles";
 import { useMounted } from "@/hooks/useMounted";
 import {
-  breakdownDespesaFolhaAno,
   DATA_ORCAMENTO_INICIO_ISO,
   despesaFolhaPeriodo,
   diasNoMes,
@@ -14,7 +13,7 @@ import {
   valorMensalDoRef,
 } from "@/lib/orcamento-folha";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
-import type { Integrante, Orcamento, RefPgto } from "@/types/database";
+import type { Atividade, Integrante, Orcamento, RefPgto } from "@/types/database";
 
 function formatMoney(n: number | null) {
   if (n === null || n === undefined) return "—";
@@ -30,10 +29,35 @@ function macroDoSetor(setor: string | null | undefined): string {
   return (macro || "(sem setor)").toUpperCase();
 }
 
+function toISODateOnly(raw: string | null | undefined): string | null {
+  const s = (raw ?? "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+}
+
+function isoDate(year: number, month: number, day: number): string {
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+const NOMES_MESES = [
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+];
+
 export default function OrcamentoPage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
   const perfil = usePerfil();
+  const { instrucaoServicoId } = useInstrucaoServicoSelecionada();
   const podeExcluirLancamento = isAdmin(perfil);
   const [rows, setRows] = useState<Orcamento[]>([]);
   const [integrantes, setIntegrantes] = useState<Integrante[]>([]);
@@ -46,6 +70,7 @@ export default function OrcamentoPage() {
   );
   const [dataInicioPeriodo, setDataInicioPeriodo] = useState(DATA_ORCAMENTO_INICIO_ISO);
   const [dataFimPeriodo, setDataFimPeriodo] = useState("2026-12-31");
+  const [periodoInstrucao, setPeriodoInstrucao] = useState<{ inicio: string; fim: string } | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -73,12 +98,86 @@ export default function OrcamentoPage() {
     void load();
   }, [load]);
 
-  const minDataFimPeriodo =
-    dataInicioPeriodo > DATA_ORCAMENTO_INICIO_ISO ? dataInicioPeriodo : DATA_ORCAMENTO_INICIO_ISO;
+  useEffect(() => {
+    if (!instrucaoServicoId) {
+      setPeriodoInstrucao(null);
+      return;
+    }
+
+    let ativo = true;
+    void (async () => {
+      const res = await fetch(
+        `/api/atividades?instrucaoServicoId=${encodeURIComponent(instrucaoServicoId)}`,
+        { credentials: "include" }
+      );
+      const data = (await res.json()) as { atividades?: Atividade[] };
+      if (!ativo || !res.ok) {
+        setPeriodoInstrucao(null);
+        return;
+      }
+      const atividades = data.atividades ?? [];
+      const inicios = atividades.map((a) => toISODateOnly(a.inicio)).filter(Boolean) as string[];
+      const fins = atividades.map((a) => toISODateOnly(a.fim)).filter(Boolean) as string[];
+      if (inicios.length === 0 || fins.length === 0) {
+        setPeriodoInstrucao(null);
+        return;
+      }
+      inicios.sort();
+      fins.sort();
+      const inicio = inicios[0];
+      const fim = fins[fins.length - 1];
+      if (!inicio || !fim || inicio > fim) {
+        setPeriodoInstrucao(null);
+        return;
+      }
+      setPeriodoInstrucao({ inicio, fim });
+    })();
+    return () => {
+      ativo = false;
+    };
+  }, [instrucaoServicoId]);
 
   useEffect(() => {
-    if (dataFimPeriodo < minDataFimPeriodo) setDataFimPeriodo(minDataFimPeriodo);
-  }, [dataFimPeriodo, minDataFimPeriodo]);
+    if (!periodoInstrucao) return;
+    setDataInicioPeriodo(periodoInstrucao.inicio);
+    setDataFimPeriodo(periodoInstrucao.fim);
+    setAnoSelecionado(Number(periodoInstrucao.inicio.slice(0, 4)));
+  }, [periodoInstrucao]);
+
+  const limiteInicioPeriodo = useMemo(() => {
+    const base = DATA_ORCAMENTO_INICIO_ISO;
+    if (!periodoInstrucao) return base;
+    return periodoInstrucao.inicio > base ? periodoInstrucao.inicio : base;
+  }, [periodoInstrucao]);
+
+  const limiteFimPeriodo = periodoInstrucao?.fim ?? "";
+
+  const minDataFimPeriodo =
+    dataInicioPeriodo > limiteInicioPeriodo ? dataInicioPeriodo : limiteInicioPeriodo;
+
+  useEffect(() => {
+    if (dataInicioPeriodo < limiteInicioPeriodo) {
+      setDataInicioPeriodo(limiteInicioPeriodo);
+      return;
+    }
+    if (limiteFimPeriodo && dataInicioPeriodo > limiteFimPeriodo) {
+      setDataInicioPeriodo(limiteFimPeriodo);
+      return;
+    }
+    if (dataFimPeriodo < minDataFimPeriodo) {
+      setDataFimPeriodo(minDataFimPeriodo);
+      return;
+    }
+    if (limiteFimPeriodo && dataFimPeriodo > limiteFimPeriodo) {
+      setDataFimPeriodo(limiteFimPeriodo);
+    }
+  }, [
+    dataFimPeriodo,
+    dataInicioPeriodo,
+    limiteFimPeriodo,
+    limiteInicioPeriodo,
+    minDataFimPeriodo,
+  ]);
 
   const folha = useMemo(
     () => totalDespesaMensalFolha(integrantes, refPgto),
@@ -100,10 +199,38 @@ export default function OrcamentoPage() {
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b, "pt-BR"));
   }, [refPgto]);
 
-  const folhaPorMesAno = useMemo(
-    () => breakdownDespesaFolhaAno(anoSelecionado, folha.total),
-    [anoSelecionado, folha.total]
-  );
+  const folhaPorMesAno = useMemo(() => {
+    let totalAno = 0;
+    const meses = Array.from({ length: 12 }, (_, idx) => {
+      const mes = idx + 1;
+      const dim = diasNoMes(anoSelecionado, mes);
+      const inicioMes = isoDate(anoSelecionado, mes, 1);
+      const fimMes = isoDate(anoSelecionado, mes, dim);
+      const inicioEfetivo = periodoInstrucao
+        ? (periodoInstrucao.inicio > inicioMes ? periodoInstrucao.inicio : inicioMes)
+        : inicioMes;
+      const fimEfetivo = periodoInstrucao
+        ? (periodoInstrucao.fim < fimMes ? periodoInstrucao.fim : fimMes)
+        : fimMes;
+      if (inicioEfetivo > fimEfetivo) {
+        return {
+          mes,
+          nomeMes: NOMES_MESES[idx] ?? `Mês ${mes}`,
+          diasConsiderados: 0,
+          valor: 0,
+        };
+      }
+      const estimativaMes = despesaFolhaPeriodo(folha.total, inicioEfetivo, fimEfetivo);
+      totalAno += estimativaMes.total;
+      return {
+        mes,
+        nomeMes: NOMES_MESES[idx] ?? `Mês ${mes}`,
+        diasConsiderados: estimativaMes.diasPagosContados,
+        valor: estimativaMes.total,
+      };
+    });
+    return { meses, totalAno };
+  }, [anoSelecionado, folha.total, periodoInstrucao]);
 
   const estimativaPeriodo = useMemo(
     () => despesaFolhaPeriodo(folha.total, dataInicioPeriodo, dataFimPeriodo),
@@ -111,10 +238,23 @@ export default function OrcamentoPage() {
   );
 
   const anosDisponiveis = useMemo(() => {
-    const primeiroAno = 2026;
-    const ultimoAno = Math.max(primeiroAno + 10, new Date().getFullYear() + 5);
-    return Array.from({ length: ultimoAno - primeiroAno + 1 }, (_, i) => primeiroAno + i);
-  }, []);
+    const primeiroAno = periodoInstrucao
+      ? Number(periodoInstrucao.inicio.slice(0, 4))
+      : 2026;
+    const ultimoAno = periodoInstrucao
+      ? Number(periodoInstrucao.fim.slice(0, 4))
+      : Math.max(2036, new Date().getFullYear() + 5);
+    return Array.from(
+      { length: Math.max(1, ultimoAno - primeiroAno + 1) },
+      (_, i) => primeiroAno + i
+    );
+  }, [periodoInstrucao]);
+
+  useEffect(() => {
+    if (!anosDisponiveis.includes(anoSelecionado)) {
+      setAnoSelecionado(anosDisponiveis[0] ?? 2026);
+    }
+  }, [anoSelecionado, anosDisponiveis]);
 
   const totais = useMemo(() => {
     let prev = 0;
@@ -154,7 +294,7 @@ export default function OrcamentoPage() {
         <h2 className="text-2xl font-semibold tracking-tight">Orçamento</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Despesa da folha (integrantes ×{" "}
-          <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">ref_pgto</code>), valores a partir de 12/06/2026, mês a mês no ano civil (janeiro, junho e dezembro proporcionais), estimativa por intervalo de datas e, se houver, lançamentos por categoria.
+          <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">ref_pgto</code>), valores a partir de 12/06/2026, mês a mês no ano civil (janeiro e dezembro proporcionais), estimativa por intervalo de datas e, se houver, lançamentos por categoria.
         </p>
       </header>
 
@@ -196,15 +336,18 @@ export default function OrcamentoPage() {
                     Estimativa no período
                   </label>
                   <p className="mt-0.5 text-[11px] leading-snug text-[var(--muted)]">
-                    Somente a partir de 12/06/2026. Cada dia válido soma uma fração da folha de mês cheio conforme as
-                    regras de calendário.
+                    {periodoInstrucao
+                      ? `IS selecionada: ${periodoInstrucao.inicio.split("-").reverse().join("/")} a ${periodoInstrucao.fim.split("-").reverse().join("/")}.`
+                      : "Somente a partir de 12/06/2026."}{" "}
+                    Cada dia válido soma uma fração da folha de mês cheio conforme as regras de calendário.
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <div className="flex flex-col gap-0.5">
                       <span className="text-[11px] text-[var(--muted)]">Data inicial</span>
                       <input
                         type="date"
-                        min={DATA_ORCAMENTO_INICIO_ISO}
+                        min={limiteInicioPeriodo}
+                        max={limiteFimPeriodo || undefined}
                         value={dataInicioPeriodo}
                         onChange={(e) => {
                           const v = e.target.value;
@@ -222,6 +365,7 @@ export default function OrcamentoPage() {
                       <input
                         type="date"
                         min={minDataFimPeriodo}
+                        max={limiteFimPeriodo || undefined}
                         value={dataFimPeriodo}
                         onChange={(e) => setDataFimPeriodo(e.target.value)}
                         className="rounded-lg border border-[var(--card-border)] bg-white px-2 py-1.5 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
@@ -270,9 +414,7 @@ export default function OrcamentoPage() {
                     const nota =
                       row.mes === 1
                         ? "7 → fim"
-                        : row.mes === 6
-                          ? "12 → fim"
-                          : row.mes === 12
+                        : row.mes === 12
                             ? "1–19"
                             : null;
                     return (
@@ -304,7 +446,7 @@ export default function OrcamentoPage() {
           <p className="mt-4 text-xs text-[var(--foreground)]">
             Nada antes de <strong>12/06/2026</strong> entra na projeção. A referência{" "}
             <strong>ref_pgto</strong> é o valor de mês inteiro por integrante; depois dessa data, janeiro considera
-            apenas a partir do dia 7; junho, a partir do dia 12; dezembro, do dia 1 ao 19. Demais meses usam o mês
+            apenas a partir do dia 7 e dezembro, do dia 1 ao 19. Demais meses usam o mês
             completo. A estimativa por período soma, dia a dia, apenas os dias cobertos (proporção{" "}
             <code className="rounded bg-[var(--accent-muted)] px-1">folha ÷ dias do mês</code> por dia válido). Ajuste
             dados no Supabase ou na tela de integrantes.
