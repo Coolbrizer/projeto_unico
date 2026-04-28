@@ -137,50 +137,6 @@ export default function OrcamentoPage() {
     };
   }, [instrucaoServicoId]);
 
-  useEffect(() => {
-    if (!periodoInstrucao) return;
-    setDataInicioPeriodo(periodoInstrucao.inicio);
-    setDataFimPeriodo(periodoInstrucao.fim);
-    setAnoSelecionado(Number(periodoInstrucao.inicio.slice(0, 4)));
-  }, [periodoInstrucao]);
-
-  const limiteInicioPeriodo = useMemo(() => {
-    if (periodoInstrucao) return periodoInstrucao.inicio;
-    return DATA_ORCAMENTO_INICIO_ISO;
-  }, [periodoInstrucao]);
-
-  const limiteFimPeriodo = useMemo(() => {
-    if (!periodoInstrucao) return "";
-    return periodoInstrucao.fim;
-  }, [periodoInstrucao, limiteInicioPeriodo]);
-
-  const minDataFimPeriodo =
-    dataInicioPeriodo > limiteInicioPeriodo ? dataInicioPeriodo : limiteInicioPeriodo;
-
-  useEffect(() => {
-    if (dataInicioPeriodo < limiteInicioPeriodo) {
-      setDataInicioPeriodo(limiteInicioPeriodo);
-      return;
-    }
-    if (limiteFimPeriodo && dataInicioPeriodo > limiteFimPeriodo) {
-      setDataInicioPeriodo(limiteFimPeriodo);
-      return;
-    }
-    if (dataFimPeriodo < minDataFimPeriodo) {
-      setDataFimPeriodo(minDataFimPeriodo);
-      return;
-    }
-    if (limiteFimPeriodo && dataFimPeriodo > limiteFimPeriodo) {
-      setDataFimPeriodo(limiteFimPeriodo);
-    }
-  }, [
-    dataFimPeriodo,
-    dataInicioPeriodo,
-    limiteFimPeriodo,
-    limiteInicioPeriodo,
-    minDataFimPeriodo,
-  ]);
-
   const folha = useMemo(
     () => totalDespesaMensalFolha(integrantes, refPgto),
     [integrantes, refPgto]
@@ -253,9 +209,8 @@ export default function OrcamentoPage() {
   }, [periodoInstrucao]);
 
   useEffect(() => {
-    if (!anosDisponiveis.includes(anoSelecionado)) {
-      setAnoSelecionado(anosDisponiveis[0] ?? 2026);
-    }
+    if (anosDisponiveis.includes(anoSelecionado)) return;
+    setAnoSelecionado(anosDisponiveis[0] ?? 2026);
   }, [anoSelecionado, anosDisponiveis]);
 
   const totais = useMemo(() => {
@@ -348,14 +303,8 @@ export default function OrcamentoPage() {
                       <span className="text-[11px] text-[var(--muted)]">Data inicial</span>
                       <input
                         type="date"
-                        min={limiteInicioPeriodo}
-                        max={limiteFimPeriodo || undefined}
                         value={dataInicioPeriodo}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setDataInicioPeriodo(v);
-                          if (v > dataFimPeriodo) setDataFimPeriodo(v);
-                        }}
+                        onChange={(e) => setDataInicioPeriodo(e.target.value)}
                         className="rounded-lg border border-[var(--card-border)] bg-white px-2 py-1.5 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
                       />
                     </div>
@@ -366,8 +315,6 @@ export default function OrcamentoPage() {
                       <span className="text-[11px] text-[var(--muted)]">Data final</span>
                       <input
                         type="date"
-                        min={minDataFimPeriodo}
-                        max={limiteFimPeriodo || undefined}
                         value={dataFimPeriodo}
                         onChange={(e) => setDataFimPeriodo(e.target.value)}
                         className="rounded-lg border border-[var(--card-border)] bg-white px-2 py-1.5 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
