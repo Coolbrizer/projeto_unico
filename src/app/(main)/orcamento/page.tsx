@@ -139,9 +139,15 @@ export default function OrcamentoPage() {
 
   useEffect(() => {
     if (!periodoInstrucao) return;
-    setDataInicioPeriodo(periodoInstrucao.inicio);
-    setDataFimPeriodo(periodoInstrucao.fim);
-    setAnoSelecionado(Number(periodoInstrucao.inicio.slice(0, 4)));
+    const inicioAjustado =
+      periodoInstrucao.inicio > DATA_ORCAMENTO_INICIO_ISO
+        ? periodoInstrucao.inicio
+        : DATA_ORCAMENTO_INICIO_ISO;
+    const fimAjustado =
+      periodoInstrucao.fim < inicioAjustado ? inicioAjustado : periodoInstrucao.fim;
+    setDataInicioPeriodo(inicioAjustado);
+    setDataFimPeriodo(fimAjustado);
+    setAnoSelecionado(Number(inicioAjustado.slice(0, 4)));
   }, [periodoInstrucao]);
 
   const limiteInicioPeriodo = useMemo(() => {
@@ -150,7 +156,11 @@ export default function OrcamentoPage() {
     return periodoInstrucao.inicio > base ? periodoInstrucao.inicio : base;
   }, [periodoInstrucao]);
 
-  const limiteFimPeriodo = periodoInstrucao?.fim ?? "";
+  const limiteFimPeriodo = useMemo(() => {
+    if (!periodoInstrucao) return "";
+    if (periodoInstrucao.fim < limiteInicioPeriodo) return limiteInicioPeriodo;
+    return periodoInstrucao.fim;
+  }, [periodoInstrucao, limiteInicioPeriodo]);
 
   const minDataFimPeriodo =
     dataInicioPeriodo > limiteInicioPeriodo ? dataInicioPeriodo : limiteInicioPeriodo;
