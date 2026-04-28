@@ -42,8 +42,6 @@ function ymdNum(y: number, m: number, d: number): number {
   return y * 10000 + m * 100 + d;
 }
 
-const CORTE_ORCAMENTO = ymdNum(2026, 6, 12);
-
 /** Proporção só com regras de calendário (jan/dez), sem corte de vigência. */
 function fatorRegrasCalendario(year: number, month: number): number {
   const dim = diasNoMes(year, month);
@@ -54,8 +52,6 @@ function fatorRegrasCalendario(year: number, month: number): number {
 
 /** Proporção da folha de “mês cheio” aplicável ao mês civil (meses parciais proporcionais). */
 export function fatorProporcaoFolhaMes(year: number, month: number): number {
-  const dim = diasNoMes(year, month);
-  if (ymdNum(year, month, dim) < CORTE_ORCAMENTO) return 0;
   return fatorRegrasCalendario(year, month);
 }
 
@@ -84,7 +80,6 @@ const NOMES_MESES = [
 
 function diasPagosNoMes(year: number, month: number): number {
   const dim = diasNoMes(year, month);
-  if (ymdNum(year, month, dim) < CORTE_ORCAMENTO) return 0;
   if (month === 1) return dim - 6;
   if (month === 12) return 19;
   return dim;
@@ -94,7 +89,6 @@ function diasPagosNoMes(year: number, month: number): number {
 export function diaContaPagamentoFolha(year: number, month: number, day: number): boolean {
   const dim = diasNoMes(year, month);
   if (day < 1 || day > dim) return false;
-  if (ymdNum(year, month, day) < CORTE_ORCAMENTO) return false;
   if (month === 1) return day >= 7;
   if (month === 12) return day <= 19;
   return true;

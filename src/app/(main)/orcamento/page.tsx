@@ -139,26 +139,18 @@ export default function OrcamentoPage() {
 
   useEffect(() => {
     if (!periodoInstrucao) return;
-    const inicioAjustado =
-      periodoInstrucao.inicio > DATA_ORCAMENTO_INICIO_ISO
-        ? periodoInstrucao.inicio
-        : DATA_ORCAMENTO_INICIO_ISO;
-    const fimAjustado =
-      periodoInstrucao.fim < inicioAjustado ? inicioAjustado : periodoInstrucao.fim;
-    setDataInicioPeriodo(inicioAjustado);
-    setDataFimPeriodo(fimAjustado);
-    setAnoSelecionado(Number(inicioAjustado.slice(0, 4)));
+    setDataInicioPeriodo(periodoInstrucao.inicio);
+    setDataFimPeriodo(periodoInstrucao.fim);
+    setAnoSelecionado(Number(periodoInstrucao.inicio.slice(0, 4)));
   }, [periodoInstrucao]);
 
   const limiteInicioPeriodo = useMemo(() => {
-    const base = DATA_ORCAMENTO_INICIO_ISO;
-    if (!periodoInstrucao) return base;
-    return periodoInstrucao.inicio > base ? periodoInstrucao.inicio : base;
+    if (periodoInstrucao) return periodoInstrucao.inicio;
+    return DATA_ORCAMENTO_INICIO_ISO;
   }, [periodoInstrucao]);
 
   const limiteFimPeriodo = useMemo(() => {
     if (!periodoInstrucao) return "";
-    if (periodoInstrucao.fim < limiteInicioPeriodo) return limiteInicioPeriodo;
     return periodoInstrucao.fim;
   }, [periodoInstrucao, limiteInicioPeriodo]);
 
@@ -304,7 +296,7 @@ export default function OrcamentoPage() {
         <h2 className="text-2xl font-semibold tracking-tight">Orçamento</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Despesa da folha (integrantes ×{" "}
-          <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">ref_pgto</code>), valores a partir de 12/06/2026, mês a mês no ano civil (janeiro e dezembro proporcionais), estimativa por intervalo de datas e, se houver, lançamentos por categoria.
+          <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">ref_pgto</code>), mês a mês no ano civil (janeiro e dezembro proporcionais), estimativa por intervalo de datas e, se houver, lançamentos por categoria.
         </p>
       </header>
 
@@ -348,7 +340,7 @@ export default function OrcamentoPage() {
                   <p className="mt-0.5 text-[11px] leading-snug text-[var(--muted)]">
                     {periodoInstrucao
                       ? `IS selecionada: ${periodoInstrucao.inicio.split("-").reverse().join("/")} a ${periodoInstrucao.fim.split("-").reverse().join("/")}.`
-                      : "Somente a partir de 12/06/2026."}{" "}
+                      : "Sem IS selecionada, o período inicial padrão é 12/06/2026."}{" "}
                     Cada dia válido soma uma fração da folha de mês cheio conforme as regras de calendário.
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -454,8 +446,7 @@ export default function OrcamentoPage() {
           </div>
 
           <p className="mt-4 text-xs text-[var(--foreground)]">
-            Nada antes de <strong>12/06/2026</strong> entra na projeção. A referência{" "}
-            <strong>ref_pgto</strong> é o valor de mês inteiro por integrante; depois dessa data, janeiro considera
+            A referência <strong>ref_pgto</strong> é o valor de mês inteiro por integrante. Janeiro considera
             apenas a partir do dia 7 e dezembro, do dia 1 ao 19. Demais meses usam o mês
             completo. A estimativa por período soma, dia a dia, apenas os dias cobertos (proporção{" "}
             <code className="rounded bg-[var(--accent-muted)] px-1">folha ÷ dias do mês</code> por dia válido). Ajuste
