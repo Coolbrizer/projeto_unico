@@ -9,6 +9,7 @@ import {
   DATA_ORCAMENTO_INICIO_ISO,
   despesaFolhaPeriodo,
   diasNoMes,
+  integranteContaParaFolha,
   totalDespesaMensalFolha,
   valorMensalDoRef,
 } from "@/lib/orcamento-folha";
@@ -559,7 +560,9 @@ export default function OrcamentoPage() {
                 </thead>
                 <tbody>
                   {integrantes.map((i) => {
-                    const v = valorMensalDoRef(refPgto, i.cargo, i.classe_padrao);
+                    const v = integranteContaParaFolha(i)
+                      ? valorMensalDoRef(refPgto, i.cargo, i.classe_padrao)
+                      : null;
                     return (
                       <tr key={i.id} className="border-b border-[var(--card-border)]/60">
                         <td className="px-3 py-2">{i.nome}</td>

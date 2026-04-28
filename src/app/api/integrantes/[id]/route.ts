@@ -32,6 +32,7 @@ export async function PATCH(request: Request, ctx: Ctx) {
     classe_padrao?: string | null;
     email?: string;
     perfil?: unknown;
+    nao_remunerado?: boolean;
   };
   try {
     body = (await request.json()) as typeof body;
@@ -82,25 +83,37 @@ export async function PATCH(request: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Integrante não encontrado." }, { status: 404 });
   }
 
-  const patch: Record<string, string | number | null> = {
+  const beforeRowTyped = before as {
+    email?: string | null;
+    auth_user_id?: string | null;
+    nao_remunerado?: boolean | null;
+  };
+  const naoExplicito = typeof body.nao_remunerado === "boolean";
+  const naoRemunerado = naoExplicito
+    ? (body.nao_remunerado as boolean)
+    : Boolean(beforeRowTyped.nao_remunerado);
+
+  const patch: Record<string, string | number | boolean | null> = {
     matricula: m,
     nome,
     setor: body.setor?.trim() || null,
-    cargo: body.cargo?.trim() || null,
-    classe_padrao: body.classe_padrao?.trim() || null,
+    cargo: naoRemunerado ? null : body.cargo?.trim() || null,
+    classe_padrao: naoRemunerado ? null : body.classe_padrao?.trim() || null,
     email,
   };
+  if (naoExplicito) {
+    patch.nao_remunerado = naoRemunerado;
+  }
   if (perfilNovo !== undefined) {
     patch.perfil = perfilNovo;
   }
 
   // Se o e-mail mudou e há vínculo com auth.users, sincroniza primeiro lá.
   // Se falhar, abortamos o update do integrante para evitar inconsistência.
-  const beforeRow = before as { email?: string | null; auth_user_id?: string | null };
-  const emailMudou = (beforeRow.email ?? "").toLowerCase() !== email;
-  if (emailMudou && beforeRow.auth_user_id) {
+  const emailMudou = (beforeRowTyped.email ?? "").toLowerCase() !== email;
+  if (emailMudou && beforeRowTyped.auth_user_id) {
     const { error: authErr } = await supabase.auth.admin.updateUserById(
-      beforeRow.auth_user_id,
+      beforeRowTyped.auth_user_id,
       { email, email_confirm: true }
     );
     if (authErr) {
@@ -118,14 +131,14 @@ export async function PATCH(request: Request, ctx: Ctx) {
     .from("integrantes")
     .update(patch)
     .eq("id", id)
-    .select("id, matricula, nome, setor, cargo, classe_padrao, email, perfil, created_at")
+    .select("id, matricula, nome, setor, cargo, classe_padrao, email, perfil, nao_remunerado, created_at")
     .single();
 
   if (error) {
     // Rollback do email no auth.users se já tinha sido alterado.
-    if (emailMudou && beforeRow.auth_user_id && beforeRow.email) {
-      await supabase.auth.admin.updateUserById(beforeRow.auth_user_id, {
-        email: beforeRow.email,
+    if (emailMudou && beforeRowTyped.auth_user_id && beforeRowTyped.email) {
+      await supabase.auth.admin.updateUserById(beforeRowTyped.auth_user_id, {
+        email: beforeRowTyped.email,
         email_confirm: true,
       });
     }

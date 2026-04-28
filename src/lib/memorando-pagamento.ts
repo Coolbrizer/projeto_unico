@@ -92,7 +92,7 @@ export function listarIntegrantesMemorandoPagamento(
   }
 
   const lista = integrantes
-    .filter((i) => ids.has(i.id))
+    .filter((i) => ids.has(i.id) && !i.nao_remunerado)
     .sort((a, b) => {
       const sa = (a.setor ?? "").trim();
       const sb = (b.setor ?? "").trim();

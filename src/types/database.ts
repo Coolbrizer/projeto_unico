@@ -37,6 +37,8 @@ export type Integrante = {
   classe_padrao: string | null;
   email: string | null;
   perfil?: PerfilIntegrante | null;
+  /** Se true: não conta na folha (ref_pgto) nem no orçamento. */
+  nao_remunerado?: boolean | null;
   /** Vínculo 1:1 com auth.users(id); preenchido pelo POST /api/integrantes. */
   auth_user_id?: string | null;
   created_at: string;

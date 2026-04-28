@@ -57,6 +57,7 @@ export default function IntegrantesPage() {
   const [classePadrao, setClassePadrao] = useState("");
   const [email, setEmail] = useState("");
   const [perfilIntegrante, setPerfilIntegrante] = useState<Perfil>("basico");
+  const [integranteNaoRemunerado, setIntegranteNaoRemunerado] = useState(false);
 
   function limparFormulario() {
     setMatricula("");
@@ -66,6 +67,7 @@ export default function IntegrantesPage() {
     setClassePadrao("");
     setEmail("");
     setPerfilIntegrante("basico");
+    setIntegranteNaoRemunerado(false);
     setEditingId(null);
   }
 
@@ -83,6 +85,7 @@ export default function IntegrantesPage() {
     setClassePadrao(r.classe_padrao ?? "");
     setEmail(r.email ?? "");
     setPerfilIntegrante(parsePerfil(r.perfil));
+    setIntegranteNaoRemunerado(Boolean(r.nao_remunerado));
     setShowForm(true);
     setError(null);
   }
@@ -144,9 +147,10 @@ export default function IntegrantesPage() {
       matricula,
       nome: nome.trim(),
       setor: setor.trim() || null,
-      cargo: cargo.trim() || null,
-      classe_padrao: classePadrao.trim() || null,
+      cargo: integranteNaoRemunerado ? null : cargo.trim() || null,
+      classe_padrao: integranteNaoRemunerado ? null : classePadrao.trim() || null,
       email: email.trim(),
+      nao_remunerado: integranteNaoRemunerado,
     };
     if (isAdmin(perfilUsuario) && editingId) {
       corpo.perfil = perfilIntegrante;
@@ -187,9 +191,10 @@ export default function IntegrantesPage() {
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Integrantes</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Cadastro com matrícula, nome, setor, cargo, classe/padrão e e-mail. O e-mail é obrigatório e
-          usado para login; novos integrantes recebem a senha inicial 123456 e devem
-          alterá-la no primeiro acesso. A busca cobre matrícula, nome, setor e e-mail.
+          Cadastro com matrícula, nome, setor, cargo, classe/padrão e e-mail. Marque «Integrante não
+          remunerado» para quem não entra na folha (sem impacto no Orçamento). O e-mail é obrigatório e
+          usado para login; novos integrantes recebem a senha inicial 123456 e devem alterá-la no primeiro
+          acesso. A busca cobre matrícula, nome, setor e e-mail.
         </p>
       </header>
 
@@ -263,7 +268,8 @@ export default function IntegrantesPage() {
               <input
                 value={cargo}
                 onChange={(e) => setCargo(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+                disabled={integranteNaoRemunerado}
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-55"
               />
             </div>
             <div>
@@ -271,7 +277,8 @@ export default function IntegrantesPage() {
               <input
                 value={classePadrao}
                 onChange={(e) => setClassePadrao(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+                disabled={integranteNaoRemunerado}
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-55"
               />
             </div>
             <div>
@@ -283,6 +290,29 @@ export default function IntegrantesPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-[var(--card-border)]/80 bg-[var(--background)]/70 px-3 py-2.5 text-sm leading-snug text-[var(--foreground)]">
+                <input
+                  type="checkbox"
+                  checked={integranteNaoRemunerado}
+                  onChange={(e) => {
+                    const v = e.target.checked;
+                    setIntegranteNaoRemunerado(v);
+                    if (v) {
+                      setCargo("");
+                      setClassePadrao("");
+                    }
+                  }}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--card-border)] text-[var(--accent)] accent-[var(--accent)] focus:ring-[var(--accent)]/40"
+                />
+                <span>
+                  Integrante não remunerado
+                  <span className="block text-xs font-normal text-[var(--muted)]">
+                    Sem valor na folha; não altera os totais no Orçamento.
+                  </span>
+                </span>
+              </label>
             </div>
             {editingId && isAdmin(perfilUsuario) && (
               <div className="sm:col-span-2">
@@ -361,6 +391,11 @@ export default function IntegrantesPage() {
                       <span className="text-[var(--accent)]">Mat. {r.matricula}</span>
                       {" · "}
                       {r.nome}
+                      {r.nao_remunerado && (
+                        <span className="ml-1.5 shrink-0 rounded border border-[var(--muted)]/45 bg-[var(--accent-muted)]/40 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">
+                          Não remunerado
+                        </span>
+                      )}
                       {r.email && (
                         <>
                           {" · "}

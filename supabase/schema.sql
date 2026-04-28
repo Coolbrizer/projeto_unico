@@ -72,6 +72,7 @@ create table public.integrantes (
   cargo text,
   classe_padrao text,
   email text,
+  nao_remunerado boolean not null default false,
   auth_user_id uuid unique references auth.users (id) on delete set null,
   perfil text not null default 'basico' check (perfil in ('basico', 'gestor', 'admin')),
   created_at timestamptz not null default now()

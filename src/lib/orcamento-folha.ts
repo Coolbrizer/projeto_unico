@@ -4,6 +4,10 @@ function norm(s: string | null | undefined): string {
   return (s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+export function integranteContaParaFolha(i: Integrante): boolean {
+  return !i.nao_remunerado;
+}
+
 /** Valor mensal na tabela ref_pgto para o par cargo + classe/padrão (texto comparado normalizado). */
 export function valorMensalDoRef(
   refs: RefPgto[],
@@ -20,6 +24,7 @@ export function totalDespesaMensalFolha(integrantes: Integrante[], refs: RefPgto
   let total = 0;
   const semCorrespondencia: Integrante[] = [];
   for (const i of integrantes) {
+    if (!integranteContaParaFolha(i)) continue;
     const v = valorMensalDoRef(refs, i.cargo, i.classe_padrao);
     total += v;
     const temCargoOuClasse = Boolean(

@@ -14,7 +14,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("integrantes")
-    .select("id, matricula, nome, setor, cargo, classe_padrao, email, perfil, created_at")
+    .select("id, matricula, nome, setor, cargo, classe_padrao, email, perfil, nao_remunerado, created_at")
     .order("matricula", { ascending: true });
 
   if (error) {
@@ -45,6 +45,7 @@ export async function POST(request: Request) {
     classe_padrao?: string;
     email?: string;
     perfil?: unknown;
+    nao_remunerado?: unknown;
   };
   try {
     body = (await request.json()) as typeof body;
@@ -75,6 +76,8 @@ export async function POST(request: Request) {
   if (m === null) {
     return NextResponse.json({ error: "Informe uma matrícula numérica inteira válida." }, { status: 400 });
   }
+
+  const naoRemunerado = body.nao_remunerado === true;
 
   let admin;
   try {
@@ -118,13 +121,14 @@ export async function POST(request: Request) {
       matricula: m,
       nome,
       setor: body.setor?.trim() || null,
-      cargo: body.cargo?.trim() || null,
-      classe_padrao: body.classe_padrao?.trim() || null,
+      cargo: naoRemunerado ? null : body.cargo?.trim() || null,
+      classe_padrao: naoRemunerado ? null : body.classe_padrao?.trim() || null,
       email,
       perfil: perfilNovo,
+      nao_remunerado: naoRemunerado,
       auth_user_id: authCreated.user.id,
     })
-    .select("id, matricula, nome, setor, cargo, classe_padrao, email, perfil, created_at")
+    .select("id, matricula, nome, setor, cargo, classe_padrao, email, perfil, nao_remunerado, created_at")
     .single();
 
   if (error) {
