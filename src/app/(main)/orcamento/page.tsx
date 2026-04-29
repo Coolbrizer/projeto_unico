@@ -107,6 +107,8 @@ export default function OrcamentoPage() {
     if (!instrucaoServicoId) {
       setAtividadesIs([]);
       setPeriodoInstrucao(null);
+      setDataInicioPeriodo(DATA_ORCAMENTO_INICIO_ISO);
+      setDataFimPeriodo("2026-12-31");
       return;
     }
 
@@ -150,6 +152,12 @@ export default function OrcamentoPage() {
       ativo = false;
     };
   }, [instrucaoServicoId]);
+
+  useEffect(() => {
+    if (!periodoInstrucao) return;
+    setDataInicioPeriodo(periodoInstrucao.inicio);
+    setDataFimPeriodo(periodoInstrucao.fim);
+  }, [periodoInstrucao]);
 
   const integrantesConsiderados = useMemo(() => {
     if (!instrucaoServicoId) return integrantes;
