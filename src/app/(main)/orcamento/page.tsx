@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { useInstrucaoServicoSelecionada, usePerfil } from "@/components/AppShell";
 import { isAdmin } from "@/lib/auth/roles";
+import { equipeLinhaEhResponsavel } from "@/lib/equipe-page-helpers";
 import { useMounted } from "@/hooks/useMounted";
 import {
   DATA_ORCAMENTO_INICIO_ISO,
@@ -14,7 +15,7 @@ import {
   valorMensalDoRef,
 } from "@/lib/orcamento-folha";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
-import type { Atividade, Integrante, Orcamento, RefPgto } from "@/types/database";
+import type { Atividade, Equipe, Integrante, Orcamento, RefPgto } from "@/types/database";
 
 function formatMoney(n: number | null) {
   if (n === null || n === undefined) return "—";
@@ -63,6 +64,8 @@ export default function OrcamentoPage() {
   const [rows, setRows] = useState<Orcamento[]>([]);
   const [integrantes, setIntegrantes] = useState<Integrante[]>([]);
   const [refPgto, setRefPgto] = useState<RefPgto[]>([]);
+  const [atividadesIs, setAtividadesIs] = useState<Atividade[]>([]);
+  const [equipes, setEquipes] = useState<Equipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,6 +90,7 @@ export default function OrcamentoPage() {
       setRows([]);
       setIntegrantes([]);
       setRefPgto([]);
+      setEquipes([]);
     } else {
       setRows(data.orcamento ?? []);
       setIntegrantes(data.integrantes ?? []);
@@ -101,6 +105,7 @@ export default function OrcamentoPage() {
 
   useEffect(() => {
     if (!instrucaoServicoId) {
+      setAtividadesIs([]);
       setPeriodoInstrucao(null);
       return;
     }
@@ -111,12 +116,20 @@ export default function OrcamentoPage() {
         `/api/atividades?instrucaoServicoId=${encodeURIComponent(instrucaoServicoId)}`,
         { credentials: "include" }
       );
-      const data = (await res.json()) as { atividades?: Atividade[] };
+      const [dataAtividades, dataEquipes] = await Promise.all([
+        res.json() as Promise<{ atividades?: Atividade[] }>,
+        fetch("/api/equipe", { credentials: "include" }).then(
+          async (resEquipe) => ((await resEquipe.json()) as { equipe?: Equipe[]; ok?: boolean })
+        ),
+      ]);
       if (!ativo || !res.ok) {
+        setAtividadesIs([]);
         setPeriodoInstrucao(null);
         return;
       }
-      const atividades = data.atividades ?? [];
+      const atividades = dataAtividades.atividades ?? [];
+      setAtividadesIs(atividades);
+      setEquipes(dataEquipes.equipe ?? []);
       const inicios = atividades.map((a) => toISODateOnly(a.inicio)).filter(Boolean) as string[];
       const fins = atividades.map((a) => toISODateOnly(a.fim)).filter(Boolean) as string[];
       if (inicios.length === 0 || fins.length === 0) {
@@ -138,9 +151,51 @@ export default function OrcamentoPage() {
     };
   }, [instrucaoServicoId]);
 
+  const integrantesConsiderados = useMemo(() => {
+    if (!instrucaoServicoId) return integrantes;
+    if (atividadesIs.length === 0) return [];
+
+    const ids = new Set<string>();
+    const porCodigo = new Map<string, Atividade[]>();
+    for (const a of atividadesIs) {
+      const codigo = (a.codigo ?? "").trim();
+      if (!porCodigo.has(codigo)) porCodigo.set(codigo, []);
+      porCodigo.get(codigo)!.push(a);
+    }
+
+    for (const [codigo, atividades] of porCodigo) {
+      const equipeRows = equipes.filter((e) => (e.codigo ?? "").trim() === codigo);
+      const nomesEquipe = new Set(
+        equipeRows.map((e) => (e.equipe ?? "").trim().toLowerCase()).filter(Boolean)
+      );
+      const codigoLc = codigo.toLowerCase();
+
+      for (const i of integrantes) {
+        const setor = (i.setor ?? "").trim().toLowerCase();
+        if (!setor) continue;
+        if (codigo && setor === codigoLc) ids.add(i.id);
+        else if (nomesEquipe.has(setor)) ids.add(i.id);
+      }
+
+      for (const r of equipeRows) {
+        for (const i of integrantes) {
+          if (equipeLinhaEhResponsavel(r.equipe ?? "", i.nome ?? "")) ids.add(i.id);
+        }
+      }
+
+      for (const a of atividades) {
+        for (const i of integrantes) {
+          if (equipeLinhaEhResponsavel(i.nome ?? "", a.responsavel)) ids.add(i.id);
+        }
+      }
+    }
+
+    return integrantes.filter((i) => ids.has(i.id));
+  }, [instrucaoServicoId, atividadesIs, equipes, integrantes]);
+
   const folha = useMemo(
-    () => totalDespesaMensalFolha(integrantes, refPgto),
-    [integrantes, refPgto]
+    () => totalDespesaMensalFolha(integrantesConsiderados, refPgto),
+    [integrantesConsiderados, refPgto]
   );
 
   const refPorCargo = useMemo(() => {
@@ -230,12 +285,12 @@ export default function OrcamentoPage() {
 
   const totalIntegrantesPorMacro = useMemo(() => {
     const map = new Map<string, number>();
-    for (const i of integrantes) {
+    for (const i of integrantesConsiderados) {
       const macro = macroDoSetor(i.setor);
       map.set(macro, (map.get(macro) ?? 0) + 1);
     }
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
-  }, [integrantes]);
+  }, [integrantesConsiderados]);
 
   async function removeOrc(id: string) {
     if (!podeExcluirLancamento) return;
@@ -297,7 +352,9 @@ export default function OrcamentoPage() {
                     {periodoInstrucao
                       ? `IS selecionada: ${periodoInstrucao.inicio.split("-").reverse().join("/")} a ${periodoInstrucao.fim.split("-").reverse().join("/")}.`
                       : "Sem IS selecionada, o período inicial padrão é 12/06/2026."}{" "}
-                    Cada dia válido soma uma fração da folha de mês cheio conforme as regras de calendário.
+                    Com IS selecionada, a folha considera apenas integrantes vinculados a pelo menos uma
+                    atividade da instrução. Cada dia válido soma uma fração da folha de mês cheio conforme
+                    as regras de calendário.
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <div className="flex flex-col gap-0.5">
@@ -525,7 +582,7 @@ export default function OrcamentoPage() {
         )}
       </section>
 
-      {integrantes.length > 0 && refPgto.length > 0 && (
+      {integrantesConsiderados.length > 0 && refPgto.length > 0 && (
         <section className="mt-10">
           <h3 className="mb-3 text-sm font-medium text-[var(--muted)]">Detalhe por integrante (mês)</h3>
           <div className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)]">
@@ -533,7 +590,9 @@ export default function OrcamentoPage() {
               <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
                 Total de pessoas
               </p>
-              <p className="mt-1 text-2xl font-semibold text-[var(--accent)]">{integrantes.length}</p>
+              <p className="mt-1 text-2xl font-semibold text-[var(--accent)]">
+                {integrantesConsiderados.length}
+              </p>
               <div className="mt-3 border-t border-[var(--card-border)]/70 pt-2">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--muted)]">
                   Por setor macro
@@ -559,7 +618,7 @@ export default function OrcamentoPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {integrantes.map((i) => {
+                  {integrantesConsiderados.map((i) => {
                     const v = integranteContaParaFolha(i)
                       ? valorMensalDoRef(refPgto, i.cargo, i.classe_padrao)
                       : null;
