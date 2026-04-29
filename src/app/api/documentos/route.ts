@@ -23,19 +23,57 @@ function normalizarDocumento(row: Record<string, unknown>): Documento {
   };
 }
 
+function normalizarIsoData(raw: unknown): string | null {
+  const s = typeof raw === "string" ? raw.trim() : "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  return null;
+}
+
 export async function GET() {
   const auth = await requireAuthedSupabase();
   if (auth.response) return auth.response;
   const { supabase } = auth;
 
-  const { data, error } = await supabase.from("documentos").select("*");
+  const [docsRes, atvRes] = await Promise.all([
+    supabase.from("documentos").select("*"),
+    supabase.from("atividades").select("instrucao_servico, inicio, fim"),
+  ]);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  if (docsRes.error) {
+    return NextResponse.json({ error: docsRes.error.message }, { status: 400 });
+  }
+  if (atvRes.error) {
+    return NextResponse.json({ error: atvRes.error.message }, { status: 400 });
+  }
+
+  const periodoPorInstrucao = new Map<string, { inicio: string; fim: string }>();
+  for (const a of (atvRes.data ?? []) as Array<Record<string, unknown>>) {
+    const instrucao = typeof a.instrucao_servico === "string" ? a.instrucao_servico : "";
+    if (!instrucao) continue;
+    const ini = normalizarIsoData(a.inicio);
+    const fim = normalizarIsoData(a.fim);
+    if (!ini || !fim) continue;
+    const atual = periodoPorInstrucao.get(instrucao);
+    if (!atual) {
+      periodoPorInstrucao.set(instrucao, { inicio: ini, fim });
+      continue;
+    }
+    periodoPorInstrucao.set(instrucao, {
+      inicio: ini < atual.inicio ? ini : atual.inicio,
+      fim: fim > atual.fim ? fim : atual.fim,
+    });
   }
 
   const documentos = ordenarDocumentosPorReferencia(
-    ((data as Record<string, unknown>[]) ?? []).map((row) => normalizarDocumento(row))
+    ((docsRes.data as Record<string, unknown>[]) ?? []).map((row) => {
+      const doc = normalizarDocumento(row);
+      const periodo = periodoPorInstrucao.get(doc.id);
+      return {
+        ...doc,
+        periodo_inicio_atividades: periodo?.inicio ?? null,
+        periodo_fim_atividades: periodo?.fim ?? null,
+      } satisfies Documento;
+    })
   );
 
   return NextResponse.json({ ok: true, documentos });

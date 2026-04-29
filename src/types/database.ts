@@ -73,6 +73,9 @@ export type Documento = {
   etiqueta: string | null;
   /** URL do documento (coluna `link` no Supabase). */
   link: string | null;
+  /** Menor data de início e maior data de fim das atividades da mesma IS (YYYY-MM-DD). */
+  periodo_inicio_atividades?: string | null;
+  periodo_fim_atividades?: string | null;
   created_at: string;
   updated_at?: string | null;
 };

@@ -8,6 +8,7 @@ import { TIPOS_DOCUMENTO } from "@/lib/documentos-constants";
 import { isTipoDocumento } from "@/lib/documentos-validacao";
 import { useMounted } from "@/hooks/useMounted";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
+import { formatDataParaExibicao } from "@/lib/datas-atividade";
 import { rotuloDocumentoNumeroAno } from "@/lib/documento-referencia";
 import type { Documento } from "@/types/database";
 
@@ -233,6 +234,10 @@ export default function DocumentosPage() {
             {rows.map((r) => {
               const linhaPrincipal = rotuloDocumentoNumeroAno(r);
               const etiquetaTxt = r.etiqueta?.trim();
+              const periodoAtividades =
+                r.periodo_inicio_atividades && r.periodo_fim_atividades
+                  ? `${formatDataParaExibicao(r.periodo_inicio_atividades)} a ${formatDataParaExibicao(r.periodo_fim_atividades)}`
+                  : "—";
 
               const temLink = Boolean(r.link?.trim());
 
@@ -244,6 +249,7 @@ export default function DocumentosPage() {
                       {etiquetaTxt ? (
                         <span className="text-[var(--muted)]">— {etiquetaTxt}</span>
                       ) : null}
+                      <span className="text-[var(--muted)]">· Período (atividades): {periodoAtividades}</span>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       {temLink ? (
