@@ -8,7 +8,7 @@ import { useMounted } from "@/hooks/useMounted";
 import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import { isAdmin } from "@/lib/auth/roles";
-import type { Atividade } from "@/types/database";
+import type { Atividade, Integrante } from "@/types/database";
 
 type StatusFaixa = "nao_iniciada" | "em_andamento" | "concluida";
 
@@ -117,6 +117,8 @@ export default function MeuPerfilPage() {
   const [error, setError] = useState<string | null>(null);
   const [nomeUsuario, setNomeUsuario] = useState<string | null>(null);
   const [sessionNomeCarregado, setSessionNomeCarregado] = useState(false);
+  const [integrantes, setIntegrantes] = useState<Integrante[]>([]);
+  const [pessoaSelecionada, setPessoaSelecionada] = useState("");
   const [filtroStatus, setFiltroStatus] = useState<StatusFaixa | "todos">("todos");
   const [busca, setBusca] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -171,12 +173,40 @@ export default function MeuPerfilPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isAdmin(perfil)) return;
+    let cancelled = false;
+    void (async () => {
+      const res = await fetch("/api/integrantes", { credentials: "include" });
+      const data = (await res.json()) as { integrantes?: Integrante[] };
+      if (!cancelled && res.ok) {
+        const lista = data.integrantes ?? [];
+        setIntegrantes(lista);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [perfil]);
+
+  useEffect(() => {
+    if (!sessionNomeCarregado || !nomeUsuario) return;
+    setPessoaSelecionada((atual) => (atual ? atual : nomeUsuario));
+  }, [sessionNomeCarregado, nomeUsuario]);
+
+  const nomePerfilVisualizado = useMemo(() => {
+    if (isAdmin(perfil)) {
+      return pessoaSelecionada.trim() || nomeUsuario || "";
+    }
+    return nomeUsuario || "";
+  }, [perfil, pessoaSelecionada, nomeUsuario]);
+
   const minhasAtividades = useMemo(() => {
-    if (!nomeUsuario) return [];
+    if (!nomePerfilVisualizado) return [];
     return rows.filter((atividade) =>
-      integranteNomeMatchResponsavelAtividade(nomeUsuario, atividade.responsavel)
+      integranteNomeMatchResponsavelAtividade(nomePerfilVisualizado, atividade.responsavel)
     );
-  }, [rows, nomeUsuario]);
+  }, [rows, nomePerfilVisualizado]);
 
   const atividadesFiltradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -276,8 +306,8 @@ export default function MeuPerfilPage() {
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Meu perfil</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          A página mostra apenas as atividades em que você atua como responsável dentro da Instrução de
-          Serviço selecionada no topo.
+          A página mostra as atividades em que o perfil selecionado atua como responsável dentro da
+          Instrução de Serviço selecionada no topo.
         </p>
       </header>
 
@@ -291,12 +321,41 @@ export default function MeuPerfilPage() {
 
       {!sessionNomeCarregado ? (
         <p className="text-sm text-[var(--muted)]">A identificar seu perfil…</p>
-      ) : !nomeUsuario ? (
+      ) : !nomePerfilVisualizado ? (
         <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800">
-          Não foi possível identificar seu nome na sessão para filtrar as atividades.
+          Não foi possível identificar o perfil para filtrar as atividades.
         </p>
       ) : (
         <>
+          {isAdmin(perfil) && (
+            <section className="mb-6 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-5">
+              <h3 className="mb-3 text-sm font-medium text-[var(--muted)]">Perfil visualizado</h3>
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_16rem] md:items-end">
+                <div>
+                  <label className="block text-xs text-[var(--muted)]">Pessoa</label>
+                  <select
+                    value={pessoaSelecionada}
+                    onChange={(e) => setPessoaSelecionada(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+                  >
+                    {nomeUsuario && <option value={nomeUsuario}>Meu perfil ({nomeUsuario})</option>}
+                    {integrantes
+                      .filter((i) => i.nome?.trim())
+                      .map((integrante) => (
+                        <option key={integrante.id} value={integrante.nome}>
+                          {integrante.nome}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <p className="text-sm text-[var(--muted)]">
+                  Visualizando:{" "}
+                  <span className="font-medium text-[var(--foreground)]">{nomePerfilVisualizado}</span>
+                </p>
+              </div>
+            </section>
+          )}
+
           <section className="mb-6 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-5">
             <h3 className="mb-4 text-sm font-medium text-[var(--muted)]">Visão geral</h3>
             <PizzaStatus totais={totaisStatus} />
