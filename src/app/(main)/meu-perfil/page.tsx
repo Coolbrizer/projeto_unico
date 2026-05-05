@@ -119,6 +119,7 @@ export default function MeuPerfilPage() {
   const [sessionNomeCarregado, setSessionNomeCarregado] = useState(false);
   const [integrantes, setIntegrantes] = useState<Integrante[]>([]);
   const [pessoaSelecionada, setPessoaSelecionada] = useState("");
+  const [buscaPessoa, setBuscaPessoa] = useState("");
   const [filtroStatus, setFiltroStatus] = useState<StatusFaixa | "todos">("todos");
   const [busca, setBusca] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -193,6 +194,43 @@ export default function MeuPerfilPage() {
     if (!sessionNomeCarregado || !nomeUsuario) return;
     setPessoaSelecionada((atual) => (atual ? atual : nomeUsuario));
   }, [sessionNomeCarregado, nomeUsuario]);
+
+  const pessoasComAtividades = useMemo(() => {
+    const nomesAtividades = Array.from(
+      new Set(
+        rows
+          .map((atividade) => (atividade.responsavel ?? "").trim())
+          .filter(Boolean)
+      )
+    );
+
+    return nomesAtividades
+      .map((nomeResponsavel) => {
+        const integrante =
+          integrantes.find((item) => integranteNomeMatchResponsavelAtividade(item.nome, nomeResponsavel)) ??
+          null;
+        return {
+          valor: integrante?.nome?.trim() || nomeResponsavel,
+          label: integrante?.nome?.trim() || nomeResponsavel,
+        };
+      })
+      .filter((item, index, list) => item.valor && list.findIndex((x) => x.valor === item.valor) === index)
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" }));
+  }, [rows, integrantes]);
+
+  useEffect(() => {
+    if (!isAdmin(perfil)) return;
+    setBuscaPessoa((atual) => (atual ? atual : pessoaSelecionada));
+  }, [perfil, pessoaSelecionada]);
+
+  useEffect(() => {
+    if (!isAdmin(perfil)) return;
+    if (!pessoasComAtividades.some((item) => item.valor === pessoaSelecionada)) {
+      const proximo = pessoasComAtividades[0]?.valor ?? "";
+      setPessoaSelecionada(proximo);
+      setBuscaPessoa(proximo);
+    }
+  }, [perfil, pessoasComAtividades, pessoaSelecionada]);
 
   const nomePerfilVisualizado = useMemo(() => {
     if (isAdmin(perfil)) {
@@ -333,26 +371,46 @@ export default function MeuPerfilPage() {
               <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_16rem] md:items-end">
                 <div>
                   <label className="block text-xs text-[var(--muted)]">Pessoa</label>
-                  <select
-                    value={pessoaSelecionada}
-                    onChange={(e) => setPessoaSelecionada(e.target.value)}
+                  <input
+                    list="pessoas-com-atividades"
+                    value={buscaPessoa}
+                    onChange={(e) => {
+                      const valor = e.target.value;
+                      setBuscaPessoa(valor);
+                      const opcaoEncontrada = pessoasComAtividades.find(
+                        (item) => item.label.toLowerCase() === valor.trim().toLowerCase()
+                      );
+                      if (opcaoEncontrada) {
+                        setPessoaSelecionada(opcaoEncontrada.valor);
+                      }
+                    }}
+                    onBlur={() => {
+                      const opcaoEncontrada = pessoasComAtividades.find(
+                        (item) => item.label.toLowerCase() === buscaPessoa.trim().toLowerCase()
+                      );
+                      const proximo = opcaoEncontrada?.valor ?? pessoaSelecionada;
+                      setPessoaSelecionada(proximo);
+                      setBuscaPessoa(proximo);
+                    }}
+                    placeholder="Digite para buscar uma pessoa"
                     className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
-                  >
-                    {nomeUsuario && <option value={nomeUsuario}>Meu perfil ({nomeUsuario})</option>}
-                    {integrantes
-                      .filter((i) => i.nome?.trim())
-                      .map((integrante) => (
-                        <option key={integrante.id} value={integrante.nome}>
-                          {integrante.nome}
-                        </option>
-                      ))}
-                  </select>
+                  />
+                  <datalist id="pessoas-com-atividades">
+                    {pessoasComAtividades.map((item) => (
+                      <option key={item.valor} value={item.label} />
+                    ))}
+                  </datalist>
                 </div>
                 <p className="text-sm text-[var(--muted)]">
                   Visualizando:{" "}
                   <span className="font-medium text-[var(--foreground)]">{nomePerfilVisualizado}</span>
                 </p>
               </div>
+              {pessoasComAtividades.length === 0 && (
+                <p className="mt-3 text-sm text-[var(--muted)]">
+                  Nenhuma pessoa com atividade responsável encontrada para a IS selecionada.
+                </p>
+              )}
             </section>
           )}
 
