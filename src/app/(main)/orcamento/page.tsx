@@ -88,6 +88,8 @@ export default function OrcamentoPage() {
   const [dataInicioPeriodo, setDataInicioPeriodo] = useState(DATA_ORCAMENTO_INICIO_ISO);
   const [dataFimPeriodo, setDataFimPeriodo] = useState("2026-12-31");
   const [diasFerias, setDiasFerias] = useState(0);
+  const [refSelecionadaId, setRefSelecionadaId] = useState<string>("");
+  const [mesesIntegrante, setMesesIntegrante] = useState<number>(12);
   const [periodoInstrucao, setPeriodoInstrucao] = useState<{ inicio: string; fim: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -290,6 +292,18 @@ export default function OrcamentoPage() {
     }
     return meses;
   }, [dataInicioPeriodo, dataFimPeriodo, folha.total]);
+
+  const refSelecionada = useMemo(
+    () => refPgto.find((r) => r.id === refSelecionadaId) ?? null,
+    [refPgto, refSelecionadaId]
+  );
+
+  const custoIntegrante = useMemo(() => {
+    const valorMensal = refSelecionada ? Number(refSelecionada.valor_mensal) || 0 : 0;
+    const meses = Math.max(0, Number.isFinite(mesesIntegrante) ? mesesIntegrante : 0);
+    const total = Math.round(valorMensal * meses * 100) / 100;
+    return { valorMensal, meses, total };
+  }, [refSelecionada, mesesIntegrante]);
 
   const resumoFerias = useMemo(() => {
     const totalBruto = estimativaPeriodo.erro ? 0 : estimativaPeriodo.total;
@@ -578,6 +592,88 @@ export default function OrcamentoPage() {
               {periodoInstrucao
                 ? ` IS selecionada: ${formatBR(periodoInstrucao.inicio)} a ${formatBR(periodoInstrucao.fim)}.`
                 : ""}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-5 py-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="text-sm font-semibold text-[var(--foreground)]">
+                Custo de um integrante por classe/padrão
+              </h3>
+              {refSelecionada && custoIntegrante.meses > 0 && (
+                <p className="text-[11px] text-[var(--muted)]">
+                  {formatMoney(custoIntegrante.valorMensal)}/mês × {custoIntegrante.meses} mês
+                  {custoIntegrante.meses === 1 ? "" : "es"}
+                </p>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Selecione um cargo + classe/padrão e informe a quantidade de meses para estimar o custo
+              de um único integrante nesse vínculo.
+            </p>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_140px]">
+              <label className="block">
+                <span className="block text-xs font-medium text-[var(--muted)]">
+                  Cargo · Classe/Padrão
+                </span>
+                <select
+                  value={refSelecionadaId}
+                  onChange={(e) => setRefSelecionadaId(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
+                >
+                  <option value="">Selecione…</option>
+                  {refPorCargo.map(([cargo, itens]) => (
+                    <optgroup key={cargo} label={cargo}>
+                      {itens.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.classe_padrao || "—"} · {formatMoney(Number(r.valor_mensal))}/mês
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="block text-xs font-medium text-[var(--muted)]">Meses</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={mesesIntegrante}
+                  onChange={(e) => {
+                    const n = Number(e.target.value);
+                    setMesesIntegrante(Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0);
+                  }}
+                  className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
+                />
+              </label>
+            </div>
+
+            {refSelecionada ? (
+              <div className="mt-4 rounded-lg border border-[var(--accent)]/25 bg-[var(--accent-muted)] px-4 py-4">
+                <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
+                  Custo estimado do integrante
+                </p>
+                <p className="mt-1 text-3xl font-bold text-[var(--accent)]">
+                  {formatMoney(custoIntegrante.total)}
+                </p>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  {refSelecionada.cargo || "—"} · {refSelecionada.classe_padrao || "—"} ·{" "}
+                  {formatMoney(custoIntegrante.valorMensal)}/mês × {custoIntegrante.meses} mês
+                  {custoIntegrante.meses === 1 ? "" : "es"}
+                </p>
+              </div>
+            ) : (
+              <p className="mt-4 text-xs text-[var(--muted)]">
+                Nenhuma classe/padrão selecionada.
+              </p>
+            )}
+
+            <p className="mt-3 text-[11px] leading-snug text-[var(--muted)]">
+              Cálculo simples: <code className="rounded bg-[var(--accent-muted)] px-1">valor_mensal × meses</code>.
+              Use a tabela de <code className="rounded bg-[var(--accent-muted)] px-1">ref_pgto</code> abaixo para
+              consultar todos os valores disponíveis.
             </p>
           </div>
 
