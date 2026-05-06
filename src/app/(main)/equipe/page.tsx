@@ -31,6 +31,88 @@ const MESES_PT = [
   { value: "12", label: "Dezembro" },
 ];
 
+type TamanhoPagina = 10 | 25 | 50 | "all";
+
+const OPCOES_TAMANHO_PAGINA: { value: TamanhoPagina; label: string }[] = [
+  { value: 10, label: "10" },
+  { value: 25, label: "25" },
+  { value: 50, label: "50" },
+  { value: "all", label: "Tudo" },
+];
+
+function PaginacaoControles({
+  total,
+  paginaAtual,
+  setPaginaAtual,
+  tamanhoPagina,
+  setTamanhoPagina,
+  posicao,
+}: {
+  total: number;
+  paginaAtual: number;
+  setPaginaAtual: (n: number) => void;
+  tamanhoPagina: TamanhoPagina;
+  setTamanhoPagina: (n: TamanhoPagina) => void;
+  posicao: "topo" | "base";
+}) {
+  const isAll = tamanhoPagina === "all";
+  const tamanho = isAll ? Math.max(total, 1) : tamanhoPagina;
+  const totalPaginas = isAll ? 1 : Math.max(1, Math.ceil(total / tamanho));
+  const inicio = total === 0 ? 0 : (paginaAtual - 1) * tamanho + 1;
+  const fim = isAll ? total : Math.min(total, paginaAtual * tamanho);
+  const labelId = `pagsize-${posicao}`;
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--card)]/70 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+        <label htmlFor={labelId}>Itens por página</label>
+        <select
+          id={labelId}
+          value={String(tamanhoPagina)}
+          onChange={(e) => {
+            const v = e.target.value;
+            setTamanhoPagina(v === "all" ? "all" : (Number(v) as TamanhoPagina));
+            setPaginaAtual(1);
+          }}
+          className="rounded-md border border-[var(--card-border)] bg-white px-2 py-1 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
+        >
+          {OPCOES_TAMANHO_PAGINA.map((o) => (
+            <option key={String(o.value)} value={String(o.value)}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <span className="text-[var(--muted)]">
+          {total === 0 ? "0 atividade(s)" : `${inicio}–${fim} de ${total} atividade(s)`}
+        </span>
+      </div>
+      {!isAll && totalPaginas > 1 && (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPaginaAtual(Math.max(1, paginaAtual - 1))}
+            disabled={paginaAtual <= 1}
+            className="rounded-md border border-[var(--card-border)] bg-white px-2 py-1 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--accent-muted)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            ← Anterior
+          </button>
+          <span className="text-xs tabular-nums text-[var(--muted)]">
+            Página {paginaAtual} de {totalPaginas}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPaginaAtual(Math.min(totalPaginas, paginaAtual + 1))}
+            disabled={paginaAtual >= totalPaginas}
+            className="rounded-md border border-[var(--card-border)] bg-white px-2 py-1 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--accent-muted)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Próxima →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function EquipePage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
@@ -58,6 +140,9 @@ export default function EquipePage() {
 
   const [codigo, setCodigo] = useState("");
   const [equipe, setEquipe] = useState("");
+
+  const [tamanhoPagina, setTamanhoPagina] = useState<TamanhoPagina>(10);
+  const [paginaAtual, setPaginaAtual] = useState(1);
 
   const load = useCallback(async () => {
     setError(null);
@@ -110,6 +195,22 @@ export default function EquipePage() {
     }
     return list;
   }, [grupos, busca, filtroTipo]);
+
+  useEffect(() => {
+    setPaginaAtual(1);
+  }, [busca, filtroTipo, instrucaoServicoId, tamanhoPagina]);
+
+  useEffect(() => {
+    if (tamanhoPagina === "all") return;
+    const totalPaginas = Math.max(1, Math.ceil(gruposFiltrados.length / tamanhoPagina));
+    if (paginaAtual > totalPaginas) setPaginaAtual(totalPaginas);
+  }, [gruposFiltrados.length, tamanhoPagina, paginaAtual]);
+
+  const gruposPaginados = useMemo(() => {
+    if (tamanhoPagina === "all") return gruposFiltrados;
+    const start = (paginaAtual - 1) * tamanhoPagina;
+    return gruposFiltrados.slice(start, start + tamanhoPagina);
+  }, [gruposFiltrados, tamanhoPagina, paginaAtual]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -325,8 +426,19 @@ export default function EquipePage() {
               : "Configure o Supabase para ver os dados."}
           </p>
         ) : (
-          <div className="space-y-8">
-            {gruposFiltrados.map((g) => (
+          <>
+            <div className="mb-4">
+              <PaginacaoControles
+                total={gruposFiltrados.length}
+                paginaAtual={paginaAtual}
+                setPaginaAtual={setPaginaAtual}
+                tamanhoPagina={tamanhoPagina}
+                setTamanhoPagina={setTamanhoPagina}
+                posicao="topo"
+              />
+            </div>
+            <div className="space-y-8">
+              {gruposPaginados.map((g) => (
               <div
                 key={g.codigo || "__vazio__"}
                 className="overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)]"
@@ -399,7 +511,18 @@ export default function EquipePage() {
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+            <div className="mt-6">
+              <PaginacaoControles
+                total={gruposFiltrados.length}
+                paginaAtual={paginaAtual}
+                setPaginaAtual={setPaginaAtual}
+                tamanhoPagina={tamanhoPagina}
+                setTamanhoPagina={setTamanhoPagina}
+                posicao="base"
+              />
+            </div>
+          </>
         )}
       </section>
     </div>
