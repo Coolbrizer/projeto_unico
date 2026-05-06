@@ -88,8 +88,7 @@ export default function OrcamentoPage() {
   const [dataInicioPeriodo, setDataInicioPeriodo] = useState(DATA_ORCAMENTO_INICIO_ISO);
   const [dataFimPeriodo, setDataFimPeriodo] = useState("2026-12-31");
   const [diasFerias, setDiasFerias] = useState(0);
-  const [refSelecionadaId, setRefSelecionadaId] = useState<string>("");
-  const [mesesIntegrante, setMesesIntegrante] = useState<number>(12);
+  const [mesesPorRef, setMesesPorRef] = useState<Record<string, number>>({});
   const [periodoInstrucao, setPeriodoInstrucao] = useState<{ inicio: string; fim: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -292,18 +291,6 @@ export default function OrcamentoPage() {
     }
     return meses;
   }, [dataInicioPeriodo, dataFimPeriodo, folha.total]);
-
-  const refSelecionada = useMemo(
-    () => refPgto.find((r) => r.id === refSelecionadaId) ?? null,
-    [refPgto, refSelecionadaId]
-  );
-
-  const custoIntegrante = useMemo(() => {
-    const valorMensal = refSelecionada ? Number(refSelecionada.valor_mensal) || 0 : 0;
-    const meses = Math.max(0, Number.isFinite(mesesIntegrante) ? mesesIntegrante : 0);
-    const total = Math.round(valorMensal * meses * 100) / 100;
-    return { valorMensal, meses, total };
-  }, [refSelecionada, mesesIntegrante]);
 
   const resumoFerias = useMemo(() => {
     const totalBruto = estimativaPeriodo.erro ? 0 : estimativaPeriodo.total;
@@ -595,88 +582,6 @@ export default function OrcamentoPage() {
             </p>
           </div>
 
-          <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-5 py-5">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                Custo de um integrante por classe/padrão
-              </h3>
-              {refSelecionada && custoIntegrante.meses > 0 && (
-                <p className="text-[11px] text-[var(--muted)]">
-                  {formatMoney(custoIntegrante.valorMensal)}/mês × {custoIntegrante.meses} mês
-                  {custoIntegrante.meses === 1 ? "" : "es"}
-                </p>
-              )}
-            </div>
-            <p className="mt-1 text-xs text-[var(--muted)]">
-              Selecione um cargo + classe/padrão e informe a quantidade de meses para estimar o custo
-              de um único integrante nesse vínculo.
-            </p>
-
-            <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_140px]">
-              <label className="block">
-                <span className="block text-xs font-medium text-[var(--muted)]">
-                  Cargo · Classe/Padrão
-                </span>
-                <select
-                  value={refSelecionadaId}
-                  onChange={(e) => setRefSelecionadaId(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
-                >
-                  <option value="">Selecione…</option>
-                  {refPorCargo.map(([cargo, itens]) => (
-                    <optgroup key={cargo} label={cargo}>
-                      {itens.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.classe_padrao || "—"} · {formatMoney(Number(r.valor_mensal))}/mês
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className="block text-xs font-medium text-[var(--muted)]">Meses</span>
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={mesesIntegrante}
-                  onChange={(e) => {
-                    const n = Number(e.target.value);
-                    setMesesIntegrante(Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0);
-                  }}
-                  className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
-                />
-              </label>
-            </div>
-
-            {refSelecionada ? (
-              <div className="mt-4 rounded-lg border border-[var(--accent)]/25 bg-[var(--accent-muted)] px-4 py-4">
-                <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                  Custo estimado do integrante
-                </p>
-                <p className="mt-1 text-3xl font-bold text-[var(--accent)]">
-                  {formatMoney(custoIntegrante.total)}
-                </p>
-                <p className="mt-1 text-xs text-[var(--muted)]">
-                  {refSelecionada.cargo || "—"} · {refSelecionada.classe_padrao || "—"} ·{" "}
-                  {formatMoney(custoIntegrante.valorMensal)}/mês × {custoIntegrante.meses} mês
-                  {custoIntegrante.meses === 1 ? "" : "es"}
-                </p>
-              </div>
-            ) : (
-              <p className="mt-4 text-xs text-[var(--muted)]">
-                Nenhuma classe/padrão selecionada.
-              </p>
-            )}
-
-            <p className="mt-3 text-[11px] leading-snug text-[var(--muted)]">
-              Cálculo simples: <code className="rounded bg-[var(--accent-muted)] px-1">valor_mensal × meses</code>.
-              Use a tabela de <code className="rounded bg-[var(--accent-muted)] px-1">ref_pgto</code> abaixo para
-              consultar todos os valores disponíveis.
-            </p>
-          </div>
-
           {folha.semCorrespondencia.length > 0 && (
             <div className="rounded-lg border border-[var(--warning)]/25 bg-[#f4ead5] px-3 py-2 text-xs text-[#6f4d14]">
               <p className="font-medium text-[#6f4d14]">
@@ -704,40 +609,75 @@ export default function OrcamentoPage() {
         <p className="mb-4 text-xs text-[var(--muted)]">
           Dados somente leitura nesta tela. Para incluir ou alterar linhas, use o Supabase (SQL em{" "}
           <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">supabase/migration_ref_pgto.sql</code> cria a tabela).
+          Use a coluna <strong>Meses</strong> para estimar o custo de um único integrante nessa classe/padrão.
         </p>
         {refPgto.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">Nenhuma linha em ref_pgto.</p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-[var(--card-border)]">
-            <table className="w-full min-w-[360px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[480px] border-collapse text-left text-sm">
               <thead className="border-b border-[var(--card-border)] bg-[var(--background)]/80 text-xs uppercase tracking-wide text-[var(--muted)]">
                 <tr>
                   <th className="px-3 py-2.5 font-medium">Cargo</th>
                   <th className="px-3 py-2.5 font-medium">Classe/Padrão</th>
-                  <th className="px-3 py-2.5 text-right font-medium">Valor</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Valor/mês</th>
+                  <th className="px-3 py-2.5 text-center font-medium">Meses</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Total</th>
                 </tr>
               </thead>
               <tbody>
                 {refPorCargo.map(([cargo, itens]) =>
-                  itens.map((r, idx) => (
-                    <tr
-                      key={r.id}
-                      className="border-b border-[var(--card-border)]/50 last:border-b-0"
-                    >
-                      {idx === 0 ? (
-                        <td
-                          rowSpan={itens.length}
-                          className="align-middle border-r border-[var(--card-border)]/40 px-3 py-2 font-medium text-[var(--foreground)]"
-                        >
-                          {cargo}
+                  itens.map((r, idx) => {
+                    const valorMensal = Number(r.valor_mensal) || 0;
+                    const meses = mesesPorRef[r.id] ?? 0;
+                    const total = valorMensal * meses;
+                    return (
+                      <tr
+                        key={r.id}
+                        className="border-b border-[var(--card-border)]/50 last:border-b-0"
+                      >
+                        {idx === 0 ? (
+                          <td
+                            rowSpan={itens.length}
+                            className="align-middle border-r border-[var(--card-border)]/40 px-3 py-2 font-medium text-[var(--foreground)]"
+                          >
+                            {cargo}
+                          </td>
+                        ) : null}
+                        <td className="px-3 py-2 text-[var(--muted)]">{r.classe_padrao || "—"}</td>
+                        <td className="px-3 py-2 text-right font-medium tabular-nums text-[var(--accent)]">
+                          {formatMoney(valorMensal)}
                         </td>
-                      ) : null}
-                      <td className="px-3 py-2 text-[var(--muted)]">{r.classe_padrao || "—"}</td>
-                      <td className="px-3 py-2 text-right font-medium tabular-nums text-[var(--accent)]">
-                        {formatMoney(Number(r.valor_mensal))}
-                      </td>
-                    </tr>
-                  ))
+                        <td className="px-3 py-2 text-center">
+                          <select
+                            value={meses}
+                            onChange={(e) =>
+                              setMesesPorRef((prev) => ({
+                                ...prev,
+                                [r.id]: Number(e.target.value),
+                              }))
+                            }
+                            className="rounded-md border border-[var(--card-border)] bg-white px-2 py-1 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
+                            aria-label={`Meses para ${r.classe_padrao || "classe/padrão"}`}
+                          >
+                            <option value={0}>—</option>
+                            {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                              <option key={n} value={n}>
+                                {n}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                          {meses > 0 ? (
+                            <span className="text-[var(--success)]">{formatMoney(total)}</span>
+                          ) : (
+                            <span className="text-[var(--muted)]">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
