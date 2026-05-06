@@ -122,12 +122,24 @@ export default function IntegrantesPage() {
   );
 
   const totalPorMacro = useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, { total: number; porCargo: Map<string, number> }>();
     for (const r of filtradas) {
       const macro = macroDoSetor(r.setor);
-      map.set(macro, (map.get(macro) ?? 0) + 1);
+      const cargo = (r.cargo ?? "").trim() || "—";
+      if (!map.has(macro)) map.set(macro, { total: 0, porCargo: new Map() });
+      const entry = map.get(macro)!;
+      entry.total += 1;
+      entry.porCargo.set(cargo, (entry.porCargo.get(cargo) ?? 0) + 1);
     }
-    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
+    return [...map.entries()]
+      .sort(([a], [b]) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }))
+      .map(([macro, info]) => ({
+        macro,
+        total: info.total,
+        porCargo: [...info.porCargo.entries()].sort(([a, na], [b, nb]) =>
+          nb !== na ? nb - na : a.localeCompare(b, "pt-BR", { sensitivity: "base" })
+        ),
+      }));
   }, [filtradas]);
 
   async function handleSubmit(ev: React.FormEvent) {
@@ -360,7 +372,7 @@ export default function IntegrantesPage() {
               : "Configure o Supabase para ver os dados."}
           </p>
         ) : (
-          <div className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)]">
+          <div className="grid gap-3 md:grid-cols-[200px_minmax(0,1fr)]">
             <aside className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-4 py-3">
               <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
                 Total de pessoas
@@ -370,24 +382,43 @@ export default function IntegrantesPage() {
                 <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--muted)]">
                   Por setor macro
                 </p>
-                <ul className="mt-1 space-y-0.5 text-xs text-[var(--muted)]">
-                  {totalPorMacro.map(([macro, total]) => (
-                    <li key={macro} className="flex items-center justify-between gap-2">
-                      <span className="truncate">{macro}</span>
-                      <span className="font-medium tabular-nums text-[var(--foreground)]">{total}</span>
+                <ul className="mt-1.5 space-y-1.5 text-xs">
+                  {totalPorMacro.map(({ macro, total, porCargo }) => (
+                    <li key={macro}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate font-medium text-[var(--foreground)]">
+                          {macro}
+                        </span>
+                        <span className="font-semibold tabular-nums text-[var(--foreground)]">
+                          {total}
+                        </span>
+                      </div>
+                      {porCargo.length > 0 && (
+                        <ul className="mt-0.5 space-y-0.5 border-l border-[var(--card-border)]/50 pl-2 text-[11px] text-[var(--muted)]">
+                          {porCargo.map(([cargo, n]) => (
+                            <li
+                              key={cargo}
+                              className="flex items-center justify-between gap-2"
+                            >
+                              <span className="truncate">{cargo}</span>
+                              <span className="tabular-nums">{n}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </li>
                   ))}
                 </ul>
               </div>
             </aside>
-            <ul className="space-y-2">
+            <ul className="space-y-1.5">
               {filtradas.map((r) => (
                 <li
                   key={r.id}
-                  className="flex flex-col gap-1 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-3 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-0.5 rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                 >
-                  <div>
-                    <p className="font-medium leading-snug">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium leading-tight">
                       <span className="text-[var(--accent)]">Mat. {r.matricula}</span>
                       {" · "}
                       {r.nome}
@@ -399,27 +430,29 @@ export default function IntegrantesPage() {
                       {r.email && (
                         <>
                           {" · "}
-                          <span className="text-sm font-normal text-[var(--muted)]">{r.email}</span>
+                          <span className="text-xs font-normal text-[var(--muted)]">
+                            {r.email}
+                          </span>
                         </>
                       )}
                     </p>
-                    <p className="text-sm text-[var(--muted)]">
+                    <p className="mt-0.5 text-xs leading-tight text-[var(--muted)]">
                       {r.setor || "—"} · {r.cargo || "—"} · {r.classe_padrao || "—"}
                     </p>
                   </div>
                   {podeEditar && (
-                    <div className="flex shrink-0 flex-wrap gap-2 self-start sm:self-center">
+                    <div className="flex shrink-0 flex-wrap gap-1.5 self-start sm:self-center">
                       <button
                         type="button"
                         onClick={() => abrirEdicao(r)}
-                        className="rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2 py-1.5 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--accent-muted)]/80"
+                        className="rounded-md border border-[var(--card-border)] bg-[var(--background)] px-2 py-1 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--accent-muted)]/80"
                       >
                         Editar
                       </button>
                       <button
                         type="button"
                         onClick={() => void remove(r.id, r.nome?.trim() || r.email?.trim() || "este integrante")}
-                        className="rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-700 hover:bg-red-500/10 disabled:opacity-50"
+                        className="rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-700 hover:bg-red-500/10 disabled:opacity-50"
                       >
                         Excluir
                       </button>
