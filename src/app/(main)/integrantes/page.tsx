@@ -30,12 +30,9 @@ function integranteMatchesBusca(r: Integrante, raw: string): boolean {
 }
 
 function macroDoSetor(setor: string | null | undefined): string {
-  const s = (setor ?? "").trim();
-  if (!s) return "(sem setor)";
-  const idx = s.indexOf("/");
-  if (idx < 0) return s.toUpperCase();
-  const macro = s.slice(idx + 1).trim();
-  return (macro || "(sem setor)").toUpperCase();
+  const s = (setor ?? "").toUpperCase();
+  if (s.includes("STIC") || s.includes("CTIC")) return "STIC";
+  return "SEJUD";
 }
 
 export default function IntegrantesPage() {
