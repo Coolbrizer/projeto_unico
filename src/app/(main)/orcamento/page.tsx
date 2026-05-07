@@ -89,6 +89,7 @@ export default function OrcamentoPage() {
   const [dataFimPeriodo, setDataFimPeriodo] = useState("2026-12-31");
   const [diasFerias, setDiasFerias] = useState(0);
   const [mesesPorRef, setMesesPorRef] = useState<Record<string, number>>({});
+  const [pessoasPorRef, setPessoasPorRef] = useState<Record<string, number>>({});
   const [periodoInstrucao, setPeriodoInstrucao] = useState<{ inicio: string; fim: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -609,19 +610,21 @@ export default function OrcamentoPage() {
         <p className="mb-4 text-xs text-[var(--muted)]">
           Dados somente leitura nesta tela. Para incluir ou alterar linhas, use o Supabase (SQL em{" "}
           <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">supabase/migration_ref_pgto.sql</code> cria a tabela).
-          Use a coluna <strong>Meses</strong> para estimar o custo de um único integrante nessa classe/padrão.
+          Selecione <strong>Meses</strong> e <strong>Pessoas</strong> para estimar o custo total
+          (<code className="rounded bg-[var(--accent-muted)] px-1">valor × meses × pessoas</code>).
         </p>
         {refPgto.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">Nenhuma linha em ref_pgto.</p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-[var(--card-border)]">
-            <table className="w-full min-w-[480px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[560px] border-collapse text-left text-sm">
               <thead className="border-b border-[var(--card-border)] bg-[var(--background)]/80 text-xs uppercase tracking-wide text-[var(--muted)]">
                 <tr>
                   <th className="px-3 py-2.5 font-medium">Cargo</th>
                   <th className="px-3 py-2.5 font-medium">Classe/Padrão</th>
                   <th className="px-3 py-2.5 text-right font-medium">Valor/mês</th>
                   <th className="px-3 py-2.5 text-center font-medium">Meses</th>
+                  <th className="px-3 py-2.5 text-center font-medium">Pessoas</th>
                   <th className="px-3 py-2.5 text-right font-medium">Total</th>
                 </tr>
               </thead>
@@ -630,7 +633,8 @@ export default function OrcamentoPage() {
                   itens.map((r, idx) => {
                     const valorMensal = Number(r.valor_mensal) || 0;
                     const meses = mesesPorRef[r.id] ?? 0;
-                    const total = valorMensal * meses;
+                    const pessoas = pessoasPorRef[r.id] ?? 0;
+                    const total = valorMensal * meses * pessoas;
                     return (
                       <tr
                         key={r.id}
@@ -668,8 +672,27 @@ export default function OrcamentoPage() {
                             ))}
                           </select>
                         </td>
+                        <td className="px-3 py-2 text-center">
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={pessoas || ""}
+                            placeholder="—"
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              const n = Number(raw);
+                              setPessoasPorRef((prev) => ({
+                                ...prev,
+                                [r.id]: raw === "" || !Number.isFinite(n) || n < 0 ? 0 : Math.floor(n),
+                              }));
+                            }}
+                            className="w-16 rounded-md border border-[var(--card-border)] bg-white px-2 py-1 text-center text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
+                            aria-label={`Pessoas para ${r.classe_padrao || "classe/padrão"}`}
+                          />
+                        </td>
                         <td className="px-3 py-2 text-right font-semibold tabular-nums">
-                          {meses > 0 ? (
+                          {meses > 0 && pessoas > 0 ? (
                             <span className="text-[var(--success)]">{formatMoney(total)}</span>
                           ) : (
                             <span className="text-[var(--muted)]">—</span>
@@ -680,6 +703,29 @@ export default function OrcamentoPage() {
                   })
                 )}
               </tbody>
+              <tfoot className="border-t-2 border-[var(--card-border)] bg-[var(--background)]/80">
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-[var(--muted)]"
+                  >
+                    Total geral
+                  </td>
+                  <td className="px-3 py-2.5 text-center text-xs font-semibold tabular-nums text-[var(--muted)]">
+                    {refPgto.reduce((acc, r) => acc + (pessoasPorRef[r.id] ?? 0), 0)}
+                  </td>
+                  <td className="px-3 py-2.5 text-right text-base font-bold tabular-nums text-[var(--success)]">
+                    {formatMoney(
+                      refPgto.reduce((acc, r) => {
+                        const valorMensal = Number(r.valor_mensal) || 0;
+                        const meses = mesesPorRef[r.id] ?? 0;
+                        const pessoas = pessoasPorRef[r.id] ?? 0;
+                        return acc + valorMensal * meses * pessoas;
+                      }, 0)
+                    )}
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}
