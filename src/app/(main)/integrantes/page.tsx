@@ -156,8 +156,8 @@ export default function IntegrantesPage() {
       matricula,
       nome: nome.trim(),
       setor: setor.trim() || null,
-      cargo: integranteNaoRemunerado ? null : cargo.trim() || null,
-      classe_padrao: integranteNaoRemunerado ? null : classePadrao.trim() || null,
+      cargo: cargo.trim() || null,
+      classe_padrao: classePadrao.trim() || null,
       email: email.trim(),
       nao_remunerado: integranteNaoRemunerado,
     };
@@ -201,7 +201,8 @@ export default function IntegrantesPage() {
         <h2 className="text-2xl font-semibold tracking-tight">Integrantes</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Cadastro com matrícula, nome, setor, cargo, classe/padrão e e-mail. Marque «Integrante não
-          remunerado» para quem não entra na folha (sem impacto no Orçamento). O e-mail é obrigatório e
+          remunerado» para quem não entra na folha — o cargo e a classe/padrão continuam sendo
+          guardados, apenas a pessoa não é contabilizada no Orçamento. O e-mail é obrigatório e
           usado para login; novos integrantes recebem a senha inicial 123456 e devem alterá-la no primeiro
           acesso. A busca cobre matrícula, nome, setor e e-mail.
         </p>
@@ -277,8 +278,7 @@ export default function IntegrantesPage() {
               <input
                 value={cargo}
                 onChange={(e) => setCargo(e.target.value)}
-                disabled={integranteNaoRemunerado}
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-55"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
             <div>
@@ -286,8 +286,7 @@ export default function IntegrantesPage() {
               <input
                 value={classePadrao}
                 onChange={(e) => setClassePadrao(e.target.value)}
-                disabled={integranteNaoRemunerado}
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-55"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
             <div>
@@ -305,14 +304,7 @@ export default function IntegrantesPage() {
                 <input
                   type="checkbox"
                   checked={integranteNaoRemunerado}
-                  onChange={(e) => {
-                    const v = e.target.checked;
-                    setIntegranteNaoRemunerado(v);
-                    if (v) {
-                      setCargo("");
-                      setClassePadrao("");
-                    }
-                  }}
+                  onChange={(e) => setIntegranteNaoRemunerado(e.target.checked)}
                   className="mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--card-border)] text-[var(--accent)] accent-[var(--accent)] focus:ring-[var(--accent)]/40"
                 />
                 <span>

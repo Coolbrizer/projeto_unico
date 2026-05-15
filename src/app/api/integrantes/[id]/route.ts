@@ -97,8 +97,8 @@ export async function PATCH(request: Request, ctx: Ctx) {
     matricula: m,
     nome,
     setor: body.setor?.trim() || null,
-    cargo: naoRemunerado ? null : body.cargo?.trim() || null,
-    classe_padrao: naoRemunerado ? null : body.classe_padrao?.trim() || null,
+    cargo: body.cargo?.trim() || null,
+    classe_padrao: body.classe_padrao?.trim() || null,
     email,
   };
   if (naoExplicito) {
