@@ -7,6 +7,11 @@ import { isAdmin } from "@/lib/auth/roles";
 import { equipeLinhaEhResponsavel } from "@/lib/equipe-page-helpers";
 import { useMounted } from "@/hooks/useMounted";
 import {
+  estadoAPartirDasLinhas,
+  linhasAtivas,
+  totaisDoCenario,
+} from "@/lib/orcamento-cenarios";
+import {
   DATA_ORCAMENTO_INICIO_ISO,
   despesaFolhaPeriodo,
   diasNoMes,
@@ -15,11 +20,30 @@ import {
   valorMensalDoRef,
 } from "@/lib/orcamento-folha";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
-import type { Atividade, Equipe, Integrante, Orcamento, RefPgto } from "@/types/database";
+import type {
+  Atividade,
+  Equipe,
+  Integrante,
+  Orcamento,
+  OrcamentoCenario,
+  RefPgto,
+} from "@/types/database";
 
 function formatMoney(n: number | null) {
   if (n === null || n === undefined) return "—";
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
+}
+
+function formatDataHora(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function macroDoSetor(setor: string | null | undefined): string {
@@ -92,6 +116,19 @@ export default function OrcamentoPage() {
   const [pessoasPorRef, setPessoasPorRef] = useState<Record<string, number>>({});
   const [periodoInstrucao, setPeriodoInstrucao] = useState<{ inicio: string; fim: string } | null>(null);
   const [detalheIntegrantesAberto, setDetalheIntegrantesAberto] = useState(false);
+  const [cenarios, setCenarios] = useState<OrcamentoCenario[]>([]);
+  const [nomeCenario, setNomeCenario] = useState("");
+  const [mostrarSalvarCenario, setMostrarSalvarCenario] = useState(false);
+  const [salvandoCenario, setSalvandoCenario] = useState(false);
+
+  const loadCenarios = useCallback(async () => {
+    const res = await fetch("/api/orcamento/cenarios", { credentials: "include" });
+    const data = (await res.json()) as { error?: string; cenarios?: OrcamentoCenario[] };
+    if (!res.ok) {
+      return;
+    }
+    setCenarios(data.cenarios ?? []);
+  }, []);
 
   const load = useCallback(async () => {
     setError(null);
@@ -118,7 +155,8 @@ export default function OrcamentoPage() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadCenarios();
+  }, [load, loadCenarios]);
 
   useEffect(() => {
     if (!instrucaoServicoId) {
@@ -222,6 +260,18 @@ export default function OrcamentoPage() {
     () => totalDespesaMensalFolha(integrantesConsiderados, refPgto),
     [integrantesConsiderados, refPgto]
   );
+
+  const linhasCenarioAtual = useMemo(
+    () => linhasAtivas(mesesPorRef, pessoasPorRef),
+    [mesesPorRef, pessoasPorRef]
+  );
+
+  const totaisCenarioAtual = useMemo(
+    () => totaisDoCenario(linhasCenarioAtual, refPgto),
+    [linhasCenarioAtual, refPgto]
+  );
+
+  const podeSalvarCenario = linhasCenarioAtual.length > 0;
 
   const refPorCargo = useMemo(() => {
     const map = new Map<string, RefPgto[]>();
@@ -349,6 +399,57 @@ export default function OrcamentoPage() {
     }
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
   }, [integrantesConsiderados]);
+
+  function carregarCenario(c: OrcamentoCenario) {
+    const linhas = Array.isArray(c.linhas) ? c.linhas : [];
+    const { mesesPorRef: meses, pessoasPorRef: pessoas } = estadoAPartirDasLinhas(linhas);
+    setMesesPorRef(meses);
+    setPessoasPorRef(pessoas);
+    setMostrarSalvarCenario(false);
+    setNomeCenario("");
+    setError(null);
+  }
+
+  async function salvarCenario(ev: React.FormEvent) {
+    ev.preventDefault();
+    if (!podeSalvarCenario || !nomeCenario.trim()) return;
+    setSalvandoCenario(true);
+    setError(null);
+    const res = await fetch("/api/orcamento/cenarios", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        nome: nomeCenario.trim(),
+        linhas: linhasCenarioAtual,
+      }),
+    });
+    const data = (await res.json()) as { error?: string };
+    setSalvandoCenario(false);
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível salvar o cenário.");
+      return;
+    }
+    setNomeCenario("");
+    setMostrarSalvarCenario(false);
+    void loadCenarios();
+  }
+
+  async function excluirCenario(id: string, nome: string) {
+    const ok = window.confirm(`Excluir o cenário "${nome}"?`);
+    if (!ok) return;
+    setError(null);
+    const res = await fetch(`/api/orcamento/cenarios/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    const data = (await res.json()) as { error?: string };
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível excluir o cenário.");
+      return;
+    }
+    void loadCenarios();
+  }
 
   async function removeOrc(id: string) {
     if (!podeExcluirLancamento) return;
@@ -604,6 +705,51 @@ export default function OrcamentoPage() {
         </div>
       )}
 
+      {cenarios.length > 0 && (
+        <section className="mb-4">
+          <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+            Cenários salvos
+          </h3>
+          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {cenarios.map((c) => (
+              <li
+                key={c.id}
+                className="flex flex-col gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-4 py-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-[var(--foreground)]">{c.nome}</p>
+                  <p className="mt-0.5 text-xs text-[var(--muted)]">
+                    {c.total_pessoas} pessoa{c.total_pessoas === 1 ? "" : "s"} ·{" "}
+                    <span className="font-medium text-[var(--success)]">
+                      {formatMoney(Number(c.total_valor))}
+                    </span>
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-[var(--muted)]">
+                    {formatDataHora(c.created_at)}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => carregarCenario(c)}
+                    className="rounded-md border border-[var(--accent)]/40 bg-[var(--accent-muted)] px-2.5 py-1 text-xs font-medium text-[var(--accent)] hover:brightness-95"
+                  >
+                    Carregar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void excluirCenario(c.id, c.nome)}
+                    className="rounded-md border border-[var(--danger)]/30 px-2.5 py-1 text-xs text-[var(--danger)] hover:bg-[var(--danger)]/10"
+                  >
+                    Excluir
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section className="mb-10 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-5">
         <h3 className="mb-1 text-sm font-semibold text-[var(--foreground)]">
           Referência de pagamento (ref_pgto)
@@ -613,7 +759,70 @@ export default function OrcamentoPage() {
           <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">supabase/migration_ref_pgto.sql</code> cria a tabela).
           Selecione <strong>Meses</strong> e <strong>Pessoas</strong> para estimar o custo total
           (<code className="rounded bg-[var(--accent-muted)] px-1">valor × meses × pessoas</code>).
+          Com ao menos uma linha preenchida, você pode <strong>salvar o cenário</strong> com um nome.
         </p>
+
+        {podeSalvarCenario && (
+          <div className="mb-4 rounded-lg border border-[var(--accent)]/25 bg-[var(--accent-muted)]/50 px-4 py-3">
+            {!mostrarSalvarCenario ? (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-[var(--muted)]">
+                  Seleção atual:{" "}
+                  <span className="font-medium text-[var(--foreground)]">
+                    {totaisCenarioAtual.totalPessoas} pessoa
+                    {totaisCenarioAtual.totalPessoas === 1 ? "" : "s"}
+                  </span>
+                  {" · "}
+                  <span className="font-semibold text-[var(--success)]">
+                    {formatMoney(totaisCenarioAtual.totalValor)}
+                  </span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setMostrarSalvarCenario(true)}
+                  className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]"
+                >
+                  Salvar cenário…
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={(ev) => void salvarCenario(ev)} className="flex flex-wrap items-end gap-3">
+                <div className="min-w-0 flex-1">
+                  <label className="block text-xs font-medium text-[var(--muted)]">
+                    Nome do cenário
+                  </label>
+                  <input
+                    required
+                    autoFocus
+                    value={nomeCenario}
+                    onChange={(e) => setNomeCenario(e.target.value)}
+                    placeholder="Ex.: Equipe SEJUD — 6 meses"
+                    className="mt-1 w-full min-w-[200px] rounded-lg border border-[var(--card-border)] bg-white px-3 py-2 text-sm outline-none ring-[var(--accent)]/30 focus:ring-2"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="submit"
+                    disabled={salvandoCenario || !nomeCenario.trim()}
+                    className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                  >
+                    {salvandoCenario ? "A guardar…" : "Guardar"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMostrarSalvarCenario(false);
+                      setNomeCenario("");
+                    }}
+                    className="rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm text-[var(--muted)] hover:bg-white/60"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
         {refPgto.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">Nenhuma linha em ref_pgto.</p>
         ) : (

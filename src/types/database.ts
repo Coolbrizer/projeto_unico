@@ -53,6 +53,22 @@ export type RefPgto = {
   created_at: string;
 };
 
+export type OrcamentoCenarioLinha = {
+  ref_pgto_id: string;
+  meses: number;
+  pessoas: number;
+};
+
+export type OrcamentoCenario = {
+  id: string;
+  nome: string;
+  linhas: OrcamentoCenarioLinha[];
+  total_pessoas: number;
+  total_valor: number;
+  criado_por: string | null;
+  created_at: string;
+};
+
 export type Orcamento = {
   id: string;
   categoria: string;
