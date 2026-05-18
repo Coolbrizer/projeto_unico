@@ -91,6 +91,7 @@ export default function OrcamentoPage() {
   const [mesesPorRef, setMesesPorRef] = useState<Record<string, number>>({});
   const [pessoasPorRef, setPessoasPorRef] = useState<Record<string, number>>({});
   const [periodoInstrucao, setPeriodoInstrucao] = useState<{ inicio: string; fim: string } | null>(null);
+  const [detalheIntegrantesAberto, setDetalheIntegrantesAberto] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -790,8 +791,31 @@ export default function OrcamentoPage() {
 
       {integrantesConsiderados.length > 0 && refPgto.length > 0 && (
         <section className="mt-10">
-          <h3 className="mb-3 text-sm font-medium text-[var(--muted)]">Detalhe por integrante (mês)</h3>
-          <div className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)]">
+          <button
+            type="button"
+            onClick={() => setDetalheIntegrantesAberto((v) => !v)}
+            aria-expanded={detalheIntegrantesAberto}
+            aria-controls="detalhe-integrantes-mes"
+            className="mb-3 flex w-full items-center justify-between gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-4 py-3 text-left text-sm font-medium text-[var(--muted)] transition hover:bg-[var(--accent-muted)]/40"
+          >
+            <span className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className={`inline-block text-[var(--muted)] transition-transform ${detalheIntegrantesAberto ? "rotate-90" : ""}`}
+              >
+                ▶
+              </span>
+              <span>Detalhe por integrante (mês)</span>
+              <span className="text-xs font-normal text-[var(--muted)]">
+                · {integrantesConsiderados.length} pessoa{integrantesConsiderados.length === 1 ? "" : "s"}
+              </span>
+            </span>
+            <span className="text-xs font-normal text-[var(--muted)]">
+              {detalheIntegrantesAberto ? "Recolher" : "Expandir"}
+            </span>
+          </button>
+          {detalheIntegrantesAberto && (
+          <div id="detalhe-integrantes-mes" className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)]">
             <aside className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-4 py-3">
               <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
                 Total de pessoas
@@ -843,6 +867,7 @@ export default function OrcamentoPage() {
               </table>
             </div>
           </div>
+          )}
         </section>
       )}
     </div>
