@@ -35,6 +35,22 @@ export function totaisDoCenario(
   };
 }
 
+/** Ex.: "AN · C-12 (×2), TC · C-11 (×1)" */
+export function resumoLinhasCenario(
+  linhas: OrcamentoCenarioLinha[],
+  refPgto: RefPgto[]
+): string {
+  const refMap = new Map(refPgto.map((r) => [r.id, r]));
+  return linhas
+    .map((l) => {
+      const ref = refMap.get(l.ref_pgto_id);
+      const cargo = (ref?.cargo ?? "").trim() || "—";
+      const classe = (ref?.classe_padrao ?? "").trim() || "—";
+      return `${cargo} · ${classe} (×${l.pessoas})`;
+    })
+    .join(", ");
+}
+
 export function estadoAPartirDasLinhas(linhas: OrcamentoCenarioLinha[]): {
   mesesPorRef: Record<string, number>;
   pessoasPorRef: Record<string, number>;

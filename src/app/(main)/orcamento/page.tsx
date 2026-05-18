@@ -9,6 +9,7 @@ import { useMounted } from "@/hooks/useMounted";
 import {
   estadoAPartirDasLinhas,
   linhasAtivas,
+  resumoLinhasCenario,
   totaisDoCenario,
 } from "@/lib/orcamento-cenarios";
 import {
@@ -268,6 +269,11 @@ export default function OrcamentoPage() {
 
   const totaisCenarioAtual = useMemo(
     () => totaisDoCenario(linhasCenarioAtual, refPgto),
+    [linhasCenarioAtual, refPgto]
+  );
+
+  const resumoSelecaoAtual = useMemo(
+    () => resumoLinhasCenario(linhasCenarioAtual, refPgto),
     [linhasCenarioAtual, refPgto]
   );
 
@@ -719,7 +725,13 @@ export default function OrcamentoPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-[var(--foreground)]">{c.nome}</p>
                   <p className="mt-0.5 text-xs text-[var(--muted)]">
-                    {c.total_pessoas} pessoa{c.total_pessoas === 1 ? "" : "s"} ·{" "}
+                    <span className="line-clamp-2 font-medium text-[var(--foreground)]">
+                      {resumoLinhasCenario(
+                        Array.isArray(c.linhas) ? c.linhas : [],
+                        refPgto
+                      ) || "—"}
+                    </span>
+                    {" · "}
                     <span className="font-medium text-[var(--success)]">
                       {formatMoney(Number(c.total_valor))}
                     </span>
@@ -768,10 +780,7 @@ export default function OrcamentoPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-xs text-[var(--muted)]">
                   Seleção atual:{" "}
-                  <span className="font-medium text-[var(--foreground)]">
-                    {totaisCenarioAtual.totalPessoas} pessoa
-                    {totaisCenarioAtual.totalPessoas === 1 ? "" : "s"}
-                  </span>
+                  <span className="font-medium text-[var(--foreground)]">{resumoSelecaoAtual}</span>
                   {" · "}
                   <span className="font-semibold text-[var(--success)]">
                     {formatMoney(totaisCenarioAtual.totalValor)}
