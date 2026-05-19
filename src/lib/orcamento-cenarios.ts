@@ -43,7 +43,7 @@ const ROTULO_CARGO: Record<string, string> = {
 
 function rotuloCargo(cargo: string): string {
   const cod = cargo.trim().toUpperCase();
-  return ROTULO_CARGO[cod] ?? cargo.trim().toLowerCase() || "—";
+  return ROTULO_CARGO[cod] ?? (cargo.trim().toLowerCase() || "—");
 }
 
 /** Ex.: "analista (×3), técnico (×2)" */
