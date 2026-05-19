@@ -35,19 +35,32 @@ export function totaisDoCenario(
   };
 }
 
-/** Ex.: "AN · C-12 (×2), TC · C-11 (×1)" */
+const ROTULO_CARGO: Record<string, string> = {
+  AN: "analista",
+  TC: "técnico",
+  CC: "coordenador",
+};
+
+function rotuloCargo(cargo: string): string {
+  const cod = cargo.trim().toUpperCase();
+  return ROTULO_CARGO[cod] ?? cargo.trim().toLowerCase() || "—";
+}
+
+/** Ex.: "analista (×3), técnico (×2)" */
 export function resumoLinhasCenario(
   linhas: OrcamentoCenarioLinha[],
   refPgto: RefPgto[]
 ): string {
   const refMap = new Map(refPgto.map((r) => [r.id, r]));
-  return linhas
-    .map((l) => {
-      const ref = refMap.get(l.ref_pgto_id);
-      const cargo = (ref?.cargo ?? "").trim() || "—";
-      const classe = (ref?.classe_padrao ?? "").trim() || "—";
-      return `${cargo} · ${classe} (×${l.pessoas})`;
-    })
+  const porCargo = new Map<string, number>();
+  for (const l of linhas) {
+    const ref = refMap.get(l.ref_pgto_id);
+    const rotulo = rotuloCargo(ref?.cargo ?? "");
+    porCargo.set(rotulo, (porCargo.get(rotulo) ?? 0) + l.pessoas);
+  }
+  return [...porCargo.entries()]
+    .sort(([a], [b]) => a.localeCompare(b, "pt-BR"))
+    .map(([rotulo, qtd]) => `${rotulo} (×${qtd})`)
     .join(", ");
 }
 
