@@ -1,3 +1,4 @@
+import type { GrupoAtividade } from "@/lib/equipe-grupos";
 import type { Integrante } from "@/types/database";
 
 /** Compara nome na tabela equipe com o texto de responsável (ex.: "20256 | ANDREIA …"). */
@@ -30,6 +31,25 @@ const PREFIXO_MATRICULA_RESPONSAVEL = /^\s*(\d+)\s*[|│｜]\s*/;
  * Encontra o integrante do responsável pela atividade.
  * Prioridade: matrícula no início (ex.: "21734 | TIAGO CESAR MORONTE"), depois o mesmo critério de nome já usado na UI.
  */
+/** Integrante já conta no grupo (setor, linha de equipe ou responsável da atividade). */
+export function integranteJaVinculadoAoGrupo(g: GrupoAtividade, i: Integrante): boolean {
+  if (g.integrantes.some((x) => x.id === i.id)) return true;
+  const nomeLc = (i.nome ?? "").trim().toLowerCase();
+  if (!nomeLc) return false;
+  for (const r of g.equipeRows) {
+    const eq = (r.equipe ?? "").trim().toLowerCase();
+    if (eq === nomeLc) return true;
+    if (equipeLinhaEhResponsavel(r.equipe ?? "", i.nome)) return true;
+  }
+  if (
+    g.atividade?.responsavel &&
+    integranteNomeMatchResponsavelAtividade(i.nome, g.atividade.responsavel)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export function integranteCorrespondenteAResponsavel(
   integrantes: Integrante[],
   responsavel: string | null | undefined

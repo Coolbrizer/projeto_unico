@@ -6,8 +6,11 @@ import { useInstrucaoServicoSelecionada, usePerfil } from "@/components/AppShell
 import { canEditarEquipe } from "@/lib/auth/roles";
 import { formatarPeriodoAtividade } from "@/lib/datas-atividade";
 import { parsePartesCodigoAtividade, tiposAtividadeDistintos } from "@/lib/atividade-codigo";
-import { equipeLinhaEhResponsavel } from "@/lib/equipe-page-helpers";
-import { grupoAtividadeMatchesBusca, montarGrupos } from "@/lib/equipe-grupos";
+import {
+  equipeLinhaEhResponsavel,
+  integranteJaVinculadoAoGrupo,
+} from "@/lib/equipe-page-helpers";
+import { grupoAtividadeMatchesBusca, montarGrupos, type GrupoAtividade } from "@/lib/equipe-grupos";
 import {
   gerarPdfMemorandoPagamento,
   listarIntegrantesMemorandoPagamento,
@@ -140,6 +143,9 @@ export default function EquipePage() {
 
   const [codigo, setCodigo] = useState("");
   const [equipe, setEquipe] = useState("");
+  const [grupoAddIntegrante, setGrupoAddIntegrante] = useState<string | null>(null);
+  const [integranteAddId, setIntegranteAddId] = useState("");
+  const [salvandoIntegrante, setSalvandoIntegrante] = useState(false);
 
   const [tamanhoPagina, setTamanhoPagina] = useState<TamanhoPagina>(10);
   const [paginaAtual, setPaginaAtual] = useState(1);
@@ -242,6 +248,36 @@ export default function EquipePage() {
     else void load();
   }
 
+  async function adicionarIntegranteAoGrupo(g: GrupoAtividade) {
+    if (!podeEditar || !g.codigo.trim()) return;
+    const i = integrantes.find((x) => x.id === integranteAddId);
+    if (!i?.nome?.trim()) {
+      setError("Selecione um integrante.");
+      return;
+    }
+    if (integranteJaVinculadoAoGrupo(g, i)) {
+      setError("Este integrante já está vinculado a esta atividade.");
+      return;
+    }
+    setSalvandoIntegrante(true);
+    setError(null);
+    const res = await fetch("/api/equipe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ codigo: g.codigo.trim(), equipe: i.nome.trim() }),
+    });
+    const data = (await res.json()) as { error?: string };
+    setSalvandoIntegrante(false);
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível vincular o integrante.");
+      return;
+    }
+    setGrupoAddIntegrante(null);
+    setIntegranteAddId("");
+    void load();
+  }
+
   function handleMemorandoPagamento() {
     if (!mesExtracao || !anoExtracao) {
       window.alert("Selecione o mês e o ano para extração do relatório");
@@ -269,7 +305,8 @@ export default function EquipePage() {
         <h2 className="text-2xl font-semibold tracking-tight">Equipe</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Agrupado por código de atividade. Integrantes aparecem quando o setor coincide com o nome da
-          equipe ou com o código. O responsável vem do cadastro de Atividades (mesmo código). A busca cobre
+          equipe ou com o código, ou quando são vinculados com «Adicionar integrante» em cada atividade.
+          O responsável vem do cadastro de Atividades (mesmo código). A busca cobre
           código, linhas de equipe, integrantes (nome, setor, matrícula), descrição e responsável da
           atividade.
         </p>
@@ -465,10 +502,30 @@ export default function EquipePage() {
                     <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
                       Equipes / funções
                     </h4>
-                    {g.equipeRows.length === 0 ? (
-                      <p className="text-sm text-[var(--muted)]">Nenhum registro de equipe.</p>
+                    {g.equipeRows.length === 0 && g.integrantes.length === 0 ? (
+                      <p className="text-sm text-[var(--muted)]">Nenhum integrante vinculado.</p>
                     ) : (
                       <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2 sm:gap-x-3 sm:gap-y-1">
+                        {g.integrantes
+                          .filter(
+                            (i) =>
+                              !g.equipeRows.some((r) =>
+                                equipeLinhaEhResponsavel(r.equipe ?? "", i.nome)
+                              )
+                          )
+                          .map((i) => (
+                            <li
+                              key={`setor-${i.id}`}
+                              className="flex items-center justify-between gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--background)]/60 px-2.5 py-1.5 text-sm"
+                            >
+                              <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                                <span>{i.nome}</span>
+                                <span className="shrink-0 rounded bg-[var(--accent-muted)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--muted)]">
+                                  Via setor
+                                </span>
+                              </span>
+                            </li>
+                          ))}
                         {g.equipeRows.map((r) => {
                           const ehResp = equipeLinhaEhResponsavel(
                             r.equipe ?? "",
@@ -506,6 +563,71 @@ export default function EquipePage() {
                           );
                         })}
                       </ul>
+                    )}
+                    {podeEditar && g.codigo.trim() && (
+                      <div className="mt-3 border-t border-[var(--card-border)]/60 pt-3">
+                        {grupoAddIntegrante === g.codigo ? (
+                          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+                            <div className="min-w-0 flex-1 sm:max-w-md">
+                              <label className="block text-xs font-medium text-[var(--muted)]">
+                                Integrante
+                              </label>
+                              <select
+                                value={integranteAddId}
+                                onChange={(e) => setIntegranteAddId(e.target.value)}
+                                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-white px-3 py-2 text-sm outline-none ring-[var(--accent)]/30 focus:ring-2"
+                              >
+                                <option value="">Selecione…</option>
+                                {[...integrantes]
+                                  .filter((i) => !integranteJaVinculadoAoGrupo(g, i))
+                                  .sort((a, b) =>
+                                    (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR", {
+                                      sensitivity: "base",
+                                    })
+                                  )
+                                  .map((i) => (
+                                    <option key={i.id} value={i.id}>
+                                      {i.nome}
+                                      {i.setor ? ` · ${i.setor}` : ""}
+                                    </option>
+                                  ))}
+                              </select>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                disabled={salvandoIntegrante || !integranteAddId}
+                                onClick={() => void adicionarIntegranteAoGrupo(g)}
+                                className="rounded-lg bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                              >
+                                {salvandoIntegrante ? "A guardar…" : "Vincular"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setGrupoAddIntegrante(null);
+                                  setIntegranteAddId("");
+                                }}
+                                className="rounded-lg border border-[var(--card-border)] px-3 py-2 text-xs text-[var(--muted)] hover:bg-white/60"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setGrupoAddIntegrante(g.codigo);
+                              setIntegranteAddId("");
+                              setError(null);
+                            }}
+                            className="rounded-lg border border-[var(--accent)]/40 bg-[var(--accent-muted)] px-3 py-1.5 text-xs font-medium text-[var(--accent)] hover:brightness-95"
+                          >
+                            Adicionar integrante
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
