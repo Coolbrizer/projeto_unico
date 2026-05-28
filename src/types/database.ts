@@ -69,6 +69,24 @@ export type OrcamentoCenario = {
   created_at: string;
 };
 
+export type OrcamentoCenarioFeriasLinha = {
+  integrante_id: string;
+  dias_ferias: number;
+};
+
+export type OrcamentoCenarioFerias = {
+  id: string;
+  nome: string;
+  data_inicio: string;
+  data_fim: string;
+  linhas: OrcamentoCenarioFeriasLinha[];
+  total_economia: number;
+  economia_sejud: number;
+  economia_stic: number;
+  criado_por: string | null;
+  created_at: string;
+};
+
 export type Orcamento = {
   id: string;
   categoria: string;

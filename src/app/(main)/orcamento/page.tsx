@@ -6,12 +6,17 @@ import { useInstrucaoServicoSelecionada, usePerfil } from "@/components/AppShell
 import { isAdmin } from "@/lib/auth/roles";
 import { equipeLinhaEhResponsavel } from "@/lib/equipe-page-helpers";
 import { useMounted } from "@/hooks/useMounted";
+import { macroSetorIntegrante } from "@/lib/integrante-setor-macro";
 import {
   estadoAPartirDasLinhas,
   linhasAtivas,
   resumoLinhasCenario,
   totaisDoCenario,
 } from "@/lib/orcamento-cenarios";
+import {
+  estadoAPartirDasLinhasFerias,
+  linhasFeriasAtivas,
+} from "@/lib/orcamento-cenarios-ferias";
 import {
   DATA_ORCAMENTO_INICIO_ISO,
   despesaFolhaPeriodo,
@@ -28,6 +33,7 @@ import type {
   Integrante,
   Orcamento,
   OrcamentoCenario,
+  OrcamentoCenarioFerias,
   RefPgto,
 } from "@/types/database";
 
@@ -49,12 +55,8 @@ function formatDataHora(iso: string) {
 }
 
 function macroDoSetor(setor: string | null | undefined): string {
-  const s = (setor ?? "").trim();
-  if (!s) return "(sem setor)";
-  const idx = s.indexOf("/");
-  if (idx < 0) return s.toUpperCase();
-  const macro = s.slice(idx + 1).trim();
-  return (macro || "(sem setor)").toUpperCase();
+  if (!(setor ?? "").trim()) return "(sem setor)";
+  return macroSetorIntegrante(setor);
 }
 
 function toISODateOnly(raw: string | null | undefined): string | null {
@@ -119,6 +121,10 @@ export default function OrcamentoPage() {
   const [periodoInstrucao, setPeriodoInstrucao] = useState<{ inicio: string; fim: string } | null>(null);
   const [detalheIntegrantesAberto, setDetalheIntegrantesAberto] = useState(false);
   const [diasFeriasPorIntegrante, setDiasFeriasPorIntegrante] = useState<Record<string, number>>({});
+  const [cenariosFerias, setCenariosFerias] = useState<OrcamentoCenarioFerias[]>([]);
+  const [nomeCenarioFerias, setNomeCenarioFerias] = useState("");
+  const [mostrarSalvarCenarioFerias, setMostrarSalvarCenarioFerias] = useState(false);
+  const [salvandoCenarioFerias, setSalvandoCenarioFerias] = useState(false);
   const [cenarios, setCenarios] = useState<OrcamentoCenario[]>([]);
   const [nomeCenario, setNomeCenario] = useState("");
   const [mostrarSalvarCenario, setMostrarSalvarCenario] = useState(false);
@@ -131,6 +137,13 @@ export default function OrcamentoPage() {
       return;
     }
     setCenarios(data.cenarios ?? []);
+  }, []);
+
+  const loadCenariosFerias = useCallback(async () => {
+    const res = await fetch("/api/orcamento/cenarios-ferias", { credentials: "include" });
+    const data = (await res.json()) as { error?: string; cenarios?: OrcamentoCenarioFerias[] };
+    if (!res.ok) return;
+    setCenariosFerias(data.cenarios ?? []);
   }, []);
 
   const load = useCallback(async () => {
@@ -159,7 +172,8 @@ export default function OrcamentoPage() {
   useEffect(() => {
     void load();
     void loadCenarios();
-  }, [load, loadCenarios]);
+    void loadCenariosFerias();
+  }, [load, loadCenarios, loadCenariosFerias]);
 
   useEffect(() => {
     if (!instrucaoServicoId) {
@@ -352,10 +366,20 @@ export default function OrcamentoPage() {
     return meses;
   }, [dataInicioPeriodo, dataFimPeriodo, folha.total]);
 
+  const linhasFeriasAtual = useMemo(
+    () => linhasFeriasAtivas(diasFeriasPorIntegrante),
+    [diasFeriasPorIntegrante]
+  );
+
+  const podeSalvarCenarioFerias =
+    linhasFeriasAtual.length > 0 && !estimativaPeriodo.erro;
+
   const detalheFeriasIntegrantes = useMemo(() => {
     const diasPagos = estimativaPeriodo.erro ? 0 : estimativaPeriodo.diasPagosContados;
     const porId: Record<string, { despesaPeriodo: number; economia: number }> = {};
     let totalEconomia = 0;
+    let economiaSejud = 0;
+    let economiaStic = 0;
     for (const i of integrantesConsiderados) {
       if (!integranteContaParaFolha(i)) {
         porId[i.id] = { despesaPeriodo: 0, economia: 0 };
@@ -369,11 +393,15 @@ export default function OrcamentoPage() {
       const economia = reducaoFeriasNoPeriodo(despesaPeriodo, dias, diasPagos);
       porId[i.id] = { despesaPeriodo, economia };
       totalEconomia += economia;
+      if (macroSetorIntegrante(i.setor) === "STIC") economiaStic += economia;
+      else economiaSejud += economia;
     }
     return {
       porId,
       diasPagos,
       totalEconomia: Math.round(totalEconomia * 100) / 100,
+      economiaSejud: Math.round(economiaSejud * 100) / 100,
+      economiaStic: Math.round(economiaStic * 100) / 100,
     };
   }, [
     integrantesConsiderados,
@@ -473,6 +501,60 @@ export default function OrcamentoPage() {
     setNomeCenario("");
     setMostrarSalvarCenario(false);
     void loadCenarios();
+  }
+
+  function carregarCenarioFerias(c: OrcamentoCenarioFerias) {
+    const linhas = Array.isArray(c.linhas) ? c.linhas : [];
+    setDiasFeriasPorIntegrante(estadoAPartirDasLinhasFerias(linhas));
+    setDataInicioPeriodo(c.data_inicio);
+    setDataFimPeriodo(c.data_fim);
+    setMostrarSalvarCenarioFerias(false);
+    setNomeCenarioFerias("");
+    setDetalheIntegrantesAberto(true);
+    setError(null);
+  }
+
+  async function salvarCenarioFerias(ev: React.FormEvent) {
+    ev.preventDefault();
+    if (!podeSalvarCenarioFerias || !nomeCenarioFerias.trim()) return;
+    setSalvandoCenarioFerias(true);
+    setError(null);
+    const res = await fetch("/api/orcamento/cenarios-ferias", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        nome: nomeCenarioFerias.trim(),
+        data_inicio: dataInicioPeriodo,
+        data_fim: dataFimPeriodo,
+        linhas: linhasFeriasAtual,
+      }),
+    });
+    const data = (await res.json()) as { error?: string };
+    setSalvandoCenarioFerias(false);
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível salvar o cenário de férias.");
+      return;
+    }
+    setNomeCenarioFerias("");
+    setMostrarSalvarCenarioFerias(false);
+    void loadCenariosFerias();
+  }
+
+  async function excluirCenarioFerias(id: string, nome: string) {
+    const ok = window.confirm(`Excluir o cenário de férias "${nome}"?`);
+    if (!ok) return;
+    setError(null);
+    const res = await fetch(`/api/orcamento/cenarios-ferias/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    const data = (await res.json()) as { error?: string };
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível excluir o cenário de férias.");
+      return;
+    }
+    void loadCenariosFerias();
   }
 
   async function excluirCenario(id: string, nome: string) {
@@ -1043,6 +1125,61 @@ export default function OrcamentoPage() {
 
       {integrantesConsiderados.length > 0 && refPgto.length > 0 && (
         <section className="mt-10">
+          {cenariosFerias.length > 0 && (
+            <div className="mb-4">
+              <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                Cenários de férias salvos
+              </h3>
+              <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {cenariosFerias.map((c) => (
+                  <li
+                    key={c.id}
+                    className="flex flex-col gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-4 py-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-[var(--foreground)]">
+                        {c.nome}
+                      </p>
+                      <p className="mt-0.5 text-xs text-[var(--muted)]">
+                        {formatBR(c.data_inicio)} a {formatBR(c.data_fim)}
+                      </p>
+                      <p className="mt-0.5 text-xs text-[var(--muted)]">
+                        SEJUD{" "}
+                        <span className="font-medium text-[var(--success)]">
+                          −{formatMoney(Number(c.economia_sejud))}
+                        </span>
+                        {" · "}
+                        STIC{" "}
+                        <span className="font-medium text-[var(--success)]">
+                          −{formatMoney(Number(c.economia_stic))}
+                        </span>
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-[var(--muted)]">
+                        {formatDataHora(c.created_at)}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => carregarCenarioFerias(c)}
+                        className="rounded-md border border-[var(--accent)]/40 bg-[var(--accent-muted)] px-2.5 py-1 text-xs font-medium text-[var(--accent)] hover:brightness-95"
+                      >
+                        Carregar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void excluirCenarioFerias(c.id, c.nome)}
+                        className="rounded-md border border-[var(--danger)]/30 px-2.5 py-1 text-xs text-[var(--danger)] hover:bg-[var(--danger)]/10"
+                      >
+                        Excluir
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={() => setDetalheIntegrantesAberto((v) => !v)}
@@ -1067,7 +1204,70 @@ export default function OrcamentoPage() {
             </span>
           </button>
           {detalheIntegrantesAberto && (
-          <div id="detalhe-integrantes-mes" className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)]">
+          <div id="detalhe-integrantes-mes" className="space-y-4">
+          {podeSalvarCenarioFerias && (
+            <div className="rounded-lg border border-[var(--accent)]/25 bg-[var(--accent-muted)]/50 px-4 py-3">
+              {!mostrarSalvarCenarioFerias ? (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-[var(--muted)]">
+                    Economia no período:{" "}
+                    <span className="font-semibold text-[var(--success)]">
+                      −{formatMoney(detalheFeriasIntegrantes.totalEconomia)}
+                    </span>
+                    {" "}
+                    (SEJUD −{formatMoney(detalheFeriasIntegrantes.economiaSejud)} · STIC −
+                    {formatMoney(detalheFeriasIntegrantes.economiaStic)})
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setMostrarSalvarCenarioFerias(true)}
+                    className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]"
+                  >
+                    Salvar cenário de férias…
+                  </button>
+                </div>
+              ) : (
+                <form
+                  onSubmit={(ev) => void salvarCenarioFerias(ev)}
+                  className="flex flex-wrap items-end gap-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <label className="block text-xs font-medium text-[var(--muted)]">
+                      Nome do cenário
+                    </label>
+                    <input
+                      required
+                      autoFocus
+                      value={nomeCenarioFerias}
+                      onChange={(e) => setNomeCenarioFerias(e.target.value)}
+                      placeholder="Ex.: Férias IS 01/2026"
+                      className="mt-1 w-full min-w-[200px] rounded-lg border border-[var(--card-border)] bg-white px-3 py-2 text-sm outline-none ring-[var(--accent)]/30 focus:ring-2"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="submit"
+                      disabled={salvandoCenarioFerias || !nomeCenarioFerias.trim()}
+                      className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                    >
+                      {salvandoCenarioFerias ? "A guardar…" : "Guardar"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMostrarSalvarCenarioFerias(false);
+                        setNomeCenarioFerias("");
+                      }}
+                      className="rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm text-[var(--muted)] hover:bg-white/60"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+          <div className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)]">
             <aside className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-4 py-3">
               <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
                 Total de pessoas
@@ -1159,15 +1359,41 @@ export default function OrcamentoPage() {
                     );
                   })}
                 </tbody>
-                <tfoot className="border-t-2 border-[var(--card-border)] bg-[var(--background)]/80">
+                <tfoot className="border-t-2 border-[var(--card-border)] bg-[var(--background)]/80 text-sm">
                   <tr>
                     <td
                       colSpan={4}
-                      className="px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-[var(--muted)]"
+                      className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-[var(--muted)]"
+                    >
+                      Economia SEJUD
+                    </td>
+                    <td className="px-3 py-2 font-semibold text-[var(--success)]">
+                      {detalheFeriasIntegrantes.economiaSejud > 0
+                        ? `−${formatMoney(detalheFeriasIntegrantes.economiaSejud)}`
+                        : "—"}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-[var(--muted)]"
+                    >
+                      Economia STIC
+                    </td>
+                    <td className="px-3 py-2 font-semibold text-[var(--success)]">
+                      {detalheFeriasIntegrantes.economiaStic > 0
+                        ? `−${formatMoney(detalheFeriasIntegrantes.economiaStic)}`
+                        : "—"}
+                    </td>
+                  </tr>
+                  <tr className="border-t border-[var(--card-border)]/60">
+                    <td
+                      colSpan={4}
+                      className="px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide text-[var(--foreground)]"
                     >
                       Total economizado (férias)
                     </td>
-                    <td className="px-3 py-2.5 text-sm font-bold text-[var(--success)]">
+                    <td className="px-3 py-2.5 text-base font-bold text-[var(--success)]">
                       {detalheFeriasIntegrantes.totalEconomia > 0
                         ? `−${formatMoney(detalheFeriasIntegrantes.totalEconomia)}`
                         : "—"}
@@ -1185,6 +1411,7 @@ export default function OrcamentoPage() {
                 </p>
               )}
             </div>
+          </div>
           </div>
           )}
         </section>

@@ -5,6 +5,7 @@ import { ConfigWarning } from "@/components/ConfigWarning";
 import { usePerfil } from "@/components/AppShell";
 import { canEditarAtividadesIntegrantes, isAdmin, parsePerfil, type Perfil } from "@/lib/auth/roles";
 import { useMounted } from "@/hooks/useMounted";
+import { macroSetorIntegrante } from "@/lib/integrante-setor-macro";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import type { Integrante } from "@/types/database";
 
@@ -30,9 +31,8 @@ function integranteMatchesBusca(r: Integrante, raw: string): boolean {
 }
 
 function macroDoSetor(setor: string | null | undefined): string {
-  const s = (setor ?? "").toUpperCase();
-  if (s.includes("STIC") || s.includes("CTIC")) return "STIC";
-  return "SEJUD";
+  if (!(setor ?? "").trim()) return "(sem setor)";
+  return macroSetorIntegrante(setor);
 }
 
 export default function IntegrantesPage() {
