@@ -17,6 +17,7 @@ import {
   despesaFolhaPeriodo,
   diasNoMes,
   integranteContaParaFolha,
+  reducaoFeriasNoPeriodo,
   totalDespesaMensalFolha,
   valorMensalDoRef,
 } from "@/lib/orcamento-folha";
@@ -117,6 +118,7 @@ export default function OrcamentoPage() {
   const [pessoasPorRef, setPessoasPorRef] = useState<Record<string, number>>({});
   const [periodoInstrucao, setPeriodoInstrucao] = useState<{ inicio: string; fim: string } | null>(null);
   const [detalheIntegrantesAberto, setDetalheIntegrantesAberto] = useState(false);
+  const [diasFeriasPorIntegrante, setDiasFeriasPorIntegrante] = useState<Record<string, number>>({});
   const [cenarios, setCenarios] = useState<OrcamentoCenario[]>([]);
   const [nomeCenario, setNomeCenario] = useState("");
   const [mostrarSalvarCenario, setMostrarSalvarCenario] = useState(false);
@@ -349,6 +351,38 @@ export default function OrcamentoPage() {
     }
     return meses;
   }, [dataInicioPeriodo, dataFimPeriodo, folha.total]);
+
+  const detalheFeriasIntegrantes = useMemo(() => {
+    const diasPagos = estimativaPeriodo.erro ? 0 : estimativaPeriodo.diasPagosContados;
+    const porId: Record<string, { despesaPeriodo: number; economia: number }> = {};
+    let totalEconomia = 0;
+    for (const i of integrantesConsiderados) {
+      if (!integranteContaParaFolha(i)) {
+        porId[i.id] = { despesaPeriodo: 0, economia: 0 };
+        continue;
+      }
+      const valorMensal = valorMensalDoRef(refPgto, i.cargo, i.classe_padrao);
+      const despesaPeriodo = estimativaPeriodo.erro
+        ? 0
+        : despesaFolhaPeriodo(valorMensal, dataInicioPeriodo, dataFimPeriodo).total;
+      const dias = diasFeriasPorIntegrante[i.id] ?? 0;
+      const economia = reducaoFeriasNoPeriodo(despesaPeriodo, dias, diasPagos);
+      porId[i.id] = { despesaPeriodo, economia };
+      totalEconomia += economia;
+    }
+    return {
+      porId,
+      diasPagos,
+      totalEconomia: Math.round(totalEconomia * 100) / 100,
+    };
+  }, [
+    integrantesConsiderados,
+    refPgto,
+    estimativaPeriodo,
+    dataInicioPeriodo,
+    dataFimPeriodo,
+    diasFeriasPorIntegrante,
+  ]);
 
   const resumoFerias = useMemo(() => {
     const totalBruto = estimativaPeriodo.erro ? 0 : estimativaPeriodo.total;
@@ -1056,20 +1090,25 @@ export default function OrcamentoPage() {
               </div>
             </aside>
             <div className="overflow-x-auto rounded-xl border border-[var(--card-border)]">
-              <table className="w-full min-w-[480px] text-left text-sm">
+              <table className="w-full min-w-[640px] text-left text-sm">
                 <thead className="border-b border-[var(--card-border)] bg-[var(--card)] text-xs uppercase text-[var(--muted)]">
                   <tr>
                     <th className="px-3 py-2">Nome</th>
                     <th className="px-3 py-2">Cargo</th>
                     <th className="px-3 py-2">Classe/Padrão</th>
                     <th className="px-3 py-2 text-right">Valor/mês</th>
+                    <th className="px-3 py-2">Dias de férias</th>
                   </tr>
                 </thead>
                 <tbody>
                   {integrantesConsiderados.map((i) => {
-                    const v = integranteContaParaFolha(i)
+                    const contaFolha = integranteContaParaFolha(i);
+                    const v = contaFolha
                       ? valorMensalDoRef(refPgto, i.cargo, i.classe_padrao)
                       : null;
+                    const diasFerias = diasFeriasPorIntegrante[i.id] ?? 0;
+                    const economia = detalheFeriasIntegrantes.porId[i.id]?.economia ?? 0;
+                    const maxDias = detalheFeriasIntegrantes.diasPagos;
                     return (
                       <tr key={i.id} className="border-b border-[var(--card-border)]/60">
                         <td className="px-3 py-2">{i.nome}</td>
@@ -1078,11 +1117,73 @@ export default function OrcamentoPage() {
                         <td className="px-3 py-2 text-right font-medium text-[var(--accent)]">
                           {formatMoney(v)}
                         </td>
+                        <td className="px-3 py-2">
+                          {contaFolha && !estimativaPeriodo.erro ? (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <input
+                                type="number"
+                                min={0}
+                                max={maxDias > 0 ? maxDias : undefined}
+                                step={1}
+                                value={diasFerias || ""}
+                                placeholder="0"
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const n = Number(raw);
+                                  setDiasFeriasPorIntegrante((prev) => ({
+                                    ...prev,
+                                    [i.id]:
+                                      raw === "" || !Number.isFinite(n) || n < 0
+                                        ? 0
+                                        : Math.floor(
+                                            maxDias > 0 ? Math.min(n, maxDias) : n
+                                          ),
+                                  }));
+                                }}
+                                className="w-16 rounded-md border border-[var(--card-border)] bg-white px-2 py-1 text-center text-sm outline-none ring-[var(--accent)]/30 focus:ring-2"
+                                aria-label={`Dias de férias de ${i.nome ?? "integrante"}`}
+                              />
+                              {diasFerias > 0 ? (
+                                <span className="text-xs font-medium text-[var(--success)]">
+                                  −{formatMoney(economia)}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-[var(--muted)]">—</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-[var(--muted)]">—</span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
+                <tfoot className="border-t-2 border-[var(--card-border)] bg-[var(--background)]/80">
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-[var(--muted)]"
+                    >
+                      Total economizado (férias)
+                    </td>
+                    <td className="px-3 py-2.5 text-sm font-bold text-[var(--success)]">
+                      {detalheFeriasIntegrantes.totalEconomia > 0
+                        ? `−${formatMoney(detalheFeriasIntegrantes.totalEconomia)}`
+                        : "—"}
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
+              {!estimativaPeriodo.erro && detalheFeriasIntegrantes.diasPagos > 0 && (
+                <p className="border-t border-[var(--card-border)]/60 px-3 py-2 text-[11px] leading-snug text-[var(--muted)]">
+                  A economia usa o período {formatBR(dataInicioPeriodo)} a {formatBR(dataFimPeriodo)}{" "}
+                  ({detalheFeriasIntegrantes.diasPagos} dia
+                  {detalheFeriasIntegrantes.diasPagos === 1 ? "" : "s"} pago
+                  {detalheFeriasIntegrantes.diasPagos === 1 ? "" : "s"}): valor do integrante no
+                  período × dias de férias ÷ dias pagos.
+                </p>
+              )}
             </div>
           </div>
           )}

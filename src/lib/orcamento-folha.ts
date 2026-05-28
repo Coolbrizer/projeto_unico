@@ -148,6 +148,18 @@ export function despesaFolhaPeriodo(
   return { total: Math.round(total * 100) / 100, diasPagosContados };
 }
 
+/** Redução proporcional no período: `despesaNoPeriodo × diasFérias ÷ diasPagos`. */
+export function reducaoFeriasNoPeriodo(
+  despesaNoPeriodo: number,
+  diasFerias: number,
+  diasPagosPeriodo: number
+): number {
+  if (despesaNoPeriodo <= 0 || diasPagosPeriodo <= 0) return 0;
+  const dias = Math.max(0, Math.min(Math.floor(diasFerias || 0), diasPagosPeriodo));
+  const valorDia = despesaNoPeriodo / diasPagosPeriodo;
+  return Math.round(valorDia * dias * 100) / 100;
+}
+
 /** Doze meses do ano civil com valores proporcionais em janeiro e dezembro. */
 export function breakdownDespesaFolhaAno(year: number, folhaTotalMesCheio: number): {
   meses: MesFolhaBreakdown[];
