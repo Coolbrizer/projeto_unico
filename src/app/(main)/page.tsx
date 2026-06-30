@@ -433,8 +433,10 @@ export default function AtividadesPage() {
             O sistema gera o número crescente conforme a etapa escolhida — ex.: etapa 5E e tipo MEL
             geram <code className="rounded bg-[var(--accent-muted)] px-1">5E-MEL1</code>,{" "}
             <code className="rounded bg-[var(--accent-muted)] px-1">5E-MEL2</code>, …, continuando a
-            numeração já existente na IS selecionada. Use <strong>;</strong> como separador (Excel em
-            português). Vários membros na coluna equipe: separe com <strong>;</strong>.
+            numeração já existente na IS selecionada. Use <strong>;</strong> como separador de colunas
+            (Excel em português). Na coluna <strong>equipe</strong>, vários integrantes na mesma célula:
+            separe com <strong>|</strong> (ex.: <code className="rounded bg-[var(--accent-muted)] px-1">Integrante A | Integrante B</code>).
+            Não use <strong>;</strong> entre integrantes — ele é o separador de colunas do CSV.
           </p>
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <a
