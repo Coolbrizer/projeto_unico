@@ -17,6 +17,12 @@ export function diasNoMesReferencia(year: number, month1a12: number): number {
   return new Date(year, month1a12, 0).getDate();
 }
 
+/** Dias exibidos na coluna «Total de dias» do memorando (jun/2026: encerramento do projeto). */
+export function diasTotaisMemorandoPagamento(year: number, month1a12: number): number {
+  if (year === 2026 && month1a12 === 6) return 11;
+  return diasNoMesReferencia(year, month1a12);
+}
+
 /** Formato esperado do setor: `micro/macro` (ex.: ACQ/SEJUD). */
 export function parseSetorMicroMacro(setor: string | null | undefined): {
   micro: string;
@@ -118,7 +124,7 @@ export function gerarPdfMemorandoPagamento(
     year: "numeric",
   });
 
-  const totalDias = diasNoMesReferencia(year, month);
+  const totalDias = diasTotaisMemorandoPagamento(year, month);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
