@@ -14,6 +14,7 @@ import {
   parsePartesCodigoAtividade,
   tiposAtividadeDistintos,
 } from "@/lib/atividade-codigo";
+import { ETAPAS_CODIGO_ATIVIDADE } from "@/lib/atividades-csv-import";
 import { TIPOS_DOCUMENTO } from "@/lib/documentos-constants";
 import { ordenarDocumentosPorReferencia } from "@/lib/documentos-sort";
 import { rotuloDocumentoNumeroAno } from "@/lib/documento-referencia";
@@ -79,6 +80,11 @@ export default function AtividadesPage() {
   const [savingRelatorio, setSavingRelatorio] = useState(false);
   const [progressoEdit, setProgressoEdit] = useState(0);
   const [aviso, setAviso] = useState<{ tipo: "sucesso" | "erro"; texto: string } | null>(null);
+  const [showImportCsv, setShowImportCsv] = useState(false);
+  const [importIsId, setImportIsId] = useState("");
+  const [importEtapa, setImportEtapa] = useState("5E");
+  const [importArquivo, setImportArquivo] = useState<File | null>(null);
+  const [importando, setImportando] = useState(false);
 
   const showAviso = useCallback((tipo: "sucesso" | "erro", texto: string) => {
     setAviso({ tipo, texto });
@@ -123,6 +129,12 @@ export default function AtividadesPage() {
       setInstrucaoServicoId(instrucaoServicoGlobalId || defaultIsId(documentosIs));
     }
   }, [showForm, instrucaoServicoId, documentosIs, instrucaoServicoGlobalId]);
+
+  useEffect(() => {
+    if (showImportCsv && !importIsId && documentosIs.length > 0) {
+      setImportIsId(instrucaoServicoGlobalId || defaultIsId(documentosIs));
+    }
+  }, [showImportCsv, importIsId, documentosIs, instrucaoServicoGlobalId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -214,6 +226,43 @@ export default function AtividadesPage() {
     void load();
   }
 
+  async function handleImportCsv(e: React.FormEvent) {
+    e.preventDefault();
+    if (!podeEditar || !importArquivo || !importIsId) return;
+    setImportando(true);
+    setError(null);
+    const fd = new FormData();
+    fd.append("instrucao_servico", importIsId);
+    fd.append("etapa", importEtapa);
+    fd.append("arquivo", importArquivo);
+    const res = await fetch("/api/atividades/importar-csv", {
+      method: "POST",
+      credentials: "include",
+      body: fd,
+    });
+    const data = (await res.json()) as {
+      error?: string;
+      atividades?: number;
+      equipes?: number;
+      codigos?: string[];
+      avisos?: string[];
+    };
+    setImportando(false);
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível importar o CSV.");
+      return;
+    }
+    const nAt = data.atividades ?? 0;
+    const nEq = data.equipes ?? 0;
+    showAviso(
+      "sucesso",
+      `${nAt} atividade(s) importada(s)${nEq > 0 ? ` e ${nEq} linha(s) de equipe` : ""}.`
+    );
+    setShowImportCsv(false);
+    setImportArquivo(null);
+    void load();
+  }
+
   async function remove(id: string) {
     if (!podeEditar) return;
     setError(null);
@@ -293,7 +342,8 @@ export default function AtividadesPage() {
         <p className="mt-1 text-sm text-[var(--muted)]">
           Cada atividade deve estar vinculada a uma Instrução de Serviço cadastrada em Documentos.
           Informe código, descrição, responsável e datas de início e fim (DD/MM/AAAA). O memorando de
-          pagamento usa esse período para filtrar por mês. Progresso, etiqueta e link do relatório só
+          pagamento usa esse período para filtrar por mês. Gestores podem importar várias atividades de
+          uma vez por arquivo CSV. Progresso, etiqueta e link do relatório só
           podem ser alterados pelo responsável cadastrado (administradores também podem). A busca cobre
           código, descrição e responsável. A IS não pode ser alterada depois de criada a atividade.
         </p>
@@ -333,21 +383,138 @@ export default function AtividadesPage() {
           </select>
         </div>
         {podeEditar && (
-          <button
-            type="button"
-            onClick={() => {
-              setShowForm((v) => {
-                const abrir = !v;
-                if (abrir) setInstrucaoServicoId(defaultIsId(documentosIs));
-                return abrir;
-              });
-            }}
-            className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]"
-          >
-            {showForm ? "Fechar formulário" : "Adicionar"}
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setShowImportCsv((v) => {
+                  const abrir = !v;
+                  if (abrir) {
+                    setShowForm(false);
+                    setImportIsId(instrucaoServicoGlobalId || defaultIsId(documentosIs));
+                  }
+                  return abrir;
+                });
+              }}
+              className="rounded-lg border border-[var(--accent)]/40 bg-[var(--accent-muted)] px-4 py-2 text-sm font-medium text-[var(--accent)] hover:brightness-95"
+            >
+              {showImportCsv ? "Fechar importação" : "Importar CSV"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowForm((v) => {
+                  const abrir = !v;
+                  if (abrir) {
+                    setShowImportCsv(false);
+                    setInstrucaoServicoId(defaultIsId(documentosIs));
+                  }
+                  return abrir;
+                });
+              }}
+              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]"
+            >
+              {showForm ? "Fechar formulário" : "Adicionar"}
+            </button>
+          </>
         )}
       </div>
+
+      {showImportCsv && podeEditar && (
+        <form
+          onSubmit={(e) => void handleImportCsv(e)}
+          className="mb-10 rounded-xl border border-[var(--accent)]/30 bg-[var(--card)] p-5"
+        >
+          <h3 className="mb-1 text-sm font-semibold text-[var(--foreground)]">
+            Importar atividades em lote (CSV)
+          </h3>
+          <p className="mb-4 text-xs leading-snug text-[var(--muted)]">
+            O CSV informa apenas o <strong>tipo</strong> do código (BD, INF, DEB, IA, MEL, INT, NF).
+            O sistema gera o número crescente conforme a etapa escolhida — ex.: etapa 5E e tipo MEL
+            geram <code className="rounded bg-[var(--accent-muted)] px-1">5E-MEL1</code>,{" "}
+            <code className="rounded bg-[var(--accent-muted)] px-1">5E-MEL2</code>, …, continuando a
+            numeração já existente na IS selecionada. Use <strong>;</strong> como separador (Excel em
+            português). Vários membros na coluna equipe: separe com <strong>;</strong>.
+          </p>
+          <p className="mb-4 rounded-lg border border-[var(--card-border)] bg-[var(--background)]/60 px-3 py-2 font-mono text-[11px] text-[var(--muted)]">
+            tipo;descricao;responsavel;equipe;inicio;fim
+            <br />
+            MEL;Descrição da atividade;12345 | NOME;Integrante A; Integrante B;11/02/2026;11/06/2026
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="block text-xs text-[var(--muted)]">
+                Instrução de Serviço <span className="text-red-600">*</span>
+              </label>
+              <select
+                required
+                value={importIsId}
+                onChange={(e) => setImportIsId(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+              >
+                {documentosIs.length === 0 ? (
+                  <option value="">Cadastre uma IS em Documentos</option>
+                ) : (
+                  documentosIs.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {rotuloInstrucaoServico(d)}
+                      {d.etiqueta?.trim() ? ` — ${d.etiqueta.trim()}` : ""}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--muted)]">
+                Etapa do código <span className="text-red-600">*</span>
+              </label>
+              <select
+                required
+                value={importEtapa}
+                onChange={(e) => setImportEtapa(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+              >
+                {ETAPAS_CODIGO_ATIVIDADE.map((e) => (
+                  <option key={e} value={e}>
+                    {e} (ex.: {e}-MEL1)
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--muted)]">
+                Arquivo CSV <span className="text-red-600">*</span>
+              </label>
+              <input
+                required
+                type="file"
+                accept=".csv,text/csv"
+                onChange={(e) => setImportArquivo(e.target.files?.[0] ?? null)}
+                className="mt-1 w-full text-sm text-[var(--foreground)] file:mr-3 file:rounded-md file:border-0 file:bg-[var(--accent-muted)] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[var(--accent)]"
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="submit"
+              disabled={importando || !importArquivo || !importIsId}
+              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+            >
+              {importando ? "A importar…" : "Importar"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowImportCsv(false);
+                setImportArquivo(null);
+              }}
+              className="rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm text-[var(--muted)] hover:bg-white/5"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      )}
 
       {showForm && podeEditar && (
         <form
