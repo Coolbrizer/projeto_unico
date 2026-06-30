@@ -1,0 +1,5 @@
+tipo;descricao;responsavel;equipe;inicio;fim
+MEL;Descrição da primeira atividade;12345 | NOME DO RESPONSÁVEL;Integrante A; Integrante B;11/02/2026;11/06/2026
+MEL;Descrição da segunda atividade;12345 | NOME DO RESPONSÁVEL;Integrante C;;
+INF;Atividade de infraestrutura;;;;
+BD;Atividade de banco de dados;;;;

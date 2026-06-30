@@ -436,11 +436,18 @@ export default function AtividadesPage() {
             numeração já existente na IS selecionada. Use <strong>;</strong> como separador (Excel em
             português). Vários membros na coluna equipe: separe com <strong>;</strong>.
           </p>
-          <p className="mb-4 rounded-lg border border-[var(--card-border)] bg-[var(--background)]/60 px-3 py-2 font-mono text-[11px] text-[var(--muted)]">
-            tipo;descricao;responsavel;equipe;inicio;fim
-            <br />
-            MEL;Descrição da atividade;12345 | NOME;Integrante A; Integrante B;11/02/2026;11/06/2026
-          </p>
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <a
+              href="/modelos/atividades-importacao.csv"
+              download="atividades-importacao.csv"
+              className="rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-1.5 text-xs font-medium text-[var(--accent)] hover:bg-[var(--accent-muted)]"
+            >
+              Baixar modelo CSV
+            </a>
+            <span className="text-[11px] text-[var(--muted)]">
+              Colunas: tipo, descricao, responsavel, equipe, inicio, fim
+            </span>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className="block text-xs text-[var(--muted)]">
