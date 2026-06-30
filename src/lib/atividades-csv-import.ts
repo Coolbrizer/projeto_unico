@@ -6,6 +6,7 @@ export const ETAPAS_CODIGO_ATIVIDADE = ["1E", "2E", "3E", "4E", "5E"] as const;
 
 export type LinhaCsvAtividade = {
   tipo: string;
+  etapa: string | null;
   descricao: string;
   responsavel: string | null;
   equipeMembros: string[];
@@ -24,70 +25,123 @@ function normalizarHeader(h: string): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-function detectarDelimitador(linha: string): ";" | "," {
-  const sc = (linha.match(/;/g) ?? []).length;
-  const cc = (linha.match(/,/g) ?? []).length;
+function detectarDelimitador(primeiraLinha: string): ";" | "," {
+  const sc = (primeiraLinha.match(/;/g) ?? []).length;
+  const cc = (primeiraLinha.match(/,/g) ?? []).length;
   return sc >= cc ? ";" : ",";
 }
 
-/** Parser CSV simples (suporta campos entre aspas). */
+/** Parser CSV (campos entre aspas, inclusive multilinha — exportação Sheets/Excel). */
 export function parseCsvLinhas(texto: string): string[][] {
   const raw = texto.replace(/^\uFEFF/, "");
-  const linhas = raw.split(/\r?\n/).filter((l) => l.trim());
-  if (linhas.length === 0) return [];
+  if (!raw.trim()) return [];
 
-  const delim = detectarDelimitador(linhas[0]);
-  const out: string[][] = [];
+  const delim = detectarDelimitador(raw.split(/\r?\n/)[0] ?? "");
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let inQuotes = false;
 
-  for (const linha of linhas) {
-    const campos: string[] = [];
-    let cur = "";
-    let emAspas = false;
-    for (let i = 0; i < linha.length; i++) {
-      const ch = linha[i];
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+
+    if (inQuotes) {
       if (ch === '"') {
-        if (emAspas && linha[i + 1] === '"') {
-          cur += '"';
+        if (raw[i + 1] === '"') {
+          field += '"';
           i++;
         } else {
-          emAspas = !emAspas;
+          inQuotes = false;
         }
-      } else if (ch === delim && !emAspas) {
-        campos.push(cur.trim());
-        cur = "";
       } else {
-        cur += ch;
+        field += ch;
       }
+      continue;
     }
-    campos.push(cur.trim());
-    out.push(campos);
+
+    if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === delim) {
+      row.push(field.trim());
+      field = "";
+    } else if (ch === "\r") {
+      // ignorado; quebra de linha vem com \n
+    } else if (ch === "\n") {
+      row.push(field.trim());
+      field = "";
+      if (row.some((c) => c.length > 0)) {
+        rows.push(row);
+      }
+      row = [];
+    } else {
+      field += ch;
+    }
   }
-  return out;
+
+  row.push(field.trim());
+  if (row.some((c) => c.length > 0)) {
+    rows.push(row);
+  }
+
+  return rows;
 }
 
-export function extrairTipoCodigo(raw: string): string | null {
+export function extrairTipoEtapaCodigo(
+  raw: string
+): { tipo: string; etapa: string | null } | null {
   const t = raw.trim().toUpperCase();
   if (!t) return null;
 
   const comEtapa = t.match(/^(\d+E)-(.*)$/);
-  const resto = comEtapa ? comEtapa[2] : t;
-  const etapaFake = comEtapa ? comEtapa[1] : "5E";
-  const parsed = parsePartesCodigoAtividade(`${etapaFake}-${resto}`);
-  if (parsed.reconhecido && parsed.tipo) {
-    return parsed.tipo.toUpperCase();
+  if (comEtapa) {
+    const etapa = comEtapa[1];
+    const resto = comEtapa[2].trim();
+    if ((TIPOS_CODIGO_ATIVIDADE as readonly string[]).includes(resto)) {
+      return { tipo: resto, etapa };
+    }
+    const parsed = parsePartesCodigoAtividade(`${etapa}-${resto}`);
+    if (parsed.reconhecido && parsed.tipo) {
+      return { tipo: parsed.tipo.toUpperCase(), etapa };
+    }
   }
 
-  if ((TIPOS_CODIGO_ATIVIDADE as readonly string[]).includes(t)) return t;
+  const parsed = parsePartesCodigoAtividade(t);
+  if (parsed.reconhecido && parsed.tipo) {
+    return { tipo: parsed.tipo.toUpperCase(), etapa: parsed.etapa };
+  }
+
+  if ((TIPOS_CODIGO_ATIVIDADE as readonly string[]).includes(t)) {
+    return { tipo: t, etapa: null };
+  }
+
   return null;
 }
 
-function splitEquipe(raw: string | null | undefined): string[] {
+/** @deprecated Use extrairTipoEtapaCodigo */
+export function extrairTipoCodigo(raw: string): string | null {
+  return extrairTipoEtapaCodigo(raw)?.tipo ?? null;
+}
+
+/** Uma pessoa por linha (planilha) ou várias na mesma linha separadas por ; */
+export function splitEquipe(raw: string | null | undefined): string[] {
   const s = (raw ?? "").trim();
   if (!s) return [];
-  return s
-    .split(/[;|]/)
-    .map((x) => x.trim())
-    .filter(Boolean);
+
+  if (/\r?\n/.test(s)) {
+    return s
+      .split(/\r?\n/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+  }
+
+  if (s.includes(";")) {
+    return s
+      .split(/;/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+  }
+
+  return [s];
 }
 
 export function parseAtividadesCsv(texto: string): {
@@ -126,11 +180,14 @@ export function parseAtividadesCsv(texto: string): {
     if (row.every((c) => !c.trim())) continue;
 
     const tipoRaw = row[idxTipo] ?? "";
-    const tipo = extrairTipoCodigo(tipoRaw);
-    if (!tipo) {
-      erros.push(`Linha ${linhaNum}: tipo inválido "${tipoRaw}". Use BD, INF, DEB, IA, MEL, INT ou NF.`);
+    const parsedTipo = extrairTipoEtapaCodigo(tipoRaw);
+    if (!parsedTipo) {
+      erros.push(
+        `Linha ${linhaNum}: tipo inválido "${tipoRaw}". Use DEB, 5E-DEB, MEL, 5E-MEL, etc.`
+      );
       continue;
     }
+    const { tipo, etapa } = parsedTipo;
     if (!(TIPOS_CODIGO_ATIVIDADE as readonly string[]).includes(tipo)) {
       erros.push(`Linha ${linhaNum}: tipo "${tipo}" não permitido.`);
       continue;
@@ -157,6 +214,7 @@ export function parseAtividadesCsv(texto: string): {
 
     linhas.push({
       tipo,
+      etapa,
       descricao,
       responsavel: idxResp >= 0 ? (row[idxResp] ?? "").trim() || null : null,
       equipeMembros: idxEquipe >= 0 ? splitEquipe(row[idxEquipe]) : [],
@@ -169,28 +227,31 @@ export function parseAtividadesCsv(texto: string): {
   return { linhas, erros };
 }
 
-/** Gera códigos crescentes por tipo (ex.: 5E-MEL1, 5E-MEL2) a partir dos já existentes na IS. */
+/** Gera códigos crescentes por tipo e etapa (ex.: 5E-MEL1, 5E-MEL2). */
 export function atribuirCodigosAtividades(
-  etapa: string,
+  etapaPadrao: string,
   linhas: LinhaCsvAtividade[],
   codigosExistentes: string[]
 ): LinhaCsvAtividadeComCodigo[] {
-  const etapaNorm = etapa.trim().toUpperCase();
-  const maxPorTipo = new Map<string, number>();
+  const etapaDefault = etapaPadrao.trim().toUpperCase();
+  const maxPorChave = new Map<string, number>();
 
   for (const cod of codigosExistentes) {
     const p = parsePartesCodigoAtividade(cod);
-    if (!p.reconhecido || !p.tipo) continue;
-    if ((p.etapa ?? "").toUpperCase() !== etapaNorm) continue;
-    maxPorTipo.set(p.tipo, Math.max(maxPorTipo.get(p.tipo) ?? 0, p.numero));
+    if (!p.reconhecido || !p.tipo || !p.etapa) continue;
+    const chave = `${p.etapa.toUpperCase()}-${p.tipo}`;
+    maxPorChave.set(chave, Math.max(maxPorChave.get(chave) ?? 0, p.numero));
   }
 
   return linhas.map((l) => {
+    const etapaNorm = (l.etapa ?? etapaDefault).toUpperCase();
     const tipo = l.tipo.toUpperCase();
-    const next = (maxPorTipo.get(tipo) ?? 0) + 1;
-    maxPorTipo.set(tipo, next);
+    const chave = `${etapaNorm}-${tipo}`;
+    const next = (maxPorChave.get(chave) ?? 0) + 1;
+    maxPorChave.set(chave, next);
     return {
       ...l,
+      etapa: etapaNorm,
       codigo: `${etapaNorm}-${tipo}${next}`,
     };
   });

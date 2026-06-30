@@ -429,14 +429,15 @@ export default function AtividadesPage() {
             Importar atividades em lote (CSV)
           </h3>
           <p className="mb-4 text-xs leading-snug text-[var(--muted)]">
-            O CSV informa apenas o <strong>tipo</strong> do código (BD, INF, DEB, IA, MEL, INT, NF).
-            O sistema gera o número crescente conforme a etapa escolhida — ex.: etapa 5E e tipo MEL
-            geram <code className="rounded bg-[var(--accent-muted)] px-1">5E-MEL1</code>,{" "}
-            <code className="rounded bg-[var(--accent-muted)] px-1">5E-MEL2</code>, …, continuando a
-            numeração já existente na IS selecionada. Use <strong>;</strong> como separador de colunas
-            (Excel em português). Na coluna <strong>equipe</strong>, vários integrantes na mesma célula:
-            separe com <strong>|</strong> (ex.: <code className="rounded bg-[var(--accent-muted)] px-1">Integrante A | Integrante B</code>).
-            Não use <strong>;</strong> entre integrantes — ele é o separador de colunas do CSV.
+            O CSV aceita o tipo sozinho (<code className="rounded bg-[var(--accent-muted)] px-1">DEB</code>)
+            ou com etapa (<code className="rounded bg-[var(--accent-muted)] px-1">5E-DEB</code>) — nesse
+            caso a etapa da planilha prevalece. O número final (
+            <code className="rounded bg-[var(--accent-muted)] px-1">5E-DEB1</code>,{" "}
+            <code className="rounded bg-[var(--accent-muted)] px-1">5E-DEB2</code>…) é gerado pelo
+            sistema. Na coluna <strong>equipe</strong>, pode listar vários integrantes na mesma célula
+            (um por linha, como no Google Sheets) no formato{" "}
+            <code className="rounded bg-[var(--accent-muted)] px-1">matrícula | NOME</code>. Exporte
+            como CSV (separador <strong>;</strong>).
           </p>
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <a
