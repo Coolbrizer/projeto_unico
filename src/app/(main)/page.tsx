@@ -434,10 +434,12 @@ export default function AtividadesPage() {
             caso a etapa da planilha prevalece. O número final (
             <code className="rounded bg-[var(--accent-muted)] px-1">5E-DEB1</code>,{" "}
             <code className="rounded bg-[var(--accent-muted)] px-1">5E-DEB2</code>…) é gerado pelo
-            sistema. Na coluna <strong>equipe</strong>, pode listar vários integrantes na mesma célula
+            sistema.             Na coluna <strong>equipe</strong>, pode listar vários integrantes na mesma célula
             (um por linha, como no Google Sheets) no formato{" "}
-            <code className="rounded bg-[var(--accent-muted)] px-1">matrícula | NOME</code>. Exporte
-            como CSV (separador <strong>;</strong>).
+            <code className="rounded bg-[var(--accent-muted)] px-1">matrícula | NOME</code>. O
+            responsável da coluna <strong>responsavel</strong> é incluído automaticamente na equipe,
+            mesmo que não esteja listado na coluna equipe. Exporte como CSV (separador{" "}
+            <strong>;</strong>).
           </p>
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <a

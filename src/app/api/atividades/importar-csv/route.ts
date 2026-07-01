@@ -6,6 +6,7 @@ import {
 } from "@/lib/atividades-csv-import";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
+import { equipeMembrosIncluindoResponsavel } from "@/lib/equipe-page-helpers";
 import { isUuidString } from "@/lib/uuid";
 
 export async function POST(request: Request) {
@@ -99,7 +100,8 @@ export async function POST(request: Request) {
 
   const equipeRows: { codigo: string; equipe: string }[] = [];
   for (const l of comCodigo) {
-    for (const membro of l.equipeMembros) {
+    const membros = equipeMembrosIncluindoResponsavel(l.equipeMembros, l.responsavel);
+    for (const membro of membros) {
       equipeRows.push({ codigo: l.codigo, equipe: membro });
     }
   }

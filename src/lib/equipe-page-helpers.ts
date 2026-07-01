@@ -90,3 +90,25 @@ export function integranteCorrespondenteAResponsavel(
   }
   return null;
 }
+
+/** Inclui o responsável na lista de membros se ainda não estiver (importação CSV). */
+export function equipeMembrosIncluindoResponsavel(
+  membros: string[],
+  responsavel: string | null | undefined
+): string[] {
+  const resp = responsavel?.trim();
+  if (!resp) return membros;
+  if (membros.some((m) => nomesPessoaCorrespondem(m, resp))) return membros;
+  return [resp, ...membros];
+}
+
+/** Responsável da atividade sem linha correspondente na tabela equipe. */
+export function responsavelAusenteNasLinhasEquipe(
+  equipeRows: { equipe?: string | null }[],
+  responsavel: string | null | undefined
+): string | null {
+  const resp = responsavel?.trim();
+  if (!resp) return null;
+  const naEquipe = equipeRows.some((r) => equipeLinhaEhResponsavel(r.equipe ?? "", resp));
+  return naEquipe ? null : resp;
+}

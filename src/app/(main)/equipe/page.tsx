@@ -9,6 +9,7 @@ import { parsePartesCodigoAtividade, tiposAtividadeDistintos } from "@/lib/ativi
 import {
   equipeLinhaEhResponsavel,
   integranteJaVinculadoAoGrupo,
+  responsavelAusenteNasLinhasEquipe,
 } from "@/lib/equipe-page-helpers";
 import { grupoAtividadeMatchesBusca, montarGrupos, type GrupoAtividade } from "@/lib/equipe-grupos";
 import {
@@ -475,7 +476,17 @@ export default function EquipePage() {
               />
             </div>
             <div className="space-y-8">
-              {gruposPaginados.map((g) => (
+              {gruposPaginados.map((g) => {
+                const responsavelSemLinhaEquipe = responsavelAusenteNasLinhasEquipe(
+                  g.equipeRows,
+                  g.atividade?.responsavel
+                );
+                const temIntegrantes =
+                  g.equipeRows.length > 0 ||
+                  g.integrantes.length > 0 ||
+                  !!responsavelSemLinhaEquipe;
+
+                return (
               <div
                 key={g.codigo || "__vazio__"}
                 className="overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)]"
@@ -502,10 +513,23 @@ export default function EquipePage() {
                     <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
                       Equipes / funções
                     </h4>
-                    {g.equipeRows.length === 0 && g.integrantes.length === 0 ? (
-                      <p className="text-sm text-[var(--muted)]">Nenhum integrante vinculado.</p>
-                    ) : (
+                    {temIntegrantes ? (
                       <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2 sm:gap-x-3 sm:gap-y-1">
+                        {responsavelSemLinhaEquipe && (
+                          <li
+                            key="responsavel-sem-linha-equipe"
+                            className="flex items-center justify-between gap-2 rounded-lg border border-[var(--success)]/35 bg-[var(--success)]/12 px-2.5 py-1.5 text-sm ring-1 ring-[var(--success)]/15"
+                          >
+                            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                              <span className="font-medium text-[var(--success)]">
+                                {responsavelSemLinhaEquipe}
+                              </span>
+                              <span className="shrink-0 rounded bg-[var(--success)]/16 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--success)]">
+                                Responsável
+                              </span>
+                            </span>
+                          </li>
+                        )}
                         {g.integrantes
                           .filter(
                             (i) =>
@@ -563,6 +587,8 @@ export default function EquipePage() {
                           );
                         })}
                       </ul>
+                    ) : (
+                      <p className="text-sm text-[var(--muted)]">Nenhum integrante vinculado.</p>
                     )}
                     {podeEditar && g.codigo.trim() && (
                       <div className="mt-3 border-t border-[var(--card-border)]/60 pt-3">
@@ -632,7 +658,8 @@ export default function EquipePage() {
                   </div>
                 </div>
               </div>
-            ))}
+                );
+              })}
             </div>
             <div className="mt-6">
               <PaginacaoControles
