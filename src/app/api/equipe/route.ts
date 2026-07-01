@@ -2,11 +2,48 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
+import { extrairInstrucaoServicoIdSelecionada } from "@/lib/instrucao-servico-filtro";
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireAuthedSupabase();
   if (auth.response) return auth.response;
   const { supabase } = auth;
+  const instrucaoServicoId = extrairInstrucaoServicoIdSelecionada(request);
+
+  if (instrucaoServicoId) {
+    const { data: atividades, error: errAt } = await supabase
+      .from("atividades")
+      .select("codigo")
+      .eq("instrucao_servico", instrucaoServicoId);
+
+    if (errAt) {
+      return NextResponse.json({ error: errAt.message }, { status: 400 });
+    }
+
+    const codigos = [
+      ...new Set(
+        (atividades ?? [])
+          .map((a) => (a.codigo ?? "").trim())
+          .filter(Boolean)
+      ),
+    ];
+
+    if (codigos.length === 0) {
+      return NextResponse.json({ ok: true, equipe: [] });
+    }
+
+    const { data, error } = await supabase
+      .from("equipe")
+      .select("*")
+      .in("codigo", codigos)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    return NextResponse.json({ ok: true, equipe: data ?? [] });
+  }
 
   const { data, error } = await supabase.from("equipe").select("*").order("created_at", { ascending: false });
 

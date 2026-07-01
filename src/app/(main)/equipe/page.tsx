@@ -158,7 +158,7 @@ export default function EquipePage() {
       ? `?instrucaoServicoId=${encodeURIComponent(instrucaoServicoId)}`
       : "";
     const [resEq, resAt, resInt] = await Promise.all([
-      fetch("/api/equipe", { credentials: "include" }),
+      fetch(`/api/equipe${filtro}`, { credentials: "include" }),
       fetch(`/api/atividades${filtro}`, { credentials: "include" }),
       fetch("/api/integrantes", { credentials: "include" }),
     ]);
