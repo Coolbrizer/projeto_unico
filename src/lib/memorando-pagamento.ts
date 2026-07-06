@@ -37,31 +37,14 @@ export function parseSetorMicroMacro(setor: string | null | undefined): {
   return { micro, macro };
 }
 
-/**
- * Integrantes com vinculação a **alguma** atividade cujo período cruza o mês:
- * - mesmo critério de setor que `montarGrupos` (setor = código ou nome da linha de equipe);
- * - **ou** nome do integrante alinhado ao texto de **cada linha** da tabela equipe daquele código
- *   (como na coluna “Equipes / funções”), via `equipeLinhaEhResponsavel`;
- * - **ou** nome do integrante reconhecido no campo responsável da atividade.
- */
-export function listarIntegrantesMemorandoPagamento(
+/** Critérios de vinculação entre integrantes e atividades (setor, linhas de equipe, responsável). */
+export function coletarIdsIntegrantesVinculados(
   equipes: Equipe[],
   atividades: Atividade[],
-  integrantes: Integrante[],
-  year: number,
-  month: number
-): ResultadoMemorandoPagamento {
-  const atividadesMes = atividades.filter((a) =>
-    atividadeSobrepoemMes(a, year, month)
-  );
-  const atividadesNoMes = atividadesMes.length;
-
-  if (atividadesNoMes === 0) {
-    return { integrantes: [], atividadesNoMes: 0 };
-  }
-
+  integrantes: Integrante[]
+): Set<string> {
   const porCodigo = new Map<string, Atividade[]>();
-  for (const a of atividadesMes) {
+  for (const a of atividades) {
     const c = (a.codigo ?? "").trim();
     if (!porCodigo.has(c)) porCodigo.set(c, []);
     porCodigo.get(c)!.push(a);
@@ -96,6 +79,34 @@ export function listarIntegrantesMemorandoPagamento(
       }
     }
   }
+
+  return ids;
+}
+
+/**
+ * Integrantes com vinculação a **alguma** atividade cujo período cruza o mês:
+ * - mesmo critério de setor que `montarGrupos` (setor = código ou nome da linha de equipe);
+ * - **ou** nome do integrante alinhado ao texto de **cada linha** da tabela equipe daquele código
+ *   (como na coluna “Equipes / funções”), via `equipeLinhaEhResponsavel`;
+ * - **ou** nome do integrante reconhecido no campo responsável da atividade.
+ */
+export function listarIntegrantesMemorandoPagamento(
+  equipes: Equipe[],
+  atividades: Atividade[],
+  integrantes: Integrante[],
+  year: number,
+  month: number
+): ResultadoMemorandoPagamento {
+  const atividadesMes = atividades.filter((a) =>
+    atividadeSobrepoemMes(a, year, month)
+  );
+  const atividadesNoMes = atividadesMes.length;
+
+  if (atividadesNoMes === 0) {
+    return { integrantes: [], atividadesNoMes: 0 };
+  }
+
+  const ids = coletarIdsIntegrantesVinculados(equipes, atividadesMes, integrantes);
 
   const lista = integrantes
     .filter((i) => ids.has(i.id) && !i.nao_remunerado)

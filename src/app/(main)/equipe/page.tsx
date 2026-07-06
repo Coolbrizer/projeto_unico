@@ -16,6 +16,10 @@ import {
   gerarPdfMemorandoPagamento,
   listarIntegrantesMemorandoPagamento,
 } from "@/lib/memorando-pagamento";
+import {
+  gerarPdfMemorandoSgp,
+  listarIntegrantesMemorandoSgp,
+} from "@/lib/memorando-sgp";
 import { useMounted } from "@/hooks/useMounted";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
@@ -300,6 +304,21 @@ export default function EquipePage() {
     gerarPdfMemorandoPagamento(resultado, year, month);
   }
 
+  function handleMemorandoSgp() {
+    if (!mesExtracao || !anoExtracao) {
+      window.alert("Selecione o mês e o ano para extração do relatório");
+      return;
+    }
+    const month = Number(mesExtracao);
+    const year = Number(anoExtracao);
+    if (!year || !month || month < 1 || month > 12) {
+      window.alert("Selecione o mês e o ano para extração do relatório");
+      return;
+    }
+    const lista = listarIntegrantesMemorandoSgp(equipes, atividades, integrantes);
+    gerarPdfMemorandoSgp(lista, year, month);
+  }
+
   return (
     <div className="mx-auto max-w-5xl">
       <header className="mb-8">
@@ -365,6 +384,14 @@ export default function EquipePage() {
           className="rounded-lg border border-[var(--warning)]/30 bg-[#f4ead5] px-4 py-2 text-sm font-semibold text-[#6f4d14] hover:bg-[#eeddbd] disabled:opacity-50"
         >
           Memorando de Pagamento
+        </button>
+        <button
+          type="button"
+          onClick={handleMemorandoSgp}
+          disabled={!configured || loading}
+          className="rounded-lg border border-[var(--accent)]/35 bg-[var(--accent-muted)] px-4 py-2 text-sm font-semibold text-[var(--accent)] hover:brightness-95 disabled:opacity-50"
+        >
+          Memorando para SGP
         </button>
         <p className="text-xs text-[var(--muted)] sm:max-w-md">
           Lista em PDF com cada nome uma vez: integrantes vinculados às atividades com período que cruza o
