@@ -15,11 +15,18 @@ function normalizeNomeComparacao(s: string): string {
 
 function extrairNomeParaComparacao(raw: string): string {
   const t = raw.trim();
+  if (!t) return "";
+
   const pipe = t.lastIndexOf("|");
-  return (pipe >= 0 ? t.slice(pipe + 1) : t).trim();
+  if (pipe >= 0) return t.slice(pipe + 1).trim();
+
+  const comEspaco = t.match(/^\d+\s+(.+)$/);
+  if (comEspaco) return comEspaco[1].trim();
+
+  return t;
 }
 
-/** Nome para exibição a partir de linha de equipe (ex.: `5692 | JOAQUIM …` → `JOAQUIM …`). */
+/** Nome para exibição a partir de linha de equipe (ex.: `5692 | JOAQUIM …` ou `29222 JOAQUIM …`). */
 export function extrairNomeExibicaoLinha(raw: string): string {
   return extrairNomeParaComparacao(raw);
 }
