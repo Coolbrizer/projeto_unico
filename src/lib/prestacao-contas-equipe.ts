@@ -1,10 +1,14 @@
 import {
-  equipeLinhaEhResponsavel,
+  extrairNomeExibicaoLinha,
   integranteCorrespondenteAResponsavel,
   integranteVinculadoAEquipeAtividade,
   nomesPessoaCorrespondem,
 } from "@/lib/equipe-page-helpers";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
+
+function codigosAtividadeIguais(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
 
 function extrairNomeResponsavel(
   atividade: Atividade,
@@ -14,14 +18,12 @@ function extrairNomeResponsavel(
   if (integ?.nome?.trim()) return integ.nome.trim();
   const raw = atividade.responsavel?.trim();
   if (!raw) return null;
-  const pipe = raw.lastIndexOf("|");
-  return (pipe >= 0 ? raw.slice(pipe + 1) : raw).trim() || null;
+  return extrairNomeExibicaoLinha(raw) || null;
 }
 
 /**
- * Equipe completa da atividade: integrantes por setor (código, micro/macro ou linha de equipe),
- * integrantes cujo nome casa com linha da tabela `equipe`, linhas de equipe sem integrante
- * correspondente e responsável identificado ao final.
+ * Todos os participantes da atividade (responsável + equipe), um nome por linha,
+ * no mesmo espírito da coluna «Equipes / funções» da tela Equipe.
  */
 export function textoEquipeParticipantes(
   atividade: Atividade,
@@ -29,24 +31,24 @@ export function textoEquipeParticipantes(
   todasEquipes: Equipe[]
 ): string {
   const codigo = String(atividade.codigo ?? "").trim();
-  const respNome = extrairNomeResponsavel(atividade, integrantes);
+  const equipeRows = codigo
+    ? todasEquipes.filter((e) => codigosAtividadeIguais(String(e.codigo ?? ""), codigo))
+    : [];
 
-  if (!codigo) {
-    return respNome ? `Responsável: ${respNome}` : "—";
-  }
+  const nomes: string[] = [];
 
-  const equipeRows = todasEquipes.filter((e) => String(e.codigo ?? "").trim() === codigo);
-  const nomesVistos = new Set<string>();
-  const membros: string[] = [];
+  const jaListado = (nome: string) =>
+    nomes.some((n) => nomesPessoaCorrespondem(n, nome));
 
-  const addNome = (nome: string) => {
-    const n = nome.trim();
-    if (!n) return;
-    const k = n.toLowerCase();
-    if (nomesVistos.has(k)) return;
-    nomesVistos.add(k);
-    membros.push(n);
+  const addNome = (raw: string) => {
+    const nome = extrairNomeExibicaoLinha(raw) || raw.trim();
+    if (!nome || jaListado(nome)) return;
+    nomes.push(nome);
   };
+
+  for (const r of equipeRows) {
+    addNome(r.equipe ?? "");
+  }
 
   for (const i of integrantes) {
     if (integranteVinculadoAEquipeAtividade(i, codigo, equipeRows)) {
@@ -54,24 +56,12 @@ export function textoEquipeParticipantes(
     }
   }
 
-  const integResp = integranteCorrespondenteAResponsavel(integrantes, atividade.responsavel);
-  if (integResp) addNome(integResp.nome ?? "");
+  const respNome = extrairNomeResponsavel(atividade, integrantes);
+  if (respNome) addNome(respNome);
+  else if (atividade.responsavel?.trim()) addNome(atividade.responsavel);
 
-  for (const r of equipeRows) {
-    const line = (r.equipe ?? "").trim();
-    if (!line) continue;
-    const jaCasaIntegrante = integrantes.some((i) => equipeLinhaEhResponsavel(line, i.nome));
-    if (!jaCasaIntegrante) addNome(line);
-  }
+  if (nomes.length === 0) return "—";
 
-  const equipeSemResp = membros.filter(
-    (n) => !respNome || !nomesPessoaCorrespondem(n, respNome)
-  );
-  equipeSemResp.sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
-
-  const linhas = [...equipeSemResp];
-  if (respNome) linhas.push(`Responsável: ${respNome}`);
-
-  if (linhas.length === 0) return "—";
-  return linhas.join("\n");
+  nomes.sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
+  return nomes.join("\n");
 }
