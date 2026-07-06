@@ -1,4 +1,5 @@
 import { compararCodigoAtividade } from "@/lib/atividade-codigo";
+import { integranteVinculadoAEquipeAtividade } from "@/lib/equipe-page-helpers";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
 
 export type GrupoAtividade = {
@@ -53,18 +54,10 @@ export function montarGrupos(
   return ordenados
     .map((codigo) => {
       const equipeRows = equipes.filter((e) => (e.codigo ?? "").trim() === codigo);
-      const nomesEquipe = new Set(
-        equipeRows.map((e) => (e.equipe ?? "").trim().toLowerCase()).filter(Boolean)
-      );
-      const codigoLc = codigo.toLowerCase();
 
-      const ints = integrantes.filter((i) => {
-        const s = (i.setor ?? "").trim().toLowerCase();
-        if (!s) return false;
-        if (codigo && s === codigoLc) return true;
-        if (nomesEquipe.has(s)) return true;
-        return false;
-      });
+      const ints = integrantes.filter((i) =>
+        integranteVinculadoAEquipeAtividade(i, codigo, equipeRows)
+      );
 
       return {
         codigo,

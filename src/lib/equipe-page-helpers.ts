@@ -91,6 +91,34 @@ export function integranteCorrespondenteAResponsavel(
   return null;
 }
 
+/** Integrante ligado à atividade via setor (código, micro/macro ou linha de equipe) ou nome na linha de equipe. */
+export function integranteVinculadoAEquipeAtividade(
+  integrante: Integrante,
+  codigo: string,
+  equipeRows: { equipe?: string | null }[]
+): boolean {
+  const s = (integrante.setor ?? "").trim().toLowerCase();
+  const codigoLc = codigo.trim().toLowerCase();
+
+  if (s && codigoLc && s === codigoLc) return true;
+
+  const barra = s.indexOf("/");
+  const micro = barra >= 0 ? s.slice(0, barra).trim() : s;
+  const macro = barra >= 0 ? s.slice(barra + 1).trim() : "";
+
+  for (const r of equipeRows) {
+    const line = (r.equipe ?? "").trim();
+    if (!line) continue;
+    const lineLc = line.toLowerCase();
+
+    if (s && (lineLc === s || lineLc === micro || (macro && lineLc === macro))) return true;
+
+    if (equipeLinhaEhResponsavel(line, integrante.nome)) return true;
+  }
+
+  return false;
+}
+
 /** Inclui o responsável na lista de membros se ainda não estiver (importação CSV). */
 export function equipeMembrosIncluindoResponsavel(
   membros: string[],
