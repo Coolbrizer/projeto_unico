@@ -19,6 +19,11 @@ function extrairNomeParaComparacao(raw: string): string {
   return (pipe >= 0 ? t.slice(pipe + 1) : t).trim();
 }
 
+/** Nome para exibição a partir de linha de equipe (ex.: `5692 | JOAQUIM …` → `JOAQUIM …`). */
+export function extrairNomeExibicaoLinha(raw: string): string {
+  return extrairNomeParaComparacao(raw);
+}
+
 /** Compara nomes ignorando acentos; aceita prefixo de 3 tokens (ex.: mesmo nome com sobrenome divergente). */
 export function nomesPessoaCorrespondem(a: string, b: string): boolean {
   const na = normalizeNomeComparacao(extrairNomeParaComparacao(a));
