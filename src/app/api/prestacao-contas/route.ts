@@ -49,7 +49,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }
 
-  const [docResult, atividadesResult, integrantesResult, equipeResult] = await Promise.all([
+  const [docResult, atividadesResult, integrantesResult] = await Promise.all([
     supabase.from("documentos").select("*").eq("id", documentoId).maybeSingle(),
     supabase
       .from("atividades")
@@ -57,7 +57,6 @@ export async function GET(request: Request) {
       .eq("instrucao_servico", documentoId)
       .order("codigo", { ascending: true }),
     supabase.from("integrantes").select("id, matricula, nome, setor"),
-    supabase.from("equipe").select("id, codigo, equipe"),
   ]);
 
   if (docResult.error) {
@@ -75,13 +74,26 @@ export async function GET(request: Request) {
   if (integrantesResult.error) {
     return NextResponse.json({ error: integrantesResult.error.message }, { status: 400 });
   }
-  if (equipeResult.error) {
-    return NextResponse.json({ error: equipeResult.error.message }, { status: 400 });
-  }
 
   const integrantes = (integrantesResult.data as Integrante[]) ?? [];
-  const todasEquipes = (equipeResult.data as Equipe[]) ?? [];
   const atividadesRaw = (atividadesResult.data as Atividade[]) ?? [];
+
+  const codigosAtividade = [
+    ...new Set(atividadesRaw.map((a) => (a.codigo ?? "").trim()).filter(Boolean)),
+  ];
+
+  let todasEquipes: Equipe[] = [];
+  if (codigosAtividade.length > 0) {
+    const equipeResult = await supabase
+      .from("equipe")
+      .select("id, codigo, equipe")
+      .in("codigo", codigosAtividade);
+
+    if (equipeResult.error) {
+      return NextResponse.json({ error: equipeResult.error.message }, { status: 400 });
+    }
+    todasEquipes = (equipeResult.data as Equipe[]) ?? [];
+  }
 
   const linhas = atividadesRaw.map((atividade) => {
     const progresso = normalizarProgresso(atividade.progresso);
