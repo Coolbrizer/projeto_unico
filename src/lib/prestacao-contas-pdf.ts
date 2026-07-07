@@ -1,7 +1,6 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Documento } from "@/types/database";
-import { rotuloDocumentoNumeroAno } from "@/lib/documento-referencia";
 import { parsePartesCodigoAtividade } from "@/lib/atividade-codigo";
 
 export type LinhaPrestacaoPdf = {
@@ -13,14 +12,6 @@ export type LinhaPrestacaoPdf = {
   etiqueta_relatorio: string | null;
   link_relatorio: string | null;
 };
-
-function tituloInstrucaoServico(d: Documento): string {
-  return rotuloDocumentoNumeroAno({
-    tipo: "Instrução de Serviço",
-    numero: d.numero,
-    ano: d.ano,
-  });
-}
 
 /** Número da etapa a partir do prefixo do código (ex.: "5E-BD1" → 5). */
 function numeroEtapaDoCodigo(codigo: string): number | null {
@@ -59,23 +50,14 @@ export function gerarPdfPrestacaoContas(
   let ty = 18;
   doc.setTextColor(0, 0, 0);
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.text("Anexo", centroX, ty, { align: "center" });
-  ty += 8;
-
-  doc.setFontSize(11);
-  doc.text(tituloInstrucaoServico(documento), centroX, ty, { align: "center" });
-  ty += 7;
-
   const etapaTxt = textoEtapas(linhas);
   const numeroPlano = numeroPlanoAtividades.trim();
   const linhaEtapaPlano = etapaTxt
     ? `${etapaTxt} - Plano de Atividades nº ${numeroPlano}`
     : `Plano de Atividades nº ${numeroPlano}`;
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
   doc.text(linhaEtapaPlano, centroX, ty, { align: "center" });
   ty += 12;
 
