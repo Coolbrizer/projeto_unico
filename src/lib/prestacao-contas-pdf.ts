@@ -79,12 +79,6 @@ export function gerarPdfPrestacaoContas(
   doc.text(linhaEtapaPlano, centroX, ty, { align: "center" });
   ty += 12;
 
-  doc.setFontSize(8);
-  doc.setTextColor(90, 90, 90);
-  doc.text(`Emitido em ${new Date().toLocaleString("pt-BR")}`, marginX, ty);
-  doc.setTextColor(0, 0, 0);
-  ty += 6;
-
   const head = [["Código", "Atividade", "Equipe", "Setor"]];
 
   const body = linhas.map((r) => [
