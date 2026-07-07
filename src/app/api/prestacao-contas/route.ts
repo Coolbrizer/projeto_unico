@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Atividade, Documento, Equipe, Integrante } from "@/types/database";
 import { UUID_REGEX } from "@/lib/uuid";
 import { extrairInstrucaoServicoIdSelecionada } from "@/lib/instrucao-servico-filtro";
+import { compararCodigoAtividade } from "@/lib/atividade-codigo";
 
 function normalizarProgresso(valor: unknown): number {
   const numero = Number(valor ?? 0);
@@ -76,7 +77,9 @@ export async function GET(request: Request) {
   }
 
   const integrantes = (integrantesResult.data as Integrante[]) ?? [];
-  const atividadesRaw = (atividadesResult.data as Atividade[]) ?? [];
+  const atividadesRaw = ((atividadesResult.data as Atividade[]) ?? []).sort((a, b) =>
+    compararCodigoAtividade(a.codigo ?? "", b.codigo ?? "")
+  );
 
   const codigosAtividade = [
     ...new Set(atividadesRaw.map((a) => (a.codigo ?? "").trim()).filter(Boolean)),
