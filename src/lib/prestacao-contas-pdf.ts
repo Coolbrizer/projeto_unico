@@ -46,83 +46,22 @@ function textoEtapas(linhas: LinhaPrestacaoPdf[]): string | null {
   return `${resto} e ${ultimo} Etapas`;
 }
 
-function blobParaDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result as string);
-    r.onerror = () => reject(new Error("Leitura do ficheiro falhou."));
-    r.readAsDataURL(blob);
-  });
-}
-
-/** Razão altura/largura da imagem (para dimensionar em mm no PDF). */
-function aspectRatioDeDataUrlPng(dataUrl: string): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const w = img.naturalWidth || 1;
-      resolve((img.naturalHeight || 1) / w);
-    };
-    img.onerror = () => reject(new Error("Imagem inválida."));
-    img.src = dataUrl;
-  });
-}
-
-/**
- * Carrega o brasão em PNG (preto e branco) a partir de /public/brasao-republica.png.
- */
-async function carregarBrasao(): Promise<{ dataUrl: string; aspect: number } | null> {
-  if (typeof window === "undefined") return null;
-  try {
-    const res = await fetch("/brasao-republica.png", { cache: "force-cache" });
-    if (!res.ok) return null;
-    const dataUrl = await blobParaDataUrl(await res.blob());
-    const aspect = await aspectRatioDeDataUrlPng(dataUrl);
-    return { dataUrl, aspect };
-  } catch {
-    return null;
-  }
-}
-
-export async function gerarPdfPrestacaoContas(
+export function gerarPdfPrestacaoContas(
   documento: Documento,
   linhas: LinhaPrestacaoPdf[],
   numeroPlanoAtividades: string
-): Promise<void> {
+): void {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const marginX = 18;
   const centroX = pageW / 2;
 
-  let ty = 14;
-
-  const brasao = await carregarBrasao();
-  const imgWmm = 21;
-  if (brasao) {
-    try {
-      const imgHmm = imgWmm * brasao.aspect;
-      const imgX = centroX - imgWmm / 2;
-      doc.addImage(brasao.dataUrl, "PNG", imgX, ty, imgWmm, imgHmm);
-      ty += imgHmm + 5;
-    } catch {
-      ty += 2;
-    }
-  } else {
-    ty += 2;
-  }
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
+  let ty = 18;
   doc.setTextColor(0, 0, 0);
-
-  doc.text("Ministério Público Federal", centroX, ty, { align: "center" });
-  ty += 5;
-  doc.text("Procuradoria-Geral da República", centroX, ty, { align: "center" });
-  ty += 12;
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.text("ANEXO", centroX, ty, { align: "center" });
+  doc.text("Anexo", centroX, ty, { align: "center" });
   ty += 8;
 
   doc.setFontSize(11);
@@ -166,9 +105,9 @@ export async function gerarPdfPrestacaoContas(
     tableWidth: "auto",
     columnStyles: {
       0: { cellWidth: 20 },
-      1: { cellWidth: 130 },
-      2: { cellWidth: 90 },
-      3: { cellWidth: 21 },
+      1: { cellWidth: 112 },
+      2: { cellWidth: 91 },
+      3: { cellWidth: 38, overflow: "visible" },
     },
   });
 
