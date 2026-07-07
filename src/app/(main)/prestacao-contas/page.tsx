@@ -48,6 +48,7 @@ export default function PrestacaoContasPage() {
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [loadingLinhas, setLoadingLinhas] = useState(false);
   const [pdfGerando, setPdfGerando] = useState(false);
+  const [numeroPlanoAtividades, setNumeroPlanoAtividades] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const instrucoesServico = useMemo(
@@ -109,10 +110,14 @@ export default function PrestacaoContasPage() {
 
   async function handleExtrairPdf() {
     if (!documentoSelecionado || linhas.length === 0) return;
+    if (!numeroPlanoAtividades.trim()) {
+      setError("Informe o número do Plano de Atividades para gerar o PDF.");
+      return;
+    }
     setPdfGerando(true);
     setError(null);
     try {
-      await gerarPdfPrestacaoContas(documentoSelecionado, linhas);
+      await gerarPdfPrestacaoContas(documentoSelecionado, linhas, numeroPlanoAtividades);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Não foi possível gerar o PDF.");
     } finally {

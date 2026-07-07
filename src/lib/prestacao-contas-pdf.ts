@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Documento } from "@/types/database";
 import { rotuloDocumentoNumeroAno } from "@/lib/documento-referencia";
+import { parsePartesCodigoAtividade } from "@/lib/atividade-codigo";
 
 export type LinhaPrestacaoPdf = {
   codigo: string;
@@ -21,11 +22,28 @@ function tituloInstrucaoServico(d: Documento): string {
   });
 }
 
-function hrefSeguro(url: string): string {
-  const t = url.trim();
-  if (!t) return "";
-  if (/^https?:\/\//i.test(t)) return t;
-  return `https://${t}`;
+/** Número da etapa a partir do prefixo do código (ex.: "5E-BD1" → 5). */
+function numeroEtapaDoCodigo(codigo: string): number | null {
+  const { etapa } = parsePartesCodigoAtividade(codigo);
+  if (!etapa) return null;
+  const n = parseInt(etapa, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Texto de etapa(s) reconhecida(s) nos códigos das linhas (ex.: "5ª Etapa", "1ª e 2ª Etapas"). */
+function textoEtapas(linhas: LinhaPrestacaoPdf[]): string | null {
+  const numeros = new Set<number>();
+  for (const l of linhas) {
+    const n = numeroEtapaDoCodigo(l.codigo ?? "");
+    if (n !== null) numeros.add(n);
+  }
+  if (numeros.size === 0) return null;
+  const ordenados = [...numeros].sort((a, b) => a - b);
+  const ordinais = ordenados.map((n) => `${n}ª`);
+  if (ordinais.length === 1) return `${ordinais[0]} Etapa`;
+  const ultimo = ordinais[ordinais.length - 1];
+  const resto = ordinais.slice(0, -1).join(", ");
+  return `${resto} e ${ultimo} Etapas`;
 }
 
 function blobParaDataUrl(blob: Blob): Promise<string> {
@@ -66,17 +84,10 @@ async function carregarBrasao(): Promise<{ dataUrl: string; aspect: number } | n
   }
 }
 
-/** Texto exibido na célula (sem URL por extenso). */
-function textoCelulaEtiqueta(l: LinhaPrestacaoPdf): string {
-  const et = l.etiqueta_relatorio?.trim();
-  if (et) return et;
-  if (l.link_relatorio?.trim()) return "Link";
-  return "—";
-}
-
 export async function gerarPdfPrestacaoContas(
   documento: Documento,
-  linhas: LinhaPrestacaoPdf[]
+  linhas: LinhaPrestacaoPdf[],
+  numeroPlanoAtividades: string
 ): Promise<void> {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
@@ -118,14 +129,15 @@ export async function gerarPdfPrestacaoContas(
   doc.text(tituloInstrucaoServico(documento), centroX, ty, { align: "center" });
   ty += 7;
 
+  const etapaTxt = textoEtapas(linhas);
+  const numeroPlano = numeroPlanoAtividades.trim();
+  const linhaEtapaPlano = etapaTxt
+    ? `${etapaTxt} - Plano de Atividades nº ${numeroPlano}`
+    : `Plano de Atividades nº ${numeroPlano}`;
+
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.text(
-    "Relatório de prestação de contas - Projeto de Modernização do Sistema Único",
-    centroX,
-    ty,
-    { align: "center" }
-  );
+  doc.text(linhaEtapaPlano, centroX, ty, { align: "center" });
   ty += 12;
 
   doc.setFontSize(8);
@@ -134,23 +146,14 @@ export async function gerarPdfPrestacaoContas(
   doc.setTextColor(0, 0, 0);
   ty += 6;
 
-  const linksPorLinha = linhas.map((r) => {
-    const u = r.link_relatorio?.trim();
-    return u ? hrefSeguro(u) : null;
-  });
-
-  const head = [["Código", "Atividade", "Equipe", "Setor", "% conclusão", "Etiqueta"]];
+  const head = [["Código", "Atividade", "Equipe", "Setor"]];
 
   const body = linhas.map((r) => [
     r.codigo?.trim() || "—",
     r.atividade?.trim() || "—",
     r.equipe?.trim() || "—",
     r.setor_responsavel?.trim() || "—",
-    `${r.progresso}%`,
-    textoCelulaEtiqueta(r),
   ]);
-
-  const colEtiqueta = 5;
 
   autoTable(doc, {
     startY: ty,
@@ -162,40 +165,10 @@ export async function gerarPdfPrestacaoContas(
     margin: { left: marginX, right: marginX },
     tableWidth: "auto",
     columnStyles: {
-      0: { cellWidth: 18 },
-      1: { cellWidth: 101 },
-      2: { cellWidth: 78 },
-      3: { cellWidth: 24 },
-      4: { cellWidth: 14 },
-      5: { cellWidth: 26, valign: "top" },
-    },
-    didParseCell: (data) => {
-      if (data.section !== "body" || data.column.index !== colEtiqueta) return;
-      const rowIdx = data.row.index;
-      if (linksPorLinha[rowIdx]) {
-        data.cell.styles.textColor = [0, 70, 180];
-      }
-    },
-    didDrawCell: (data) => {
-      if (data.section !== "body" || data.column.index !== colEtiqueta) return;
-      const rowIdx = data.row.index;
-      const url = linksPorLinha[rowIdx];
-      if (!url) return;
-      const { x, y, width, height } = data.cell;
-      doc.link(x, y, width, height, { url });
-      const linha = linhas[rowIdx];
-      const txt = textoCelulaEtiqueta(linha);
-      if (txt === "—") return;
-      const pad = 1.8;
-      const primeiraLinha = txt.split(/\r?\n/)[0] ?? txt;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      const tw = Math.min(doc.getTextWidth(primeiraLinha), Math.max(0, width - 2 * pad));
-      /** Primeira linha de texto ~8pt: baseline aprox. a partir do topo da célula. */
-      const yLinha = y + pad + 2.55;
-      doc.setDrawColor(0, 70, 180);
-      doc.setLineWidth(0.1);
-      doc.line(x + pad, yLinha, x + pad + tw, yLinha);
+      0: { cellWidth: 20 },
+      1: { cellWidth: 130 },
+      2: { cellWidth: 90 },
+      3: { cellWidth: 21 },
     },
   });
 
