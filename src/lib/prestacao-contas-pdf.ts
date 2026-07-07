@@ -81,7 +81,7 @@ export function gerarPdfPrestacaoContas(
     tableWidth: "auto",
     columnStyles: {
       0: { cellWidth: 20 },
-      1: { cellWidth: 112 },
+      1: { cellWidth: 112, fontSize: 9 },
       2: { cellWidth: 91 },
       3: { cellWidth: 38, overflow: "visible" },
     },
