@@ -20,6 +20,7 @@ import {
   gerarPdfMemorandoSgp,
   listarIntegrantesMemorandoSgp,
 } from "@/lib/memorando-sgp";
+import { verificarDadosIS } from "@/lib/verificacao-dados-is";
 import { useMounted } from "@/hooks/useMounted";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
@@ -137,6 +138,7 @@ export default function EquipePage() {
   const [filtroTipo, setFiltroTipo] = useState("");
   const [mesExtracao, setMesExtracao] = useState("");
   const [anoExtracao, setAnoExtracao] = useState("");
+  const [mostrarVerificacao, setMostrarVerificacao] = useState(false);
 
   const anosExtracao = useMemo(() => {
     const now = new Date().getFullYear();
@@ -184,6 +186,11 @@ export default function EquipePage() {
 
   const grupos = useMemo(
     () => montarGrupos(equipes, atividades, integrantes),
+    [equipes, atividades, integrantes]
+  );
+
+  const verificacaoIS = useMemo(
+    () => verificarDadosIS(equipes, atividades, integrantes),
     [equipes, atividades, integrantes]
   );
 
@@ -398,6 +405,103 @@ export default function EquipePage() {
           mês (setor alinhado ao código ou às linhas de equipe, nome alinhado a cada linha em Equipes/funções,
           ou ao responsável cadastrado na atividade).
         </p>
+      </div>
+
+      <div className="mb-6 rounded-xl border border-[var(--card-border)] bg-[var(--card)]/80 px-4 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-[var(--foreground)]">Verificar dados da IS selecionada</p>
+            <p className="mt-0.5 text-xs text-[var(--muted)]">
+              Pessoas vinculadas às atividades desta IS, atividades cadastradas e pessoas sem nenhuma
+              atividade vinculada.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMostrarVerificacao((v) => !v)}
+            disabled={!configured || loading || !instrucaoServicoId}
+            className="rounded-lg border border-[var(--card-border)] bg-white/70 px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--accent-muted)]/55 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {mostrarVerificacao ? "Ocultar verificação" : "Verificar dados da IS"}
+          </button>
+        </div>
+
+        {!instrucaoServicoId ? (
+          <p className="mt-3 text-xs text-[var(--muted)]">
+            Selecione uma Instrução de Serviço no topo da página para ver esta verificação.
+          </p>
+        ) : (
+          mostrarVerificacao && (
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+              <div className="rounded-lg border border-[var(--card-border)] bg-[var(--background)]/60 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+                  Atividades cadastradas nesta IS ({verificacaoIS.atividades.length})
+                </p>
+                {verificacaoIS.atividades.length === 0 ? (
+                  <p className="mt-2 text-sm text-[var(--muted)]">Nenhuma atividade cadastrada.</p>
+                ) : (
+                  <ul className="mt-2 max-h-72 space-y-1 overflow-y-auto text-sm">
+                    {verificacaoIS.atividades.map((a) => (
+                      <li key={a.id} className="rounded-md bg-white/70 px-2 py-1">
+                        <span className="font-medium text-[var(--accent)]">{a.codigo || "(sem código)"}</span>
+                        {a.descricao?.trim() && (
+                          <span className="ml-1 text-[var(--muted)]">— {a.descricao}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-[var(--success)]/30 bg-[var(--success)]/8 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--success)]">
+                  Pessoas vinculadas a esta IS ({verificacaoIS.pessoasVinculadas.length})
+                </p>
+                {verificacaoIS.pessoasVinculadas.length === 0 ? (
+                  <p className="mt-2 text-sm text-[var(--muted)]">Nenhum integrante vinculado.</p>
+                ) : (
+                  <ul className="mt-2 max-h-72 space-y-1 overflow-y-auto text-sm">
+                    {verificacaoIS.pessoasVinculadas.map((i) => (
+                      <li key={i.id} className="rounded-md bg-white/70 px-2 py-1">
+                        {i.nome}
+                        {i.setor?.trim() && (
+                          <span className="ml-1 text-[var(--muted)]">· {i.setor}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/8 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#6f4d14]">
+                  Pessoas sem atividade nesta IS ({verificacaoIS.pessoasSemAtividade.length})
+                </p>
+                {verificacaoIS.pessoasSemAtividade.length === 0 ? (
+                  <p className="mt-2 text-sm text-[var(--muted)]">
+                    Todos os integrantes cadastrados estão vinculados a alguma atividade desta IS.
+                  </p>
+                ) : (
+                  <ul className="mt-2 max-h-72 space-y-1 overflow-y-auto text-sm">
+                    {verificacaoIS.pessoasSemAtividade.map((i) => (
+                      <li key={i.id} className="rounded-md bg-white/70 px-2 py-1">
+                        {i.nome}
+                        {i.setor?.trim() && (
+                          <span className="ml-1 text-[var(--muted)]">· {i.setor}</span>
+                        )}
+                        {i.nao_remunerado && (
+                          <span className="ml-1 rounded bg-[var(--accent-muted)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--muted)]">
+                            Não remunerado
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )
+        )}
       </div>
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
