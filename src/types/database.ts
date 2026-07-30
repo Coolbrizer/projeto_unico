@@ -45,6 +45,17 @@ export type Integrante = {
   updated_at?: string;
 };
 
+export type FrequenciaMensal = {
+  id: string;
+  integrante_id: string;
+  /** Primeiro dia do mês de referência (YYYY-MM-DD). */
+  competencia: string;
+  dias_afastamento: number;
+  informado_por: string | null;
+  created_at: string;
+  updated_at?: string | null;
+};
+
 export type RefPgto = {
   id: string;
   cargo: string;
