@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { useInstrucaoServicoSelecionada, usePerfil } from "@/components/AppShell";
 import { canEditarEquipe } from "@/lib/auth/roles";
-import { formatarPeriodoAtividade } from "@/lib/datas-atividade";
+import { formatarPeriodoAtividade, normalizarDataParaApi } from "@/lib/datas-atividade";
 import { parsePartesCodigoAtividade, tiposAtividadeDistintos } from "@/lib/atividade-codigo";
 import {
   equipeLinhaEhResponsavel,
@@ -194,6 +194,21 @@ export default function EquipePage() {
     [equipes, atividades, integrantes]
   );
 
+  const periodoInstrucaoSelecionada = useMemo(() => {
+    if (!instrucaoServicoId) return null;
+    let inicio: string | null = null;
+    let fim: string | null = null;
+
+    for (const atividade of atividades) {
+      const ini = normalizarDataParaApi(atividade.inicio);
+      const end = normalizarDataParaApi(atividade.fim);
+      if (ini && (!inicio || ini < inicio)) inicio = ini;
+      if (end && (!fim || end > fim)) fim = end;
+    }
+
+    return inicio && fim ? { inicio, fim } : null;
+  }, [atividades, instrucaoServicoId]);
+
   const tiposDisponiveis = useMemo(
     () =>
       tiposAtividadeDistintos([
@@ -308,7 +323,7 @@ export default function EquipePage() {
       year,
       month
     );
-    gerarPdfMemorandoPagamento(resultado, year, month);
+    gerarPdfMemorandoPagamento(resultado, year, month, periodoInstrucaoSelecionada);
   }
 
   function handleMemorandoSgp() {

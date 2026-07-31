@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { atividadeSobrepoemMes } from "@/lib/datas-atividade";
+import { atividadeSobrepoemMes, parseDataTexto } from "@/lib/datas-atividade";
 import { equipeLinhaEhResponsavel } from "@/lib/equipe-page-helpers";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
 
@@ -12,13 +12,45 @@ export type ResultadoMemorandoPagamento = {
   atividadesNoMes: number;
 };
 
+export type PeriodoMemorandoPagamento = {
+  inicio: string | Date | null | undefined;
+  fim: string | Date | null | undefined;
+};
+
 /** Quantidade de dias no mês civil (month = 1–12). */
 export function diasNoMesReferencia(year: number, month1a12: number): number {
   return new Date(year, month1a12, 0).getDate();
 }
 
-/** Dias exibidos na coluna «Total de dias» do memorando (jun/2026: encerramento do projeto). */
-export function diasTotaisMemorandoPagamento(year: number, month1a12: number): number {
+function diasSobrepostosAoMes(
+  year: number,
+  month1a12: number,
+  periodo: PeriodoMemorandoPagamento
+): number | null {
+  const inicio = parseDataTexto(periodo.inicio);
+  const fim = parseDataTexto(periodo.fim);
+  if (!inicio || !fim) return null;
+
+  const startPeriodo = inicio <= fim ? inicio : fim;
+  const endPeriodo = inicio <= fim ? fim : inicio;
+  const monthStart = new Date(year, month1a12 - 1, 1);
+  const monthEnd = new Date(year, month1a12, 0);
+  const start = startPeriodo > monthStart ? startPeriodo : monthStart;
+  const end = endPeriodo < monthEnd ? endPeriodo : monthEnd;
+  if (start > end) return 0;
+  return Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1;
+}
+
+/** Dias exibidos na coluna «Total de dias» do memorando. */
+export function diasTotaisMemorandoPagamento(
+  year: number,
+  month1a12: number,
+  periodo?: PeriodoMemorandoPagamento | null
+): number {
+  if (periodo) {
+    const diasPeriodo = diasSobrepostosAoMes(year, month1a12, periodo);
+    if (diasPeriodo !== null) return diasPeriodo;
+  }
   if (year === 2026 && month1a12 === 6) return 11;
   return diasNoMesReferencia(year, month1a12);
 }
@@ -125,7 +157,8 @@ export function listarIntegrantesMemorandoPagamento(
 export function gerarPdfMemorandoPagamento(
   resultado: ResultadoMemorandoPagamento,
   year: number,
-  month: number
+  month: number,
+  periodo?: PeriodoMemorandoPagamento | null
 ): void {
   const { integrantes, atividadesNoMes } = resultado;
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
@@ -135,7 +168,7 @@ export function gerarPdfMemorandoPagamento(
     year: "numeric",
   });
 
-  const totalDias = diasTotaisMemorandoPagamento(year, month);
+  const totalDias = diasTotaisMemorandoPagamento(year, month, periodo);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
