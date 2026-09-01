@@ -13,6 +13,8 @@ export type Atividade = {
   progresso?: number | null;
   etiqueta_relatorio?: string | null;
   link_relatorio?: string | null;
+  /** Número do Plano de Atividades ao qual a atividade pertence. */
+  plano_atividades?: number | null;
   /** 1–4 conforme etapas do projeto (importação passivo). */
   etapa?: number | null;
   status_execucao?: StatusExecucaoAtividade | null;

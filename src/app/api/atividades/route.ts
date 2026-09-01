@@ -14,6 +14,12 @@ function normalizarProgresso(valor: unknown): number {
   return Math.min(100, Math.max(0, emDegraus));
 }
 
+function parsePlanoAtividades(valor: unknown): number | null {
+  const numero = Number(valor);
+  if (!Number.isFinite(numero) || !Number.isInteger(numero) || numero < 1) return null;
+  return numero;
+}
+
 export async function GET(request: Request) {
   const auth = await requireAuthedSupabase();
   if (auth.response) return auth.response;
@@ -50,6 +56,7 @@ export async function POST(request: Request) {
     fim?: string | null;
     progresso?: number;
     instrucao_servico?: string;
+    plano_atividades?: unknown;
   };
   try {
     body = (await request.json()) as typeof body;
@@ -73,6 +80,13 @@ export async function POST(request: Request) {
   }
 
   const progresso = normalizarProgresso(body.progresso);
+  const planoAtividades = parsePlanoAtividades(body.plano_atividades);
+  if (planoAtividades === null) {
+    return NextResponse.json(
+      { error: "Informe um número inteiro válido para o Plano de Atividades." },
+      { status: 400 }
+    );
+  }
 
   const { data, error } = await supabase
     .from("atividades")
@@ -84,6 +98,7 @@ export async function POST(request: Request) {
       fim: normalizarDataParaApi(body.fim ?? undefined),
       instrucao_servico: instrucaoId,
       progresso,
+      plano_atividades: planoAtividades,
     })
     .select("*")
     .single();

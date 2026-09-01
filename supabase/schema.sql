@@ -35,8 +35,12 @@ create table public.atividades (
   progresso smallint not null default 0,
   etiqueta_relatorio text,
   link_relatorio text,
+  plano_atividades smallint,
   etapa smallint,
   status_execucao text,
+  constraint atividades_plano_atividades_check check (
+    plano_atividades is null or plano_atividades >= 1
+  ),
   constraint atividades_etapa_check check (etapa is null or etapa between 1 and 4),
   constraint atividades_status_execucao_check check (
     status_execucao is null

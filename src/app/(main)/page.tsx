@@ -45,8 +45,13 @@ function atividadeMatchesBusca(a: Atividade, raw: string): boolean {
   const codigo = (a.codigo ?? "").toLowerCase();
   const desc = (a.descricao ?? "").toLowerCase();
   const resp = (a.responsavel ?? "").toLowerCase();
-  const campos = [codigo, desc, resp];
+  const plano = a.plano_atividades ? `plano ${a.plano_atividades}` : "";
+  const campos = [codigo, desc, resp, plano];
   return tokens.every((tok) => campos.some((c) => c.includes(tok)));
+}
+
+function formatarPlanoAtividades(valor: number | null | undefined): string {
+  return valor ? `Plano de Atividades nº ${valor}` : "Plano de Atividades não informado";
 }
 
 export default function AtividadesPage() {
@@ -73,6 +78,7 @@ export default function AtividadesPage() {
   const [inicio, setInicio] = useState("");
   const [fim, setFim] = useState("");
   const [progressoNovo, setProgressoNovo] = useState(0);
+  const [planoAtividadesNovo, setPlanoAtividadesNovo] = useState("2");
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [relatorioEtiqueta, setRelatorioEtiqueta] = useState("");
@@ -83,6 +89,7 @@ export default function AtividadesPage() {
   const [showImportCsv, setShowImportCsv] = useState(false);
   const [importIsId, setImportIsId] = useState("");
   const [importEtapa, setImportEtapa] = useState("5E");
+  const [importPlanoAtividades, setImportPlanoAtividades] = useState("2");
   const [importArquivo, setImportArquivo] = useState<File | null>(null);
   const [importando, setImportando] = useState(false);
 
@@ -208,6 +215,7 @@ export default function AtividadesPage() {
         fim: normalizarDataParaApi(fim) ?? null,
         progresso: progressoNovo,
         instrucao_servico: instrucaoServicoId,
+        plano_atividades: Number(planoAtividadesNovo),
       }),
     });
     const data = (await res.json()) as { error?: string };
@@ -221,6 +229,7 @@ export default function AtividadesPage() {
     setInicio("");
     setFim("");
     setProgressoNovo(0);
+    setPlanoAtividadesNovo("2");
     setInstrucaoServicoId(defaultIsId(documentosIs));
     setShowForm(false);
     void load();
@@ -234,6 +243,7 @@ export default function AtividadesPage() {
     const fd = new FormData();
     fd.append("instrucao_servico", importIsId);
     fd.append("etapa", importEtapa);
+    fd.append("plano_atividades", importPlanoAtividades);
     fd.append("arquivo", importArquivo);
     const res = await fetch("/api/atividades/importar-csv", {
       method: "POST",
@@ -341,11 +351,11 @@ export default function AtividadesPage() {
         <h2 className="text-2xl font-semibold tracking-tight">Atividades</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Cada atividade deve estar vinculada a uma Instrução de Serviço cadastrada em Documentos.
-          Informe código, descrição, responsável e datas de início e fim (DD/MM/AAAA). O memorando de
-          pagamento usa esse período para filtrar por mês. Gestores podem importar várias atividades de
-          uma vez por arquivo CSV. Progresso, etiqueta e link do relatório só
+          Informe código, descrição, responsável, Plano de Atividades e datas de início e fim
+          (DD/MM/AAAA). O memorando de pagamento usa esse período para filtrar por mês. Gestores podem
+          importar várias atividades de uma vez por arquivo CSV. Progresso, etiqueta e link do relatório só
           podem ser alterados pelo responsável cadastrado (administradores também podem). A busca cobre
-          código, descrição e responsável. A IS não pode ser alterada depois de criada a atividade.
+          código, descrição, responsável e plano. A IS não pode ser alterada depois de criada a atividade.
         </p>
       </header>
 
@@ -434,7 +444,8 @@ export default function AtividadesPage() {
             caso a etapa da planilha prevalece. O número final (
             <code className="rounded bg-[var(--accent-muted)] px-1">5E-DEB1</code>,{" "}
             <code className="rounded bg-[var(--accent-muted)] px-1">5E-DEB2</code>…) é gerado pelo
-            sistema.             Na coluna <strong>equipe</strong>, pode listar vários integrantes na mesma célula
+            sistema. Informe abaixo o Plano de Atividades que será gravado em todo o lote. Na coluna{" "}
+            <strong>equipe</strong>, pode listar vários integrantes na mesma célula
             (um por linha, como no Google Sheets) no formato{" "}
             <code className="rounded bg-[var(--accent-muted)] px-1">matrícula | NOME</code>. O
             responsável da coluna <strong>responsavel</strong> é incluído automaticamente na equipe,
@@ -495,6 +506,20 @@ export default function AtividadesPage() {
             </div>
             <div>
               <label className="block text-xs text-[var(--muted)]">
+                Plano de Atividades <span className="text-red-600">*</span>
+              </label>
+              <input
+                required
+                type="number"
+                min={1}
+                step={1}
+                value={importPlanoAtividades}
+                onChange={(e) => setImportPlanoAtividades(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--muted)]">
                 Arquivo CSV <span className="text-red-600">*</span>
               </label>
               <input
@@ -509,7 +534,7 @@ export default function AtividadesPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="submit"
-              disabled={importando || !importArquivo || !importIsId}
+              disabled={importando || !importArquivo || !importIsId || !importPlanoAtividades.trim()}
               className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
             >
               {importando ? "A importar…" : "Importar"}
@@ -579,6 +604,20 @@ export default function AtividadesPage() {
                 className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
+            <div>
+              <label className="block text-xs text-[var(--muted)]">
+                Plano de Atividades <span className="text-red-600">*</span>
+              </label>
+              <input
+                required
+                type="number"
+                min={1}
+                step={1}
+                value={planoAtividadesNovo}
+                onChange={(e) => setPlanoAtividadesNovo(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+              />
+            </div>
             <div className="sm:col-span-2">
               <label className="block text-xs text-[var(--muted)]">Descrição</label>
               <textarea
@@ -634,7 +673,7 @@ export default function AtividadesPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="submit"
-              disabled={!instrucaoServicoId || documentosIs.length === 0}
+              disabled={!instrucaoServicoId || documentosIs.length === 0 || !planoAtividadesNovo.trim()}
               className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
             >
               Guardar atividade
@@ -695,6 +734,9 @@ export default function AtividadesPage() {
                     </p>
                     <p className="mt-1 text-xs text-[var(--muted)]">
                       Período: {formatarPeriodoAtividade(a)}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--muted)]">
+                      {formatarPlanoAtividades(a.plano_atividades)}
                     </p>
                     <div className="mt-3">
                       <div className="flex items-center justify-between text-xs text-[var(--muted)]">

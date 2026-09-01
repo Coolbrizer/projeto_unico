@@ -9,6 +9,12 @@ import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { equipeMembrosIncluindoResponsavel } from "@/lib/equipe-page-helpers";
 import { isUuidString } from "@/lib/uuid";
 
+function parsePlanoAtividades(valor: FormDataEntryValue | null): number | null {
+  const numero = Number(String(valor ?? "").trim());
+  if (!Number.isFinite(numero) || !Number.isInteger(numero) || numero < 1) return null;
+  return numero;
+}
+
 export async function POST(request: Request) {
   const auth = await requireGestorOuAdmin();
   if (auth.response) return auth.response;
@@ -24,6 +30,7 @@ export async function POST(request: Request) {
   const etapa = String(form.get("etapa") ?? "")
     .trim()
     .toUpperCase();
+  const planoAtividades = parsePlanoAtividades(form.get("plano_atividades"));
   const arquivo = form.get("arquivo");
 
   if (!instrucaoServicoId || !isUuidString(instrucaoServicoId)) {
@@ -36,6 +43,13 @@ export async function POST(request: Request) {
   if (!(ETAPAS_CODIGO_ATIVIDADE as readonly string[]).includes(etapa)) {
     return NextResponse.json(
       { error: "Selecione a etapa do código (1E a 5E)." },
+      { status: 400 }
+    );
+  }
+
+  if (planoAtividades === null) {
+    return NextResponse.json(
+      { error: "Informe um número inteiro válido para o Plano de Atividades." },
       { status: 400 }
     );
   }
@@ -87,6 +101,7 @@ export async function POST(request: Request) {
     fim: l.fim,
     instrucao_servico: instrucaoServicoId,
     progresso: 0,
+    plano_atividades: planoAtividades,
   }));
 
   const { data: inseridas, error: errInsert } = await supabase

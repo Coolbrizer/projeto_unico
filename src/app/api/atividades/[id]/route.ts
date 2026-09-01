@@ -39,8 +39,15 @@ function patchTouchesCamposGestor(body: Record<string, unknown>): boolean {
     "descricao" in body ||
     "responsavel" in body ||
     "inicio" in body ||
-    "fim" in body
+    "fim" in body ||
+    "plano_atividades" in body
   );
+}
+
+function parsePlanoAtividades(valor: unknown): number | null {
+  const numero = Number(valor);
+  if (!Number.isFinite(numero) || !Number.isInteger(numero) || numero < 1) return null;
+  return numero;
 }
 
 export async function PATCH(request: Request, ctx: Ctx) {
@@ -133,6 +140,16 @@ export async function PATCH(request: Request, ctx: Ctx) {
       raw === null || raw === undefined || String(raw).trim() === ""
         ? null
         : normalizarDataParaApi(String(raw));
+  }
+  if ("plano_atividades" in body) {
+    const plano = parsePlanoAtividades(body.plano_atividades);
+    if (plano === null) {
+      return NextResponse.json(
+        { error: "Informe um número inteiro válido para o Plano de Atividades." },
+        { status: 400 }
+      );
+    }
+    patch.plano_atividades = plano;
   }
   const hasAtividadePatch = Object.keys(patch).length > 0;
   let atividadeAtualizada: Record<string, unknown> | null = null;
