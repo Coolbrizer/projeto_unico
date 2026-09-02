@@ -2,19 +2,27 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
-import { extrairInstrucaoServicoIdSelecionada } from "@/lib/instrucao-servico-filtro";
+import {
+  extrairInstrucaoServicoIdSelecionada,
+  extrairPlanoAtividadesSelecionado,
+} from "@/lib/instrucao-servico-filtro";
 
 export async function GET(request: Request) {
   const auth = await requireAuthedSupabase();
   if (auth.response) return auth.response;
   const { supabase } = auth;
   const instrucaoServicoId = extrairInstrucaoServicoIdSelecionada(request);
+  const planoAtividades = extrairPlanoAtividadesSelecionado(request);
 
   if (instrucaoServicoId) {
-    const { data: atividades, error: errAt } = await supabase
+    let atividadesQuery = supabase
       .from("atividades")
       .select("codigo")
       .eq("instrucao_servico", instrucaoServicoId);
+    if (planoAtividades !== null) {
+      atividadesQuery = atividadesQuery.eq("plano_atividades", planoAtividades);
+    }
+    const { data: atividades, error: errAt } = await atividadesQuery;
 
     if (errAt) {
       return NextResponse.json({ error: errAt.message }, { status: 400 });

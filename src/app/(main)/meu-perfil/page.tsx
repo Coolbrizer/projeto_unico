@@ -111,7 +111,7 @@ export default function MeuPerfilPage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
   const perfil = usePerfil();
-  const { instrucaoServicoId } = useInstrucaoServicoSelecionada();
+  const { instrucaoServicoId, planoAtividades } = useInstrucaoServicoSelecionada();
   const [rows, setRows] = useState<Atividade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -140,9 +140,10 @@ export default function MeuPerfilPage() {
     setLoading(true);
     setError(null);
 
-    const filtro = instrucaoServicoId
-      ? `?instrucaoServicoId=${encodeURIComponent(instrucaoServicoId)}`
-      : "";
+    const params = new URLSearchParams();
+    if (instrucaoServicoId) params.set("instrucaoServicoId", instrucaoServicoId);
+    if (planoAtividades !== null) params.set("planoAtividades", String(planoAtividades));
+    const filtro = params.size > 0 ? `?${params.toString()}` : "";
     const res = await fetch(`/api/atividades${filtro}`, { credentials: "include" });
     const data = (await res.json()) as { error?: string; atividades?: Atividade[] };
     if (!res.ok) {
@@ -152,7 +153,7 @@ export default function MeuPerfilPage() {
       setRows(data.atividades ?? []);
     }
     setLoading(false);
-  }, [instrucaoServicoId]);
+  }, [instrucaoServicoId, planoAtividades]);
 
   useEffect(() => {
     void load();

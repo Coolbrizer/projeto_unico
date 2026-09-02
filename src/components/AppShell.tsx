@@ -8,20 +8,27 @@ import { TIPOS_DOCUMENTO } from "@/lib/documentos-constants";
 import { rotuloDocumentoNumeroAno } from "@/lib/documento-referencia";
 import {
   INSTRUCAO_SERVICO_COOKIE,
+  PLANO_ATIVIDADES_COOKIE,
   parseInstrucaoServicoId,
+  parsePlanoAtividades,
 } from "@/lib/instrucao-servico-filtro";
 import type { Documento } from "@/types/database";
 
 const PerfilContext = createContext<Perfil>("basico");
 const InstrucaoServicoContext = createContext<{
   instrucaoServicoId: string;
+  planoAtividades: number | null;
   setInstrucaoServicoId: (id: string) => void;
+  setFiltroInstrucaoServico: (instrucaoServicoId: string, planoAtividades?: number | null) => void;
 }>({
   instrucaoServicoId: "",
+  planoAtividades: null,
   setInstrucaoServicoId: () => {},
+  setFiltroInstrucaoServico: () => {},
 });
 
 const TIPO_IS = TIPOS_DOCUMENTO[0];
+const MIN_PLANOS_POR_IS_COM_PLANO = 2;
 
 export function usePerfil(): Perfil {
   return useContext(PerfilContext);
@@ -57,6 +64,31 @@ const labelPerfil: Record<Perfil, string> = {
   admin: "Administrador",
 };
 
+type OpcaoFiltroInstrucao = {
+  value: string;
+  instrucaoServicoId: string;
+  planoAtividades: number | null;
+  label: string;
+};
+
+function valorFiltroInstrucao(instrucaoServicoId: string, planoAtividades: number | null): string {
+  if (!instrucaoServicoId) return "";
+  return `${instrucaoServicoId}:${planoAtividades ?? ""}`;
+}
+
+function parseValorFiltroInstrucao(raw: string): {
+  instrucaoServicoId: string;
+  planoAtividades: number | null;
+} {
+  const [idRaw, planoRaw = ""] = raw.split(":");
+  const instrucaoServicoId = parseInstrucaoServicoId(idRaw);
+  if (!instrucaoServicoId) return { instrucaoServicoId: "", planoAtividades: null };
+  return {
+    instrucaoServicoId,
+    planoAtividades: parsePlanoAtividades(planoRaw),
+  };
+}
+
 export function AppShell({
   children,
   role,
@@ -69,7 +101,9 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const [documentosIs, setDocumentosIs] = useState<Documento[]>([]);
+  const [documentosCarregados, setDocumentosCarregados] = useState(false);
   const [instrucaoServicoId, setInstrucaoServicoIdState] = useState("");
+  const [planoAtividades, setPlanoAtividadesState] = useState<number | null>(null);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
@@ -83,40 +117,95 @@ export function AppShell({
       ? ([...navBase, ...navPrestacaoContas] as const)
       : ([...navBase] as const);
   const navItems = canViewAuditoria ? [...navItemsBase, navAuditoria] : navItemsBase;
-  const instrucaoSelecionadaEhValida = useMemo(
-    () => !instrucaoServicoId || documentosIs.some((d) => d.id === instrucaoServicoId),
-    [documentosIs, instrucaoServicoId]
+  const opcoesFiltroInstrucao = useMemo<OpcaoFiltroInstrucao[]>(() => {
+    return documentosIs.flatMap((d): OpcaoFiltroInstrucao[] => {
+      const rotulo = rotuloDocumentoNumeroAno(d);
+      const planos = d.planos_atividades ?? [];
+      if (planos.length === 0) {
+        return [
+          {
+            value: valorFiltroInstrucao(d.id, null),
+            instrucaoServicoId: d.id,
+            planoAtividades: null,
+            label: rotulo,
+          },
+        ];
+      }
+      const maiorPlano = Math.max(MIN_PLANOS_POR_IS_COM_PLANO, ...planos);
+      const planosExibidos = Array.from({ length: maiorPlano }, (_, idx) => idx + 1);
+      return planosExibidos.map((plano) => ({
+        value: valorFiltroInstrucao(d.id, plano),
+        instrucaoServicoId: d.id,
+        planoAtividades: plano,
+        label: `${rotulo} - Plano de Atividades nº ${plano}`,
+      }));
+    });
+  }, [documentosIs]);
+
+  const filtroSelecionadoEhValido = useMemo(
+    () =>
+      !documentosCarregados ||
+      !instrucaoServicoId ||
+      opcoesFiltroInstrucao.some(
+        (opcao) =>
+          opcao.instrucaoServicoId === instrucaoServicoId &&
+          opcao.planoAtividades === planoAtividades
+      ),
+    [documentosCarregados, instrucaoServicoId, opcoesFiltroInstrucao, planoAtividades]
   );
 
   const setInstrucaoServicoId = useCallback((id: string) => {
     const valor = parseInstrucaoServicoId(id);
     setInstrucaoServicoIdState(valor);
+    setPlanoAtividadesState(null);
+  }, []);
+
+  const setFiltroInstrucaoServico = useCallback(
+    (id: string, plano: number | null = null) => {
+      const valor = parseInstrucaoServicoId(id);
+      setInstrucaoServicoIdState(valor);
+      setPlanoAtividadesState(valor ? plano : null);
+    },
+    []
+  );
+
+  const carregarDocumentos = useCallback(async () => {
+    const res = await fetch("/api/documentos", { credentials: "include" });
+    const data = (await res.json()) as { documentos?: Documento[] };
+    if (!res.ok) return;
+    const is = (data.documentos ?? []).filter((d) => d.tipo === TIPO_IS);
+    setDocumentosIs(is);
+    setDocumentosCarregados(true);
   }, []);
 
   useEffect(() => {
     const salvo = parseInstrucaoServicoId(window.localStorage.getItem(INSTRUCAO_SERVICO_COOKIE));
-    if (salvo) setInstrucaoServicoIdState(salvo);
+    const planoSalvo = parsePlanoAtividades(window.localStorage.getItem(PLANO_ATIVIDADES_COOKIE));
+    if (salvo) {
+      setInstrucaoServicoIdState(salvo);
+      setPlanoAtividadesState(planoSalvo);
+    }
   }, []);
 
   useEffect(() => {
     let ativo = true;
     void (async () => {
-      const res = await fetch("/api/documentos", { credentials: "include" });
-      const data = (await res.json()) as { documentos?: Documento[] };
-      if (!ativo || !res.ok) return;
-      const is = (data.documentos ?? []).filter((d) => d.tipo === TIPO_IS);
-      setDocumentosIs(is);
+      await carregarDocumentos();
+      if (!ativo) return;
     })();
+    window.addEventListener("atividades:changed", carregarDocumentos);
     return () => {
       ativo = false;
+      window.removeEventListener("atividades:changed", carregarDocumentos);
     };
-  }, []);
+  }, [carregarDocumentos]);
 
   useEffect(() => {
-    if (!instrucaoSelecionadaEhValida) {
+    if (!filtroSelecionadoEhValido) {
       setInstrucaoServicoIdState("");
+      setPlanoAtividadesState(null);
     }
-  }, [instrucaoSelecionadaEhValida]);
+  }, [filtroSelecionadoEhValido]);
 
   useEffect(() => {
     if (instrucaoServicoId) {
@@ -124,15 +213,28 @@ export function AppShell({
       document.cookie = `${INSTRUCAO_SERVICO_COOKIE}=${encodeURIComponent(
         instrucaoServicoId
       )}; path=/; max-age=31536000; samesite=lax`;
+      if (planoAtividades !== null) {
+        window.localStorage.setItem(PLANO_ATIVIDADES_COOKIE, String(planoAtividades));
+        document.cookie = `${PLANO_ATIVIDADES_COOKIE}=${encodeURIComponent(
+          String(planoAtividades)
+        )}; path=/; max-age=31536000; samesite=lax`;
+      } else {
+        window.localStorage.removeItem(PLANO_ATIVIDADES_COOKIE);
+        document.cookie = `${PLANO_ATIVIDADES_COOKIE}=; path=/; max-age=0; samesite=lax`;
+      }
     } else {
       window.localStorage.removeItem(INSTRUCAO_SERVICO_COOKIE);
       document.cookie = `${INSTRUCAO_SERVICO_COOKIE}=; path=/; max-age=0; samesite=lax`;
+      window.localStorage.removeItem(PLANO_ATIVIDADES_COOKIE);
+      document.cookie = `${PLANO_ATIVIDADES_COOKIE}=; path=/; max-age=0; samesite=lax`;
     }
-  }, [instrucaoServicoId]);
+  }, [instrucaoServicoId, planoAtividades]);
 
   return (
     <PerfilContext.Provider value={role}>
-      <InstrucaoServicoContext.Provider value={{ instrucaoServicoId, setInstrucaoServicoId }}>
+      <InstrucaoServicoContext.Provider
+        value={{ instrucaoServicoId, planoAtividades, setInstrucaoServicoId, setFiltroInstrucaoServico }}
+      >
         <div className="flex min-h-screen flex-col">
           <header className="sticky top-0 z-20 border-b border-[var(--card-border)] bg-[var(--card)]/92 shadow-sm backdrop-blur-sm">
             <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between md:gap-6">
@@ -180,17 +282,20 @@ export function AppShell({
             <div className="border-t border-[var(--card-border)]/80">
               <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-3 md:flex-row md:items-center md:gap-4">
                 <label className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-                  Instrução de Serviço ativa
+                  Instrução de Serviço / Plano ativo
                 </label>
                 <select
-                  value={instrucaoServicoId}
-                  onChange={(e) => setInstrucaoServicoId(e.target.value)}
+                  value={valorFiltroInstrucao(instrucaoServicoId, planoAtividades)}
+                  onChange={(e) => {
+                    const filtro = parseValorFiltroInstrucao(e.target.value);
+                    setFiltroInstrucaoServico(filtro.instrucaoServicoId, filtro.planoAtividades);
+                  }}
                   className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2 md:max-w-xl"
                 >
                   <option value="">Todas as Instruções de Serviço</option>
-                  {documentosIs.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {rotuloDocumentoNumeroAno(d)}
+                  {opcoesFiltroInstrucao.map((opcao) => (
+                    <option key={opcao.value} value={opcao.value}>
+                      {opcao.label}
                     </option>
                   ))}
                 </select>

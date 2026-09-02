@@ -103,7 +103,7 @@ export default function OrcamentoPage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
   const perfil = usePerfil();
-  const { instrucaoServicoId } = useInstrucaoServicoSelecionada();
+  const { instrucaoServicoId, planoAtividades } = useInstrucaoServicoSelecionada();
   const podeExcluirLancamento = isAdmin(perfil);
   const [rows, setRows] = useState<Orcamento[]>([]);
   const [integrantes, setIntegrantes] = useState<Integrante[]>([]);
@@ -186,13 +186,13 @@ export default function OrcamentoPage() {
 
     let ativo = true;
     void (async () => {
-      const res = await fetch(
-        `/api/atividades?instrucaoServicoId=${encodeURIComponent(instrucaoServicoId)}`,
-        { credentials: "include" }
-      );
+      const params = new URLSearchParams({ instrucaoServicoId });
+      if (planoAtividades !== null) params.set("planoAtividades", String(planoAtividades));
+      const filtro = `?${params.toString()}`;
+      const res = await fetch(`/api/atividades${filtro}`, { credentials: "include" });
       const [dataAtividades, dataEquipes] = await Promise.all([
         res.json() as Promise<{ atividades?: Atividade[] }>,
-        fetch("/api/equipe", { credentials: "include" }).then(
+        fetch(`/api/equipe${filtro}`, { credentials: "include" }).then(
           async (resEquipe) => ((await resEquipe.json()) as { equipe?: Equipe[]; ok?: boolean })
         ),
       ]);
@@ -223,7 +223,7 @@ export default function OrcamentoPage() {
     return () => {
       ativo = false;
     };
-  }, [instrucaoServicoId]);
+  }, [instrucaoServicoId, planoAtividades]);
 
   useEffect(() => {
     if (!periodoInstrucao) return;

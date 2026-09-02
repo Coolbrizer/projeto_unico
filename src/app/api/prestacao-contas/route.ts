@@ -5,7 +5,10 @@ import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Atividade, Documento, Equipe, Integrante } from "@/types/database";
 import { UUID_REGEX } from "@/lib/uuid";
-import { extrairInstrucaoServicoIdSelecionada } from "@/lib/instrucao-servico-filtro";
+import {
+  extrairInstrucaoServicoIdSelecionada,
+  extrairPlanoAtividadesSelecionado,
+} from "@/lib/instrucao-servico-filtro";
 import { compararCodigoAtividade } from "@/lib/atividade-codigo";
 
 function normalizarProgresso(valor: unknown): number {
@@ -39,6 +42,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const documentoId =
     url.searchParams.get("documentoId")?.trim() ?? extrairInstrucaoServicoIdSelecionada(request);
+  const planoAtividades = extrairPlanoAtividadesSelecionado(request);
   if (!documentoId || !UUID_REGEX.test(documentoId)) {
     return NextResponse.json({ error: "Informe documentoId (UUID) válido." }, { status: 400 });
   }
@@ -50,13 +54,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
   }
 
+  let atividadesQuery = supabase
+    .from("atividades")
+    .select("*")
+    .eq("instrucao_servico", documentoId)
+    .order("codigo", { ascending: true });
+  if (planoAtividades !== null) {
+    atividadesQuery = atividadesQuery.eq("plano_atividades", planoAtividades);
+  }
+
   const [docResult, atividadesResult, integrantesResult] = await Promise.all([
     supabase.from("documentos").select("*").eq("id", documentoId).maybeSingle(),
-    supabase
-      .from("atividades")
-      .select("*")
-      .eq("instrucao_servico", documentoId)
-      .order("codigo", { ascending: true }),
+    atividadesQuery,
     supabase.from("integrantes").select("id, matricula, nome, setor"),
   ]);
 

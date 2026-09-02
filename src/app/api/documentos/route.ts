@@ -36,7 +36,7 @@ export async function GET() {
 
   const [docsRes, atvRes] = await Promise.all([
     supabase.from("documentos").select("*"),
-    supabase.from("atividades").select("instrucao_servico, inicio, fim"),
+    supabase.from("atividades").select("instrucao_servico, inicio, fim, plano_atividades"),
   ]);
 
   if (docsRes.error) {
@@ -47,9 +47,16 @@ export async function GET() {
   }
 
   const periodoPorInstrucao = new Map<string, { inicio: string; fim: string }>();
+  const planosPorInstrucao = new Map<string, Set<number>>();
   for (const a of (atvRes.data ?? []) as Array<Record<string, unknown>>) {
     const instrucao = typeof a.instrucao_servico === "string" ? a.instrucao_servico : "";
     if (!instrucao) continue;
+    const plano = Number(a.plano_atividades);
+    if (Number.isInteger(plano) && plano >= 1) {
+      if (!planosPorInstrucao.has(instrucao)) planosPorInstrucao.set(instrucao, new Set());
+      planosPorInstrucao.get(instrucao)!.add(plano);
+    }
+
     const ini = normalizarIsoData(a.inicio);
     const fim = normalizarIsoData(a.fim);
     if (!ini || !fim) continue;
@@ -68,10 +75,12 @@ export async function GET() {
     ((docsRes.data as Record<string, unknown>[]) ?? []).map((row) => {
       const doc = normalizarDocumento(row);
       const periodo = periodoPorInstrucao.get(doc.id);
+      const planos = [...(planosPorInstrucao.get(doc.id) ?? new Set<number>())].sort((a, b) => a - b);
       return {
         ...doc,
         periodo_inicio_atividades: periodo?.inicio ?? null,
         periodo_fim_atividades: periodo?.fim ?? null,
+        planos_atividades: planos,
       } satisfies Documento;
     })
   );

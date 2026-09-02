@@ -40,7 +40,7 @@ export default function PrestacaoContasPage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
   const perfil = usePerfil();
-  const { instrucaoServicoId } = useInstrucaoServicoSelecionada();
+  const { instrucaoServicoId, planoAtividades } = useInstrucaoServicoSelecionada();
   const podeVer = canEditarDocumentos(perfil);
 
   const [documentos, setDocumentos] = useState<Documento[]>([]);
@@ -80,14 +80,16 @@ export default function PrestacaoContasPage() {
     void loadDocumentos();
   }, [loadDocumentos]);
 
-  const loadLinhas = useCallback(async (id: string) => {
+  const loadLinhas = useCallback(async (id: string, plano: number | null) => {
     if (!id) {
       setLinhas([]);
       return;
     }
     setLoadingLinhas(true);
     setError(null);
-    const res = await fetch(`/api/prestacao-contas?documentoId=${encodeURIComponent(id)}`, {
+    const params = new URLSearchParams({ documentoId: id });
+    if (plano !== null) params.set("planoAtividades", String(plano));
+    const res = await fetch(`/api/prestacao-contas?${params.toString()}`, {
       credentials: "include",
     });
     const data = (await res.json()) as { error?: string; linhas?: LinhaPrestacao[] };
@@ -105,8 +107,8 @@ export default function PrestacaoContasPage() {
       setLinhas([]);
       return;
     }
-    void loadLinhas(instrucaoServicoId);
-  }, [instrucaoServicoId, loadLinhas]);
+    void loadLinhas(instrucaoServicoId, planoAtividades);
+  }, [instrucaoServicoId, loadLinhas, planoAtividades]);
 
   async function handleExtrairPdf() {
     if (!documentoSelecionado || linhas.length === 0) return;

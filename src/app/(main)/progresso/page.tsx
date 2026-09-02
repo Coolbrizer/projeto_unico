@@ -26,7 +26,7 @@ function corPorProgresso(percentual: number): string {
 export default function ProgressoPage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
-  const { instrucaoServicoId } = useInstrucaoServicoSelecionada();
+  const { instrucaoServicoId, planoAtividades } = useInstrucaoServicoSelecionada();
   const [rows, setRows] = useState<Atividade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,9 +37,10 @@ export default function ProgressoPage() {
   const load = useCallback(async () => {
     setError(null);
     setLoading(true);
-    const filtro = instrucaoServicoId
-      ? `?instrucaoServicoId=${encodeURIComponent(instrucaoServicoId)}`
-      : "";
+    const params = new URLSearchParams();
+    if (instrucaoServicoId) params.set("instrucaoServicoId", instrucaoServicoId);
+    if (planoAtividades !== null) params.set("planoAtividades", String(planoAtividades));
+    const filtro = params.size > 0 ? `?${params.toString()}` : "";
     const res = await fetch(`/api/atividades${filtro}`, { credentials: "include" });
     const data = (await res.json()) as { error?: string; atividades?: Atividade[] };
 
@@ -50,7 +51,7 @@ export default function ProgressoPage() {
     }
 
     setLoading(false);
-  }, [instrucaoServicoId]);
+  }, [instrucaoServicoId, planoAtividades]);
 
   useEffect(() => {
     void load();

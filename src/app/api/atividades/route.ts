@@ -5,7 +5,10 @@ import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
 import type { Atividade } from "@/types/database";
 import { isUuidString } from "@/lib/uuid";
-import { extrairInstrucaoServicoIdSelecionada } from "@/lib/instrucao-servico-filtro";
+import {
+  extrairInstrucaoServicoIdSelecionada,
+  extrairPlanoAtividadesSelecionado,
+} from "@/lib/instrucao-servico-filtro";
 
 function normalizarProgresso(valor: unknown): number {
   const numero = Number(valor ?? 0);
@@ -25,10 +28,14 @@ export async function GET(request: Request) {
   if (auth.response) return auth.response;
   const { supabase } = auth;
   const instrucaoServicoId = extrairInstrucaoServicoIdSelecionada(request);
+  const planoAtividades = extrairPlanoAtividadesSelecionado(request);
 
   let query = supabase.from("atividades").select("*").order("created_at", { ascending: false });
   if (instrucaoServicoId) {
     query = query.eq("instrucao_servico", instrucaoServicoId);
+  }
+  if (planoAtividades !== null) {
+    query = query.eq("plano_atividades", planoAtividades);
   }
   const atividadesResult = await query;
 

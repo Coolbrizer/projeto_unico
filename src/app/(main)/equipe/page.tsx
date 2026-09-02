@@ -126,7 +126,7 @@ export default function EquipePage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
   const perfil = usePerfil();
-  const { instrucaoServicoId } = useInstrucaoServicoSelecionada();
+  const { instrucaoServicoId, planoAtividades } = useInstrucaoServicoSelecionada();
   const podeEditar = canEditarEquipe(perfil);
   const [equipes, setEquipes] = useState<Equipe[]>([]);
   const [atividades, setAtividades] = useState<Atividade[]>([]);
@@ -160,9 +160,10 @@ export default function EquipePage() {
   const load = useCallback(async () => {
     setError(null);
     setLoading(true);
-    const filtro = instrucaoServicoId
-      ? `?instrucaoServicoId=${encodeURIComponent(instrucaoServicoId)}`
-      : "";
+    const params = new URLSearchParams();
+    if (instrucaoServicoId) params.set("instrucaoServicoId", instrucaoServicoId);
+    if (planoAtividades !== null) params.set("planoAtividades", String(planoAtividades));
+    const filtro = params.size > 0 ? `?${params.toString()}` : "";
     const [resEq, resAt, resInt] = await Promise.all([
       fetch(`/api/equipe${filtro}`, { credentials: "include" }),
       fetch(`/api/atividades${filtro}`, { credentials: "include" }),
@@ -178,7 +179,7 @@ export default function EquipePage() {
     if (!resInt.ok) setError(jInt.error ?? "Não foi possível carregar integrantes.");
     else setIntegrantes(jInt.integrantes ?? []);
     setLoading(false);
-  }, [instrucaoServicoId]);
+  }, [instrucaoServicoId, planoAtividades]);
 
   useEffect(() => {
     void load();

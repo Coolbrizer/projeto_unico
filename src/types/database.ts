@@ -123,6 +123,8 @@ export type Documento = {
   /** Menor data de início e maior data de fim das atividades da mesma IS (YYYY-MM-DD). */
   periodo_inicio_atividades?: string | null;
   periodo_fim_atividades?: string | null;
+  /** Planos de atividades já vinculados a esta Instrução de Serviço. */
+  planos_atividades?: number[];
   created_at: string;
   updated_at?: string | null;
 };

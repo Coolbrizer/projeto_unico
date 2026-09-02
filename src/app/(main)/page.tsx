@@ -59,7 +59,10 @@ export default function AtividadesPage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
   const perfil = usePerfil();
-  const { instrucaoServicoId: instrucaoServicoGlobalId } = useInstrucaoServicoSelecionada();
+  const {
+    instrucaoServicoId: instrucaoServicoGlobalId,
+    planoAtividades: planoAtividadesGlobal,
+  } = useInstrucaoServicoSelecionada();
   const podeEditar = canEditarAtividadesIntegrantes(perfil);
   const [nomeUsuario, setNomeUsuario] = useState<string | null>(null);
   const [sessionNomeCarregado, setSessionNomeCarregado] = useState(false);
@@ -103,9 +106,12 @@ export default function AtividadesPage() {
   const load = useCallback(async () => {
     setError(null);
     setLoading(true);
-    const filtro = instrucaoServicoGlobalId
-      ? `?instrucaoServicoId=${encodeURIComponent(instrucaoServicoGlobalId)}`
-      : "";
+    const params = new URLSearchParams();
+    if (instrucaoServicoGlobalId) params.set("instrucaoServicoId", instrucaoServicoGlobalId);
+    if (planoAtividadesGlobal !== null) {
+      params.set("planoAtividades", String(planoAtividadesGlobal));
+    }
+    const filtro = params.size > 0 ? `?${params.toString()}` : "";
     const [resAt, resDoc] = await Promise.all([
       fetch(`/api/atividades${filtro}`, { credentials: "include" }),
       fetch("/api/documentos", { credentials: "include" }),
@@ -125,7 +131,7 @@ export default function AtividadesPage() {
       setDocumentosIs([]);
     }
     setLoading(false);
-  }, [instrucaoServicoGlobalId]);
+  }, [instrucaoServicoGlobalId, planoAtividadesGlobal]);
 
   useEffect(() => {
     void load();
@@ -232,6 +238,7 @@ export default function AtividadesPage() {
     setPlanoAtividadesNovo("2");
     setInstrucaoServicoId(defaultIsId(documentosIs));
     setShowForm(false);
+    window.dispatchEvent(new Event("atividades:changed"));
     void load();
   }
 
@@ -270,6 +277,7 @@ export default function AtividadesPage() {
     );
     setShowImportCsv(false);
     setImportArquivo(null);
+    window.dispatchEvent(new Event("atividades:changed"));
     void load();
   }
 
