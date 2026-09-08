@@ -6,6 +6,10 @@ import { useMounted } from "@/hooks/useMounted";
 import {
   COMPETENCIAS_AFASTAMENTO,
   LIMIAR_DIAS_AFASTAMENTO,
+  PERIODO_AFASTAMENTO_ROTULO,
+  diasConsideradosNoPeriodo,
+  diasMaximosNoPeriodo,
+  rotuloLimiteMes,
   totalDiasAfastamento,
 } from "@/lib/afastamentos";
 import { macroSetorIntegrante, parseSetorMicroMacro, rotuloSetorMicroMacro } from "@/lib/integrante-setor-macro";
@@ -55,8 +59,9 @@ function valoresIniciais(integrantes: Integrante[], frequencias: FrequenciaMensa
   for (const integrante of integrantes) {
     proximos[integrante.id] = {};
     for (const mes of COMPETENCIAS_AFASTAMENTO) {
+      const bruto = porPessoaEMes.get(chaveCelula(integrante.id, mes.competencia)) ?? 0;
       proximos[integrante.id][mes.competencia] = String(
-        porPessoaEMes.get(chaveCelula(integrante.id, mes.competencia)) ?? 0
+        diasConsideradosNoPeriodo(mes.competencia, bruto)
       );
     }
   }
@@ -144,8 +149,11 @@ export default function AfastamentosPage() {
     if (bruto === salvo) return;
 
     const dias = Number(bruto === "" ? 0 : bruto);
-    if (!Number.isInteger(dias) || dias < 0 || dias > 31) {
-      setError("Informe uma quantidade inteira de dias de afastamento entre 0 e 31.");
+    const max = diasMaximosNoPeriodo(competencia);
+    if (!Number.isInteger(dias) || dias < 0 || dias > max) {
+      setError(
+        `Informe uma quantidade inteira entre 0 e ${max}. Apenas o período de ${PERIODO_AFASTAMENTO_ROTULO} é considerado.`
+      );
       setSucesso(null);
       atualizarValor(integrante.id, competencia, salvo);
       return;
@@ -198,10 +206,11 @@ export default function AfastamentosPage() {
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Afastamentos</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Informe os dias de afastamento de cada integrante em setembro, outubro, novembro e
-          dezembro de 2026. Totais abaixo de {LIMIAR_DIAS_AFASTAMENTO} dias aparecem em vermelho;{" "}
-          {LIMIAR_DIAS_AFASTAMENTO} dias ou mais, em verde. Os valores são gravados ao sair de cada
-          campo.
+          Informe os dias de afastamento de cada integrante. O período considerado é de{" "}
+          <span className="font-medium text-[var(--foreground)]">{PERIODO_AFASTAMENTO_ROTULO}</span>
+          ; afastamentos fora desse intervalo não entram no total. Totais abaixo de{" "}
+          {LIMIAR_DIAS_AFASTAMENTO} dias aparecem em vermelho; {LIMIAR_DIAS_AFASTAMENTO} dias ou
+          mais, em verde. Os valores são gravados ao sair de cada campo.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--muted)]">
           <span className="inline-flex items-center gap-1.5">
@@ -218,6 +227,19 @@ export default function AfastamentosPage() {
           </span>
         </div>
       </header>
+
+      <section className="mb-6 rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-4 py-3">
+        <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+          Período considerado
+        </p>
+        <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
+          {PERIODO_AFASTAMENTO_ROTULO}
+        </p>
+        <p className="mt-1 text-xs text-[var(--muted)]">
+          Em junho, informe apenas os dias a partir do dia 12. Em dezembro, apenas até o dia 19.
+          Afastamentos fora desse intervalo não são considerados.
+        </p>
+      </section>
 
       {mounted && !configured && <ConfigWarning />}
 
@@ -281,20 +303,24 @@ export default function AfastamentosPage() {
         </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-[var(--card-border)] bg-[var(--card)]">
-          <table className="w-full min-w-[860px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[960px] border-collapse text-left text-sm">
             <thead className="border-b border-[var(--card-border)] bg-[var(--background)]/70 text-xs uppercase tracking-wide text-[var(--muted)]">
               <tr>
                 <th className="px-3 py-2.5">Nome</th>
                 <th className="px-3 py-2.5">Matrícula</th>
                 <th className="px-3 py-2.5">Setor</th>
-                {COMPETENCIAS_AFASTAMENTO.map((mes) => (
-                  <th key={mes.competencia} className="px-3 py-2.5 text-center">
-                    {mes.label}
-                    <span className="block font-normal normal-case tracking-normal text-[10px]">
-                      {mes.ano}
-                    </span>
-                  </th>
-                ))}
+                {COMPETENCIAS_AFASTAMENTO.map((mes) => {
+                  const limite = rotuloLimiteMes(mes.competencia);
+                  return (
+                    <th key={mes.competencia} className="px-3 py-2.5 text-center">
+                      {mes.label}
+                      <span className="block font-normal normal-case tracking-normal text-[10px]">
+                        {mes.ano}
+                        {limite ? ` · ${limite}` : ""}
+                      </span>
+                    </th>
+                  );
+                })}
                 <th className="px-3 py-2.5 text-center">Total</th>
               </tr>
             </thead>
@@ -318,12 +344,13 @@ export default function AfastamentosPage() {
                     </td>
                     {COMPETENCIAS_AFASTAMENTO.map((mes) => {
                       const key = chaveCelula(integrante.id, mes.competencia);
+                      const max = diasMaximosNoPeriodo(mes.competencia);
                       return (
                         <td key={mes.competencia} className="px-3 py-2 text-center">
                           <input
                             type="number"
                             min={0}
-                            max={31}
+                            max={max}
                             step={1}
                             disabled={!editavel}
                             value={valores[integrante.id]?.[mes.competencia] ?? "0"}

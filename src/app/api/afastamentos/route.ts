@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { writeAuditLog } from "@/lib/audit-log";
 import {
   COMPETENCIAS_AFASTAMENTO,
+  diasMaximosNoPeriodo,
   isCompetenciaAfastamento,
   parseDiasAfastamento,
   podeGerirAfastamentos,
@@ -70,15 +71,18 @@ export async function POST(request: Request) {
   const competencia = typeof body.competencia === "string" ? body.competencia.trim() : "";
   if (!isCompetenciaAfastamento(competencia)) {
     return NextResponse.json(
-      { error: "Informe uma competência válida (setembro a dezembro de 2026)." },
+      { error: "Informe uma competência válida do período (junho a dezembro de 2026)." },
       { status: 400 }
     );
   }
 
-  const diasAfastamento = parseDiasAfastamento(body.dias_afastamento);
+  const diasAfastamento = parseDiasAfastamento(body.dias_afastamento, competencia);
   if (diasAfastamento === null) {
+    const max = diasMaximosNoPeriodo(competencia);
     return NextResponse.json(
-      { error: "Informe uma quantidade inteira de dias de afastamento entre 0 e 31." },
+      {
+        error: `Informe uma quantidade inteira de dias de afastamento entre 0 e ${max}. Apenas o período de 12 de junho até 19 de dezembro de 2026 é considerado.`,
+      },
       { status: 400 }
     );
   }
