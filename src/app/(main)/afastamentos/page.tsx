@@ -434,25 +434,29 @@ export default function AfastamentosPage() {
         </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-[var(--card-border)] bg-[var(--card)]">
-          <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
-            <thead className="border-b border-[var(--card-border)] bg-[var(--background)]/70 text-xs uppercase tracking-wide text-[var(--muted)]">
+          <table className="w-full table-fixed border-collapse text-left text-[11px]">
+            <thead className="border-b border-[var(--card-border)] bg-[var(--background)]/70 text-[10px] uppercase text-[var(--muted)]">
               <tr>
-                <th className="px-3 py-2.5">Nome</th>
-                <th className="px-3 py-2.5">Matrícula</th>
-                <th className="px-3 py-2.5">Setor</th>
+                <th className="w-[22%] px-1.5 py-1.5 font-medium">Nome</th>
+                <th className="w-[7%] px-1 py-1.5 font-medium">Matrícula</th>
+                <th className="w-[12%] px-1 py-1.5 font-medium">Setor</th>
                 {COMPETENCIAS_AFASTAMENTO.map((mes) => {
                   const limite = rotuloLimiteMes(mes.competencia);
                   return (
-                    <th key={mes.competencia} className="px-3 py-2.5 text-center">
-                      {mes.label}
-                      <span className="block font-normal normal-case tracking-normal text-[10px]">
-                        {mes.ano}
+                    <th
+                      key={mes.competencia}
+                      title={`${mes.label} de ${mes.ano}${limite ? ` (${limite})` : ""}`}
+                      className="px-0.5 py-1.5 text-center font-medium"
+                    >
+                      {mes.curto}
+                      <span className="block font-normal normal-case text-[9px] leading-tight">
+                        {String(mes.ano).slice(-2)}
                         {limite ? ` · ${limite}` : ""}
                       </span>
                     </th>
                   );
                 })}
-                <th className="px-3 py-2.5 text-center">Total</th>
+                <th className="w-[6%] px-1 py-1.5 text-center font-medium">Total</th>
               </tr>
             </thead>
             <tbody>
@@ -462,14 +466,14 @@ export default function AfastamentosPage() {
                 const editavel = podeEditar(integrante);
                 return (
                   <tr key={integrante.id} className="border-b border-[var(--card-border)]/60">
-                    <td className="px-3 py-2 font-medium text-[var(--foreground)]">
+                    <td className="px-1.5 py-1 font-medium leading-tight text-[var(--foreground)]">
                       {integrante.nome}
                     </td>
-                    <td className="px-3 py-2 tabular-nums text-[var(--muted)]">
+                    <td className="px-1 py-1 tabular-nums text-[var(--muted)]">
                       {integrante.matricula}
                     </td>
-                    <td className="px-3 py-2">
-                      <span className="rounded-md border border-[var(--card-border)] bg-[var(--accent-muted)]/50 px-2 py-0.5 text-xs font-medium">
+                    <td className="px-1 py-1">
+                      <span className="inline-block max-w-full truncate rounded border border-[var(--card-border)] bg-[var(--accent-muted)]/50 px-1 py-px text-[10px] font-medium">
                         {rotuloSetorMicroMacro(integrante.setor)}
                       </span>
                     </td>
@@ -477,7 +481,7 @@ export default function AfastamentosPage() {
                       const key = chaveCelula(integrante.id, mes.competencia);
                       const max = diasMaximosNoPeriodo(mes.competencia);
                       return (
-                        <td key={mes.competencia} className="px-3 py-2 text-center">
+                        <td key={mes.competencia} className="px-0.5 py-1 text-center">
                           <input
                             type="number"
                             min={0}
@@ -498,16 +502,16 @@ export default function AfastamentosPage() {
                             }}
                             aria-busy={savingKey === key}
                             aria-label={`Dias de afastamento de ${integrante.nome} em ${mes.label} de ${mes.ano}`}
-                            className={`mx-auto w-16 rounded-md border border-[var(--card-border)] bg-white px-2 py-1 text-center text-sm outline-none ring-[var(--accent)]/30 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                            className={`mx-auto w-10 rounded border border-[var(--card-border)] bg-white px-0.5 py-0.5 text-center text-[11px] tabular-nums outline-none ring-[var(--accent)]/30 [appearance:textfield] focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${
                               savingKey === key ? "opacity-70" : ""
                             }`}
                           />
                         </td>
                       );
                     })}
-                    <td className="px-3 py-2 text-center">
+                    <td className="px-1 py-1 text-center">
                       <span
-                        className={`inline-flex min-w-[2.75rem] justify-center rounded-md px-2 py-1 text-sm font-semibold tabular-nums ${
+                        className={`inline-flex min-w-[1.75rem] justify-center rounded px-1 py-0.5 text-[11px] font-semibold tabular-nums ${
                           atingiuLimiar
                             ? "bg-emerald-500/20 text-emerald-800"
                             : "bg-red-500/20 text-red-800"

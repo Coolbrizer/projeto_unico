@@ -412,7 +412,7 @@ export default function IntegrantesPage() {
                       {" · "}
                       {r.nome}
                       {r.nao_remunerado && (
-                        <span className="ml-1.5 shrink-0 rounded border border-[var(--muted)]/45 bg-[var(--accent-muted)]/40 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">
+                        <span className="ml-1.5 shrink-0 rounded border border-[var(--danger)] bg-[var(--danger)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
                           Não remunerado
                         </span>
                       )}

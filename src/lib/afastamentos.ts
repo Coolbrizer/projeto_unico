@@ -1,11 +1,11 @@
 export const COMPETENCIAS_AFASTAMENTO = [
-  { competencia: "2026-06-01", label: "Junho", ano: 2026 },
-  { competencia: "2026-07-01", label: "Julho", ano: 2026 },
-  { competencia: "2026-08-01", label: "Agosto", ano: 2026 },
-  { competencia: "2026-09-01", label: "Setembro", ano: 2026 },
-  { competencia: "2026-10-01", label: "Outubro", ano: 2026 },
-  { competencia: "2026-11-01", label: "Novembro", ano: 2026 },
-  { competencia: "2026-12-01", label: "Dezembro", ano: 2026 },
+  { competencia: "2026-06-01", label: "Junho", curto: "Jun", ano: 2026 },
+  { competencia: "2026-07-01", label: "Julho", curto: "Jul", ano: 2026 },
+  { competencia: "2026-08-01", label: "Agosto", curto: "Ago", ano: 2026 },
+  { competencia: "2026-09-01", label: "Setembro", curto: "Set", ano: 2026 },
+  { competencia: "2026-10-01", label: "Outubro", curto: "Out", ano: 2026 },
+  { competencia: "2026-11-01", label: "Novembro", curto: "Nov", ano: 2026 },
+  { competencia: "2026-12-01", label: "Dezembro", curto: "Dez", ano: 2026 },
 ] as const;
 
 export type CompetenciaAfastamento = (typeof COMPETENCIAS_AFASTAMENTO)[number]["competencia"];
@@ -51,10 +51,11 @@ export function rotuloLimiteMes(competencia: string): string | null {
   const fim = partesData(PERIODO_AFASTAMENTO_FIM);
   if (!mesRef || !inicio || !fim) return null;
   if (mesRef.ano === inicio.ano && mesRef.mes === inicio.mes) {
-    return `a partir do dia ${inicio.dia}`;
+    const ultimoDia = new Date(mesRef.ano, mesRef.mes, 0).getDate();
+    return `${inicio.dia}–${ultimoDia}`;
   }
   if (mesRef.ano === fim.ano && mesRef.mes === fim.mes) {
-    return `até o dia ${fim.dia}`;
+    return `1–${fim.dia}`;
   }
   return null;
 }
