@@ -1,5 +1,7 @@
 export const COMPETENCIAS_AFASTAMENTO = [
   { competencia: "2026-06-01", label: "Junho", ano: 2026 },
+  { competencia: "2026-07-01", label: "Julho", ano: 2026 },
+  { competencia: "2026-08-01", label: "Agosto", ano: 2026 },
   { competencia: "2026-09-01", label: "Setembro", ano: 2026 },
   { competencia: "2026-10-01", label: "Outubro", ano: 2026 },
   { competencia: "2026-11-01", label: "Novembro", ano: 2026 },

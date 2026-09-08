@@ -360,9 +360,9 @@ export default function AfastamentosPage() {
           </table>
         </div>
         <p className="text-xs text-[var(--muted)]">
-          O gasto mensal da tabela considera todos os meses de 12/06 a 19/12, inclusive julho e
-          agosto. O abatimento usa o valor diário de cada integrante (cargo e classe/padrão) e os
-          dias lançados na grade abaixo.
+          O gasto mensal da tabela considera todos os meses de 12/06 a 19/12. O abatimento usa o
+          valor diário de cada integrante (cargo e classe/padrão) e os dias lançados na grade
+          abaixo.
         </p>
         {resumoFolha.semCorrespondencia > 0 && (
           <p className="text-xs text-[#6f4d14]">
@@ -434,7 +434,7 @@ export default function AfastamentosPage() {
         </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-[var(--card-border)] bg-[var(--card)]">
-          <table className="w-full min-w-[960px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
             <thead className="border-b border-[var(--card-border)] bg-[var(--background)]/70 text-xs uppercase tracking-wide text-[var(--muted)]">
               <tr>
                 <th className="px-3 py-2.5">Nome</th>
