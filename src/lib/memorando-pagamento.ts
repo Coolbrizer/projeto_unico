@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { atividadeSobrepoemMes, parseDataTexto } from "@/lib/datas-atividade";
 import { equipeLinhaEhResponsavel } from "@/lib/equipe-page-helpers";
+import { parseSetorMicroMacro } from "@/lib/integrante-setor-macro";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
 
 type JsPDFWithAutoTable = jsPDF & { lastAutoTable?: { finalY: number } };
@@ -55,19 +56,7 @@ export function diasTotaisMemorandoPagamento(
   return diasNoMesReferencia(year, month1a12);
 }
 
-/** Formato esperado do setor: `micro/macro` (ex.: ACQ/SEJUD). */
-export function parseSetorMicroMacro(setor: string | null | undefined): {
-  micro: string;
-  macro: string;
-} {
-  const s = (setor ?? "").trim();
-  if (!s) return { micro: "—", macro: "(sem setor)" };
-  const idx = s.indexOf("/");
-  if (idx < 0) return { micro: "—", macro: s };
-  const micro = s.slice(0, idx).trim() || "—";
-  const macro = s.slice(idx + 1).trim() || "—";
-  return { micro, macro };
-}
+export { parseSetorMicroMacro };
 
 /** Critérios de vinculação entre integrantes e atividades (setor, linhas de equipe, responsável). */
 export function coletarIdsIntegrantesVinculados(

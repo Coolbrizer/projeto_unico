@@ -8,7 +8,7 @@ import {
   LIMIAR_DIAS_AFASTAMENTO,
   totalDiasAfastamento,
 } from "@/lib/afastamentos";
-import { macroSetorIntegrante } from "@/lib/integrante-setor-macro";
+import { macroSetorIntegrante, parseSetorMicroMacro, rotuloSetorMicroMacro } from "@/lib/integrante-setor-macro";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import type { FrequenciaMensal, Integrante } from "@/types/database";
 
@@ -29,10 +29,14 @@ function chaveCelula(integranteId: string, competencia: string): string {
 function matchesBusca(integrante: Integrante, raw: string): boolean {
   const q = raw.trim().toLowerCase();
   if (!q) return true;
+  const { micro, macro } = parseSetorMicroMacro(integrante.setor);
   const campos = [
     integrante.nome,
     String(integrante.matricula),
     integrante.setor ?? "",
+    micro,
+    macro,
+    rotuloSetorMicroMacro(integrante.setor),
     macroSetorIntegrante(integrante.setor),
   ].map((c) => c.toLowerCase());
   return q.split(/\s+/).every((token) => campos.some((campo) => campo.includes(token)));
@@ -235,7 +239,7 @@ export default function AfastamentosPage() {
             <input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="Nome, matrícula ou setor"
+              placeholder="Nome, matrícula, setor macro ou micro"
               className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
             />
           </div>
@@ -274,7 +278,7 @@ export default function AfastamentosPage() {
               <tr>
                 <th className="px-3 py-2.5">Nome</th>
                 <th className="px-3 py-2.5">Matrícula</th>
-                <th className="px-3 py-2.5">Setor macro</th>
+                <th className="px-3 py-2.5">Setor</th>
                 {COMPETENCIAS_AFASTAMENTO.map((mes) => (
                   <th key={mes.competencia} className="px-3 py-2.5 text-center">
                     {mes.label}
@@ -301,7 +305,7 @@ export default function AfastamentosPage() {
                     </td>
                     <td className="px-3 py-2">
                       <span className="rounded-md border border-[var(--card-border)] bg-[var(--accent-muted)]/50 px-2 py-0.5 text-xs font-medium">
-                        {macroSetorIntegrante(integrante.setor)}
+                        {rotuloSetorMicroMacro(integrante.setor)}
                       </span>
                     </td>
                     {COMPETENCIAS_AFASTAMENTO.map((mes) => {
