@@ -8,7 +8,7 @@ import {
   podeGerirAfastamentos,
 } from "@/lib/afastamentos";
 import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
-import type { FrequenciaMensal, Integrante } from "@/types/database";
+import type { FrequenciaMensal, Integrante, RefPgto } from "@/types/database";
 
 const COMPETENCIAS = COMPETENCIAS_AFASTAMENTO.map((item) => item.competencia);
 
@@ -36,13 +36,22 @@ export async function GET() {
     frequenciasQuery = frequenciasQuery.eq("integrante_id", session.sub);
   }
 
-  const [integrantesRes, frequenciasRes] = await Promise.all([integrantesQuery, frequenciasQuery]);
+  const [integrantesRes, frequenciasRes, refPgtoRes] = await Promise.all([
+    integrantesQuery,
+    frequenciasQuery,
+    supabase.from("ref_pgto").select("id, cargo, classe_padrao, valor_mensal, created_at").order("cargo", {
+      ascending: true,
+    }),
+  ]);
 
   if (integrantesRes.error) {
     return NextResponse.json({ error: integrantesRes.error.message }, { status: 400 });
   }
   if (frequenciasRes.error) {
     return NextResponse.json({ error: frequenciasRes.error.message }, { status: 400 });
+  }
+  if (refPgtoRes.error) {
+    return NextResponse.json({ error: refPgtoRes.error.message }, { status: 400 });
   }
 
   return NextResponse.json({
@@ -52,6 +61,7 @@ export async function GET() {
     usuarioId: session.sub,
     integrantes: (integrantesRes.data ?? []) as Integrante[],
     frequencias: (frequenciasRes.data ?? []) as FrequenciaMensal[],
+    ref_pgto: (refPgtoRes.data ?? []) as RefPgto[],
   });
 }
 

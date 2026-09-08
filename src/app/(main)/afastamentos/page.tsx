@@ -12,9 +12,10 @@ import {
   rotuloLimiteMes,
   totalDiasAfastamento,
 } from "@/lib/afastamentos";
+import { resumoFolhaAfastamentos } from "@/lib/afastamentos-folha";
 import { macroSetorIntegrante, parseSetorMicroMacro, rotuloSetorMicroMacro } from "@/lib/integrante-setor-macro";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
-import type { FrequenciaMensal, Integrante } from "@/types/database";
+import type { FrequenciaMensal, Integrante, RefPgto } from "@/types/database";
 
 type AfastamentosResponse = {
   error?: string;
@@ -22,9 +23,14 @@ type AfastamentosResponse = {
   usuarioId?: string;
   integrantes?: Integrante[];
   frequencias?: FrequenciaMensal[];
+  ref_pgto?: RefPgto[];
 };
 
 type ValoresPorIntegrante = Record<string, Record<string, string>>;
+
+function formatMoney(n: number): string {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
+}
 
 function chaveCelula(integranteId: string, competencia: string): string {
   return `${integranteId}:${competencia}`;
@@ -74,6 +80,7 @@ export default function AfastamentosPage() {
   const [canManageAll, setCanManageAll] = useState(false);
   const [usuarioId, setUsuarioId] = useState("");
   const [integrantes, setIntegrantes] = useState<Integrante[]>([]);
+  const [refPgto, setRefPgto] = useState<RefPgto[]>([]);
   const [valores, setValores] = useState<ValoresPorIntegrante>({});
   const [salvos, setSalvos] = useState<ValoresPorIntegrante>({});
   const [busca, setBusca] = useState("");
@@ -92,6 +99,7 @@ export default function AfastamentosPage() {
     if (!res.ok) {
       setError(data.error ?? "Não foi possível carregar os afastamentos.");
       setIntegrantes([]);
+      setRefPgto([]);
       setValores({});
       setSalvos({});
       setLoading(false);
@@ -102,6 +110,7 @@ export default function AfastamentosPage() {
     setCanManageAll(data.canManageAll === true);
     setUsuarioId(data.usuarioId ?? "");
     setIntegrantes(data.integrantes ?? []);
+    setRefPgto(data.ref_pgto ?? []);
     setValores(iniciais);
     setSalvos(iniciais);
     setLoading(false);
@@ -125,6 +134,11 @@ export default function AfastamentosPage() {
         })
         .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })),
     [integrantes, busca, setorMacro]
+  );
+
+  const resumoFolha = useMemo(
+    () => resumoFolhaAfastamentos(integrantes, refPgto, valores),
+    [integrantes, refPgto, valores]
   );
 
   function podeEditar(integrante: Integrante): boolean {
@@ -239,6 +253,123 @@ export default function AfastamentosPage() {
           Em junho, informe apenas os dias a partir do dia 12. Em dezembro, apenas até o dia 19.
           Afastamentos fora desse intervalo não são considerados.
         </p>
+      </section>
+
+      <section className="mb-6 space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-xl border border-[var(--accent)]/25 bg-[var(--card)] px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+              Gasto total do período
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-[var(--foreground)]">
+              {formatMoney(resumoFolha.gastoPeriodo)}
+            </p>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Folha de {resumoFolha.pessoasNaFolha} integrante(s) de {PERIODO_AFASTAMENTO_ROTULO},
+              conforme cargo e classe/padrão.
+            </p>
+          </div>
+          <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+              Gasto mensal (mês cheio)
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-[var(--foreground)]">
+              {formatMoney(resumoFolha.gastoMensalCheio)}
+            </p>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Soma da referência de pagamento de cada integrante remunerado.
+            </p>
+          </div>
+          <div className="rounded-xl border border-emerald-500/25 bg-[var(--card)] px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+              Abatimento no pagamento
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-800">
+              {resumoFolha.abatimentoPeriodo > 0 ? "−" : ""}
+              {formatMoney(resumoFolha.abatimentoPeriodo)}
+            </p>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Redução proporcional aos dias afastados, pelo valor diário da classe/padrão.
+            </p>
+          </div>
+          <div className="rounded-xl border border-[var(--success)]/25 bg-[var(--success)]/10 px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-[var(--success)]">
+              Pagamento líquido do período
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-[var(--success)]">
+              {formatMoney(resumoFolha.liquidoPeriodo)}
+            </p>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Gasto do período menos o abatimento dos afastamentos.
+            </p>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-[var(--card-border)] bg-[var(--card)]">
+          <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+            <thead className="border-b border-[var(--card-border)] bg-[var(--background)]/70 text-xs uppercase tracking-wide text-[var(--muted)]">
+              <tr>
+                <th className="px-3 py-2.5">Mês</th>
+                <th className="px-3 py-2.5 text-right">Dias pagos</th>
+                <th className="px-3 py-2.5 text-right">Gasto</th>
+                <th className="px-3 py-2.5 text-right">Abatimento</th>
+                <th className="px-3 py-2.5 text-right">Líquido</th>
+              </tr>
+            </thead>
+            <tbody>
+              {resumoFolha.meses.map((mes) => (
+                <tr key={mes.competencia} className="border-b border-[var(--card-border)]/60 last:border-b-0">
+                  <td className="px-3 py-2">
+                    <span className="font-medium text-[var(--foreground)]">{mes.label}</span>
+                    <span className="ml-1 text-xs text-[var(--muted)]">{mes.ano}</span>
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-[var(--muted)]">
+                    {mes.diasPagos}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-[var(--foreground)]">
+                    {formatMoney(mes.gasto)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums font-medium text-emerald-800">
+                    {mes.abatimento > 0 ? `−${formatMoney(mes.abatimento)}` : formatMoney(0)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums font-semibold text-[var(--foreground)]">
+                    {formatMoney(mes.liquido)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="border-t-2 border-[var(--card-border)] bg-[var(--background)]/70 text-sm">
+              <tr>
+                <td className="px-3 py-2 font-medium">Total do período</td>
+                <td className="px-3 py-2 text-right tabular-nums text-[var(--muted)]">
+                  {resumoFolha.meses.reduce((soma, mes) => soma + mes.diasPagos, 0)}
+                </td>
+                <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                  {formatMoney(resumoFolha.gastoPeriodo)}
+                </td>
+                <td className="px-3 py-2 text-right font-semibold tabular-nums text-emerald-800">
+                  {resumoFolha.abatimentoPeriodo > 0
+                    ? `−${formatMoney(resumoFolha.abatimentoPeriodo)}`
+                    : formatMoney(0)}
+                </td>
+                <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                  {formatMoney(resumoFolha.liquidoPeriodo)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <p className="text-xs text-[var(--muted)]">
+          O gasto mensal da tabela considera todos os meses de 12/06 a 19/12, inclusive julho e
+          agosto. O abatimento usa o valor diário de cada integrante (cargo e classe/padrão) e os
+          dias lançados na grade abaixo.
+        </p>
+        {resumoFolha.semCorrespondencia > 0 && (
+          <p className="text-xs text-[#6f4d14]">
+            {resumoFolha.semCorrespondencia} integrante(s) com cargo/classe sem correspondência na
+            referência de pagamento — o valor desses registros entra como R$ 0,00.
+          </p>
+        )}
       </section>
 
       {mounted && !configured && <ConfigWarning />}
