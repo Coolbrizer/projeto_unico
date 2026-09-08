@@ -242,6 +242,14 @@ export default function AfastamentosPage() {
               placeholder="Nome, matrícula, setor macro ou micro"
               className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
             />
+            {busca.trim() !== "" && (
+              <p className="mt-1.5 text-xs text-[var(--muted)]">
+                {integrantesFiltrados.length}{" "}
+                {integrantesFiltrados.length === 1
+                  ? "registro encontrado"
+                  : "registros encontrados"}
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-xs text-[var(--muted)]">Setor macro</label>
