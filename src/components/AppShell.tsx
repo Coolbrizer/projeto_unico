@@ -28,7 +28,6 @@ const InstrucaoServicoContext = createContext<{
 });
 
 const TIPO_IS = TIPOS_DOCUMENTO[0];
-const MIN_PLANOS_POR_IS_COM_PLANO = 2;
 
 export function usePerfil(): Perfil {
   return useContext(PerfilContext);
@@ -132,9 +131,7 @@ export function AppShell({
           },
         ];
       }
-      const maiorPlano = Math.max(MIN_PLANOS_POR_IS_COM_PLANO, ...planos);
-      const planosExibidos = Array.from({ length: maiorPlano }, (_, idx) => idx + 1);
-      return planosExibidos.map((plano) => ({
+      return planos.map((plano) => ({
         value: valorFiltroInstrucao(d.id, plano),
         instrucaoServicoId: d.id,
         planoAtividades: plano,
@@ -203,10 +200,18 @@ export function AppShell({
 
   useEffect(() => {
     if (!filtroSelecionadoEhValido) {
-      setInstrucaoServicoIdState("");
-      setPlanoAtividadesState(null);
+      const mesmaIs = opcoesFiltroInstrucao.find(
+        (opcao) => opcao.instrucaoServicoId === instrucaoServicoId
+      );
+      if (mesmaIs) {
+        setInstrucaoServicoIdState(mesmaIs.instrucaoServicoId);
+        setPlanoAtividadesState(mesmaIs.planoAtividades);
+      } else {
+        setInstrucaoServicoIdState("");
+        setPlanoAtividadesState(null);
+      }
     }
-  }, [filtroSelecionadoEhValido]);
+  }, [filtroSelecionadoEhValido, instrucaoServicoId, opcoesFiltroInstrucao]);
 
   useEffect(() => {
     if (instrucaoServicoId) {
