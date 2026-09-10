@@ -6,7 +6,11 @@ import { ConfigWarning } from "@/components/ConfigWarning";
 import { useMounted } from "@/hooks/useMounted";
 import { useInstrucaoServicoSelecionada, usePerfil } from "@/components/AppShell";
 import { canEditarAtividadesIntegrantes, isAdmin } from "@/lib/auth/roles";
-import { formatarPeriodoAtividade, normalizarDataParaApi } from "@/lib/datas-atividade";
+import {
+  formatarPeriodoAtividade,
+  formatDataParaExibicao,
+  normalizarDataParaApi,
+} from "@/lib/datas-atividade";
 import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import {
@@ -54,6 +58,11 @@ function formatarPlanoAtividades(valor: number | null | undefined): string {
   return valor ? `Plano de Atividades nº ${valor}` : "Plano de Atividades não informado";
 }
 
+function dataParaCampoFormulario(value: string | null | undefined): string {
+  const texto = formatDataParaExibicao(value);
+  return texto === "—" ? "" : texto;
+}
+
 export default function AtividadesPage() {
   const searchParams = useSearchParams();
   const mounted = useMounted();
@@ -70,6 +79,7 @@ export default function AtividadesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [documentosIs, setDocumentosIs] = useState<Documento[]>([]);
@@ -205,30 +215,8 @@ export default function AtividadesPage() {
     );
   }, [rows, busca, filtroTipo]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!podeEditar) return;
-    setError(null);
-    const res = await fetch("/api/atividades", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        codigo: codigo.trim(),
-        descricao: descricao.trim() || null,
-        responsavel: responsavel.trim() || null,
-        inicio: normalizarDataParaApi(inicio) ?? null,
-        fim: normalizarDataParaApi(fim) ?? null,
-        progresso: progressoNovo,
-        instrucao_servico: instrucaoServicoId,
-        plano_atividades: Number(planoAtividadesNovo),
-      }),
-    });
-    const data = (await res.json()) as { error?: string };
-    if (!res.ok) {
-      setError(data.error ?? "Não foi possível guardar.");
-      return;
-    }
+  function limparFormulario() {
+    setEditingId(null);
     setCodigo("");
     setDescricao("");
     setResponsavel("");
@@ -236,8 +224,68 @@ export default function AtividadesPage() {
     setFim("");
     setProgressoNovo(0);
     setPlanoAtividadesNovo("2");
-    setInstrucaoServicoId(defaultIsId(documentosIs));
+    setInstrucaoServicoId(instrucaoServicoGlobalId || defaultIsId(documentosIs));
+  }
+
+  function abrirNovo() {
+    limparFormulario();
+    setShowImportCsv(false);
+    setShowForm(true);
+    setError(null);
+  }
+
+  function abrirEdicao(a: Atividade) {
+    setEditingId(a.id);
+    setCodigo(a.codigo ?? "");
+    setDescricao(a.descricao ?? "");
+    setResponsavel(a.responsavel ?? "");
+    setInicio(dataParaCampoFormulario(a.inicio));
+    setFim(dataParaCampoFormulario(a.fim));
+    setProgressoNovo(Math.min(100, Math.max(0, Number(a.progresso ?? 0) || 0)));
+    setPlanoAtividadesNovo(a.plano_atividades ? String(a.plano_atividades) : "1");
+    setInstrucaoServicoId(a.instrucao_servico ?? "");
+    setShowImportCsv(false);
+    setShowForm(true);
+    setError(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function fecharFormulario() {
     setShowForm(false);
+    limparFormulario();
+    setError(null);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!podeEditar) return;
+    setError(null);
+    const corpo: Record<string, unknown> = {
+      codigo: codigo.trim(),
+      descricao: descricao.trim() || null,
+      responsavel: responsavel.trim() || null,
+      inicio: normalizarDataParaApi(inicio) ?? null,
+      fim: normalizarDataParaApi(fim) ?? null,
+      plano_atividades: Number(planoAtividadesNovo),
+    };
+    if (!editingId) {
+      corpo.progresso = progressoNovo;
+      corpo.instrucao_servico = instrucaoServicoId;
+    }
+    const res = await fetch(editingId ? `/api/atividades/${editingId}` : "/api/atividades", {
+      method: editingId ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(corpo),
+    });
+    const data = (await res.json()) as { error?: string };
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível guardar.");
+      return;
+    }
+    const estavaEditando = Boolean(editingId);
+    fecharFormulario();
+    showAviso("sucesso", estavaEditando ? "Atividade atualizada." : "Atividade criada.");
     window.dispatchEvent(new Event("atividades:changed"));
     void load();
   }
@@ -292,6 +340,9 @@ export default function AtividadesPage() {
     }
     if (expandedId === id) {
       setExpandedId(null);
+    }
+    if (editingId === id) {
+      fecharFormulario();
     }
     void load();
   }
@@ -408,7 +459,7 @@ export default function AtividadesPage() {
                 setShowImportCsv((v) => {
                   const abrir = !v;
                   if (abrir) {
-                    setShowForm(false);
+                    fecharFormulario();
                     setImportIsId(instrucaoServicoGlobalId || defaultIsId(documentosIs));
                   }
                   return abrir;
@@ -420,16 +471,7 @@ export default function AtividadesPage() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                setShowForm((v) => {
-                  const abrir = !v;
-                  if (abrir) {
-                    setShowImportCsv(false);
-                    setInstrucaoServicoId(defaultIsId(documentosIs));
-                  }
-                  return abrir;
-                });
-              }}
+              onClick={() => (showForm ? fecharFormulario() : abrirNovo())}
               className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]"
             >
               {showForm ? "Fechar formulário" : "Adicionar"}
@@ -566,7 +608,9 @@ export default function AtividadesPage() {
           onSubmit={handleSubmit}
           className="mb-10 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-5"
         >
-          <h3 className="mb-4 text-sm font-medium text-[var(--muted)]">Nova atividade</h3>
+          <h3 className="mb-4 text-sm font-medium text-[var(--muted)]">
+            {editingId ? "Editar atividade" : "Nova atividade"}
+          </h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className="block text-xs text-[var(--muted)]">
@@ -574,9 +618,10 @@ export default function AtividadesPage() {
               </label>
               <select
                 required
+                disabled={Boolean(editingId)}
                 value={instrucaoServicoId}
                 onChange={(e) => setInstrucaoServicoId(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {documentosIs.length === 0 ? (
                   <option value="">Cadastre uma IS em Documentos</option>
@@ -589,12 +634,16 @@ export default function AtividadesPage() {
                   ))
                 )}
               </select>
-              {documentosIs.length === 0 && (
+              {editingId ? (
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  A Instrução de Serviço não pode ser alterada depois de criada a atividade.
+                </p>
+              ) : documentosIs.length === 0 ? (
                 <p className="mt-1 text-xs text-amber-800">
                   Não há Instruções de Serviço na base. Aceda a Documentos e registe pelo menos uma (ex.: IS
                   nº 01/2026).
                 </p>
-              )}
+              ) : null}
             </div>
             <div>
               <label className="block text-xs text-[var(--muted)]">Código</label>
@@ -657,38 +706,44 @@ export default function AtividadesPage() {
                 className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
-            <div className="sm:col-span-2">
-              <label className="block text-xs text-[var(--muted)]">
-                Progresso: <span className="font-medium text-[var(--accent)]">{progressoNovo}%</span>
-              </label>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={10}
-                value={progressoNovo}
-                onChange={(e) => setProgressoNovo(Number(e.target.value))}
-                className="mt-2 w-full"
-              />
-              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200/80">
-                <div
-                  className="h-full rounded-full bg-[var(--accent)]/70"
-                  style={{ width: `${progressoNovo}%` }}
+            {!editingId && (
+              <div className="sm:col-span-2">
+                <label className="block text-xs text-[var(--muted)]">
+                  Progresso: <span className="font-medium text-[var(--accent)]">{progressoNovo}%</span>
+                </label>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={10}
+                  value={progressoNovo}
+                  onChange={(e) => setProgressoNovo(Number(e.target.value))}
+                  className="mt-2 w-full"
                 />
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200/80">
+                  <div
+                    className="h-full rounded-full bg-[var(--accent)]/70"
+                    style={{ width: `${progressoNovo}%` }}
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="submit"
-              disabled={!instrucaoServicoId || documentosIs.length === 0 || !planoAtividadesNovo.trim()}
+              disabled={
+                editingId
+                  ? !planoAtividadesNovo.trim()
+                  : !instrucaoServicoId || documentosIs.length === 0 || !planoAtividadesNovo.trim()
+              }
               className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
             >
-              Guardar atividade
+              {editingId ? "Guardar alterações" : "Guardar atividade"}
             </button>
             <button
               type="button"
-              onClick={() => setShowForm(false)}
+              onClick={fecharFormulario}
               className="rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm text-[var(--muted)] hover:bg-white/5"
             >
               Cancelar
@@ -714,7 +769,11 @@ export default function AtividadesPage() {
             {filtradas.map((a) => (
               <li
                 key={a.id}
-                className="overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)]"
+                className={`overflow-hidden rounded-xl border bg-[var(--card)] ${
+                  editingId === a.id
+                    ? "border-[var(--accent)] ring-1 ring-[var(--accent)]/30"
+                    : "border-[var(--card-border)]"
+                }`}
               >
                 <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
                   <button
@@ -767,16 +826,28 @@ export default function AtividadesPage() {
                     </p>
                   </button>
                   {podeEditar && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void remove(a.id);
-                      }}
-                      className="shrink-0 self-start rounded-lg border border-red-500/40 px-2 py-1.5 text-xs text-red-700 hover:bg-red-500/10 sm:self-center disabled:opacity-50"
-                    >
-                      Excluir
-                    </button>
+                    <div className="flex shrink-0 flex-wrap gap-1.5 self-start sm:self-center">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          abrirEdicao(a);
+                        }}
+                        className="rounded-md border border-[var(--card-border)] bg-[var(--background)] px-2 py-1.5 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--accent-muted)]/80"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void remove(a.id);
+                        }}
+                        className="rounded-md border border-red-500/40 px-2 py-1.5 text-xs text-red-700 hover:bg-red-500/10 disabled:opacity-50"
+                      >
+                        Excluir
+                      </button>
+                    </div>
                   )}
                 </div>
                 {expandedId === a.id && (
