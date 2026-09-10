@@ -753,7 +753,17 @@ export default function AtividadesPage() {
       )}
 
       <section>
-        <h3 className="mb-3 text-sm font-medium text-[var(--muted)]">Lista</h3>
+        <div className="mb-3 flex items-baseline justify-between gap-3">
+          <h3 className="text-sm font-medium text-[var(--muted)]">Lista</h3>
+          {!loading && (
+            <p className="text-sm text-[var(--muted)]">
+              <span className="font-semibold tabular-nums text-[var(--accent)]">
+                {filtradas.length}
+              </span>
+              {filtradas.length === 1 ? " atividade" : " atividades"}
+            </p>
+          )}
+        </div>
         {loading ? (
           <p className="text-sm text-[var(--muted)]">Carregando…</p>
         ) : filtradas.length === 0 ? (
