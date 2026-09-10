@@ -1,8 +1,9 @@
 import type { GrupoAtividade } from "@/lib/equipe-grupos";
 import type { Integrante } from "@/types/database";
 
-/** ASCII `|`, pipe fullwidth (｜) e barra vertical (│) usados em cópias de planilhas. */
-const PREFIXO_MATRICULA_RESPONSAVEL = /^\s*(\d+)\s*[|│｜]\s*/;
+/** Matrícula no início da linha: `27601 | NOME`, `27601- NOME`, `27601 NOME`. */
+const PREFIXO_MATRICULA_RESPONSAVEL = /^\s*(\d+)\s*[|│｜\-–—:]?\s*/;
+const SEPARADORES_INICIO_NOME = /^[|│｜\-–—•·.,:;]+\s*/;
 
 function normalizeNomeComparacao(s: string): string {
   return s
@@ -13,22 +14,41 @@ function normalizeNomeComparacao(s: string): string {
     .replace(/\s+/g, " ");
 }
 
-function extrairNomeParaComparacao(raw: string): string {
-  const t = raw.trim();
+function removerPrefixosMatriculaEPontuacao(raw: string): string {
+  let t = raw.replace(/\u200b/g, "").trim();
   if (!t) return "";
 
-  const pipe = t.lastIndexOf("|");
-  if (pipe >= 0) return t.slice(pipe + 1).trim();
+  const pipe = Math.max(t.lastIndexOf("|"), t.lastIndexOf("│"), t.lastIndexOf("｜"));
+  if (pipe >= 0) t = t.slice(pipe + 1).trim();
 
-  const comEspaco = t.match(/^\d+\s+(.+)$/);
-  if (comEspaco) return comEspaco[1].trim();
-
+  let anterior = "";
+  while (t && t !== anterior) {
+    anterior = t;
+    t = t.replace(PREFIXO_MATRICULA_RESPONSAVEL, "").replace(SEPARADORES_INICIO_NOME, "").trim();
+  }
   return t;
 }
 
-/** Nome para exibição a partir de linha de equipe (ex.: `5692 | JOAQUIM …` ou `29222 JOAQUIM …`). */
+function extrairNomeParaComparacao(raw: string): string {
+  return normalizarNomeSomenteLetras(raw);
+}
+
+/**
+ * Nome só com letras (incluindo acentos) e espaços.
+ * Remove matrícula, hífen/pipe iniciais e quaisquer números ou sinais.
+ */
+export function normalizarNomeSomenteLetras(raw: string): string {
+  const base = removerPrefixosMatriculaEPontuacao(raw);
+  if (!base) return "";
+  return base
+    .replace(/[^\p{L}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Nome para exibição a partir de linha de equipe (ex.: `5692 | JOAQUIM …` ou `27601- ISAC …`). */
 export function extrairNomeExibicaoLinha(raw: string): string {
-  return extrairNomeParaComparacao(raw);
+  return normalizarNomeSomenteLetras(raw);
 }
 
 /** Compara nomes ignorando acentos; aceita prefixo de 3 tokens (ex.: mesmo nome com sobrenome divergente). */

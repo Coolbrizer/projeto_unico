@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Documento } from "@/types/database";
 import { parsePartesCodigoAtividade } from "@/lib/atividade-codigo";
+import { normalizarNomeSomenteLetras } from "@/lib/equipe-page-helpers";
 
 export type LinhaPrestacaoPdf = {
   codigo: string;
@@ -37,6 +38,20 @@ function textoEtapas(linhas: LinhaPrestacaoPdf[]): string | null {
   return `${resto} e ${ultimo} Etapas`;
 }
 
+function textoEquipePdf(equipe: string | null | undefined): string {
+  const vistos = new Set<string>();
+  const nomes: string[] = [];
+  for (const linha of String(equipe ?? "").split(/\r?\n/)) {
+    const nome = normalizarNomeSomenteLetras(linha);
+    if (!nome) continue;
+    const chave = nome.toLocaleLowerCase("pt-BR");
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+    nomes.push(nome);
+  }
+  return nomes.length > 0 ? nomes.join("\n") : "—";
+}
+
 export function gerarPdfPrestacaoContas(
   documento: Documento,
   linhas: LinhaPrestacaoPdf[],
@@ -66,7 +81,7 @@ export function gerarPdfPrestacaoContas(
   const body = linhas.map((r) => [
     r.codigo?.trim() || "—",
     r.atividade?.trim() || "—",
-    r.equipe?.trim() || "—",
+    textoEquipePdf(r.equipe),
     r.setor_responsavel?.trim() || "—",
   ]);
 

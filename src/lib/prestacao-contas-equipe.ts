@@ -2,6 +2,7 @@ import {
   extrairNomeExibicaoLinha,
   integranteCorrespondenteAResponsavel,
   integranteVinculadoAEquipeAtividade,
+  normalizarNomeSomenteLetras,
   nomesPessoaCorrespondem,
 } from "@/lib/equipe-page-helpers";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
@@ -15,7 +16,9 @@ function extrairNomeResponsavel(
   integrantes: Integrante[]
 ): string | null {
   const integ = integranteCorrespondenteAResponsavel(integrantes, atividade.responsavel);
-  if (integ?.nome?.trim()) return integ.nome.trim();
+  if (integ?.nome?.trim()) {
+    return normalizarNomeSomenteLetras(integ.nome) || null;
+  }
   const raw = atividade.responsavel?.trim();
   if (!raw) return null;
   return extrairNomeExibicaoLinha(raw) || null;
@@ -41,18 +44,20 @@ export function textoEquipeParticipantes(
     nomes.some((n) => nomesPessoaCorrespondem(n, nome));
 
   const addNome = (raw: string) => {
-    const nome = extrairNomeExibicaoLinha(raw) || raw.trim();
+    const nome = normalizarNomeSomenteLetras(raw);
     if (!nome || jaListado(nome)) return;
     nomes.push(nome);
   };
 
-  for (const r of equipeRows) {
-    addNome(r.equipe ?? "");
-  }
-
   for (const i of integrantes) {
     if (integranteVinculadoAEquipeAtividade(i, codigo, equipeRows)) {
       addNome(i.nome ?? "");
+    }
+  }
+
+  for (const r of equipeRows) {
+    for (const linha of String(r.equipe ?? "").split(/\r?\n/)) {
+      addNome(linha);
     }
   }
 
