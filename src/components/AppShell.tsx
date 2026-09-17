@@ -40,7 +40,6 @@ export function useInstrucaoServicoSelecionada() {
 const navBase = [
   { href: "/", label: "Atividades" },
   { href: "/meu-perfil", label: "Meu perfil" },
-  { href: "/informar-frequencia", label: "Informar Frequência" },
   { href: "/afastamentos", label: "Afastamentos" },
   { href: "/progresso", label: "Progresso" },
   { href: "/equipe", label: "Equipe" },
