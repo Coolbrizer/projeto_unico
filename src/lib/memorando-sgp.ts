@@ -18,7 +18,7 @@ export function listarIntegrantesMemorandoSgp(
 
   return integrantes
     .filter((i) => ids.has(i.id) && !i.nao_remunerado)
-    .sort((a, b) => a.matricula - b.matricula);
+    .sort((a, b) => (a.matricula ?? 0) - (b.matricula ?? 0));
 }
 
 export function gerarPdfMemorandoSgp(

@@ -68,9 +68,10 @@ create table public.equipe (
 );
 
 -- Integrantes: vínculo opcional 1:1 com auth.users; autenticação via Supabase Auth.
+-- vinculo=colaborador: acesso ao sistema sem ser integrante do projeto (matrícula opcional).
 create table public.integrantes (
   id uuid primary key default gen_random_uuid(),
-  matricula bigint not null,
+  matricula bigint,
   nome text not null,
   setor text,
   cargo text,
@@ -79,7 +80,9 @@ create table public.integrantes (
   nao_remunerado boolean not null default false,
   auth_user_id uuid unique references auth.users (id) on delete set null,
   perfil text not null default 'basico' check (perfil in ('basico', 'gestor', 'admin')),
-  created_at timestamptz not null default now()
+  vinculo text not null default 'integrante' check (vinculo in ('integrante', 'colaborador')),
+  created_at timestamptz not null default now(),
+  constraint integrantes_matricula_obrigatoria_check check (vinculo <> 'integrante' or matricula is not null)
 );
 
 create unique index if not exists integrantes_email_lower_uniq

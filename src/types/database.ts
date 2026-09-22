@@ -30,15 +30,19 @@ export type Equipe = {
 
 export type PerfilIntegrante = "basico" | "gestor" | "admin";
 
+/** integrante: membro do projeto. colaborador: acesso ao sistema sem integrar equipe/folha. */
+export type VinculoPessoa = "integrante" | "colaborador";
+
 export type Integrante = {
   id: string;
-  matricula: number;
+  matricula: number | null;
   nome: string;
   setor: string | null;
   cargo: string | null;
   classe_padrao: string | null;
   email: string | null;
   perfil?: PerfilIntegrante | null;
+  vinculo?: VinculoPessoa | null;
   /** Se true: não conta na folha (ref_pgto) nem no orçamento. */
   nao_remunerado?: boolean | null;
   /** Vínculo 1:1 com auth.users(id); preenchido pelo POST /api/integrantes. */

@@ -45,7 +45,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-8 shadow-xl">
         <p className="text-xs font-medium uppercase tracking-wider text-[var(--muted)]">Projeto</p>
         <h1 className="mt-1 text-xl font-semibold text-[var(--foreground)]">Modernização do Único</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">Entre com o e-mail cadastrado em Integrantes.</p>
+        <p className="mt-2 text-sm text-[var(--muted)]">Entre com o e-mail cadastrado no sistema.</p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">
           {error && (

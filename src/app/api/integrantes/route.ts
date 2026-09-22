@@ -4,6 +4,7 @@ import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
 import { parsePerfil, type Perfil } from "@/lib/auth/roles";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { writeAuditLog } from "@/lib/audit-log";
+import { VINCULO_INTEGRANTE } from "@/lib/vinculo-pessoa";
 
 const DEFAULT_PASSWORD = "123456";
 
@@ -14,7 +15,8 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("integrantes")
-    .select("id, matricula, nome, setor, cargo, classe_padrao, email, perfil, nao_remunerado, created_at")
+    .select("id, matricula, nome, setor, cargo, classe_padrao, email, perfil, nao_remunerado, vinculo, created_at")
+    .eq("vinculo", VINCULO_INTEGRANTE)
     .order("matricula", { ascending: true });
 
   if (error) {
@@ -125,6 +127,7 @@ export async function POST(request: Request) {
       classe_padrao: body.classe_padrao?.trim() || null,
       email,
       perfil: perfilNovo,
+      vinculo: VINCULO_INTEGRANTE,
       nao_remunerado: naoRemunerado,
       auth_user_id: authCreated.user.id,
     })

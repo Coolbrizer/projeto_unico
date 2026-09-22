@@ -66,7 +66,7 @@ export async function GET(request: Request) {
   const [docResult, atividadesResult, integrantesResult] = await Promise.all([
     supabase.from("documentos").select("*").eq("id", documentoId).maybeSingle(),
     atividadesQuery,
-    supabase.from("integrantes").select("id, matricula, nome, setor"),
+    supabase.from("integrantes").select("id, matricula, nome, setor").eq("vinculo", "integrante"),
   ]);
 
   if (docResult.error) {

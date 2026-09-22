@@ -11,7 +11,8 @@ export async function GET() {
     supabase.from("orcamento").select("*").order("created_at", { ascending: false }),
     supabase
       .from("integrantes")
-      .select("id, matricula, nome, setor, cargo, classe_padrao, email, nao_remunerado, created_at")
+      .select("id, matricula, nome, setor, cargo, classe_padrao, email, nao_remunerado, vinculo, created_at")
+      .eq("vinculo", "integrante")
       .order("nome", { ascending: true }),
     supabase.from("ref_pgto").select("*").order("cargo", { ascending: true }),
   ]);

@@ -5,7 +5,7 @@ function norm(s: string | null | undefined): string {
 }
 
 export function integranteContaParaFolha(i: Integrante): boolean {
-  return !i.nao_remunerado;
+  return !i.nao_remunerado && i.vinculo !== "colaborador";
 }
 
 /** Valor mensal na tabela ref_pgto para o par cargo + classe/padrão (texto comparado normalizado). */

@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { parsePerfil, type Perfil } from "@/lib/auth/roles";
 import { writeAuditLog } from "@/lib/audit-log";
+import { vinculoEhColaborador } from "@/lib/vinculo-pessoa";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -81,6 +82,12 @@ export async function PATCH(request: Request, ctx: Ctx) {
   }
   if (!before) {
     return NextResponse.json({ error: "Integrante não encontrado." }, { status: 404 });
+  }
+  if (vinculoEhColaborador((before as { vinculo?: string | null }).vinculo)) {
+    return NextResponse.json(
+      { error: "Colaboradores são geridos na tela Gestão de senhas." },
+      { status: 400 }
+    );
   }
 
   const beforeRowTyped = before as {
@@ -182,6 +189,12 @@ export async function DELETE(_request: Request, ctx: Ctx) {
   }
 
   const { data: before } = await supabase.from("integrantes").select("*").eq("id", id).maybeSingle();
+  if (vinculoEhColaborador((before as { vinculo?: string | null } | null)?.vinculo)) {
+    return NextResponse.json(
+      { error: "Colaboradores são geridos na tela Gestão de senhas." },
+      { status: 400 }
+    );
+  }
   const { error } = await supabase.from("integrantes").delete().eq("id", id);
 
   if (error) {

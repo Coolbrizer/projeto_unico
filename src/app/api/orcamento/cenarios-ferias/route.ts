@@ -85,7 +85,8 @@ export async function POST(request: Request) {
   const [resInt, resRef] = await Promise.all([
     supabase
       .from("integrantes")
-      .select("id, matricula, nome, setor, cargo, classe_padrao, nao_remunerado"),
+      .select("id, matricula, nome, setor, cargo, classe_padrao, nao_remunerado, vinculo")
+      .eq("vinculo", "integrante"),
     supabase.from("ref_pgto").select("id, cargo, classe_padrao, valor_mensal"),
   ]);
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { writeAuditLog } from "@/lib/audit-log";
 import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
 import type { FrequenciaMensal, Integrante } from "@/types/database";
+import { VINCULO_INTEGRANTE } from "@/lib/vinculo-pessoa";
 
 function competenciaAtual(): string {
   const partes = new Intl.DateTimeFormat("en-CA", {
@@ -34,6 +35,7 @@ export async function GET() {
   let integrantesQuery = supabase
     .from("integrantes")
     .select("id, matricula, nome, setor, cargo, classe_padrao, email, perfil, nao_remunerado, created_at")
+    .eq("vinculo", VINCULO_INTEGRANTE)
     .order("nome", { ascending: true });
 
   if (!canManageAll) {
@@ -101,6 +103,7 @@ export async function POST(request: Request) {
     .from("integrantes")
     .select("id")
     .eq("id", integranteId)
+    .eq("vinculo", VINCULO_INTEGRANTE)
     .maybeSingle();
 
   if (integranteError) {
