@@ -478,7 +478,7 @@ export default function EquipePage() {
             Período especial nos memorandos
           </p>
           <p className="mt-1 text-xs text-[var(--muted)]">
-            Opcional. Vale para o Memorando de Pagamento e para o Memorando para SGP. Informe o dia
+            Opcional. Vale para o Memorando para Chefias e para o Memorando para SGP. Informe o dia
             inicial e o dia final de um participante. Os demais ficam com o período completo do mês.
           </p>
           <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
@@ -544,7 +544,7 @@ export default function EquipePage() {
             disabled={!configured || loading}
             className="rounded-lg border border-[var(--warning)]/30 bg-[#f4ead5] px-4 py-2 text-sm font-semibold text-[#6f4d14] hover:bg-[#eeddbd] disabled:opacity-50"
           >
-            Memorando de Pagamento
+            Memorando para Chefias
           </button>
           <button
             type="button"
