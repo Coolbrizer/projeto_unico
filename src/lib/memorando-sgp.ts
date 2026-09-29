@@ -6,6 +6,35 @@ import {
 } from "@/lib/memorando-pagamento";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
 
+/** Matrícula de Renato Luft; entrou no projeto em setembro/2026. */
+const MATRICULA_RENATO_LUFT = 3046;
+const DIAS_RENATO_LUFT_SET_2026 = 20;
+
+function nomeEhRenatoLuft(nome: string | null | undefined): boolean {
+  const n = (nome ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  return n === "renato luft";
+}
+
+/** Dias do memorando SGP; exceção pontual para quem entrou no meio do mês. */
+export function diasTotaisMemorandoSgp(
+  integrante: Integrante,
+  year: number,
+  month: number
+): number {
+  const total = diasTotaisMemorandoPagamento(year, month);
+  const ehRenatoLuft =
+    Number(integrante.matricula) === MATRICULA_RENATO_LUFT || nomeEhRenatoLuft(integrante.nome);
+  if (year === 2026 && month === 9 && ehRenatoLuft) {
+    return Math.min(DIAS_RENATO_LUFT_SET_2026, total);
+  }
+  return total;
+}
+
 /** Integrantes vinculados a qualquer atividade da IS selecionada (dados já filtrados por IS). */
 export function listarIntegrantesMemorandoSgp(
   equipes: Equipe[],
@@ -30,7 +59,6 @@ export function gerarPdfMemorandoSgp(
   const marginX = 18;
   const mesNome = new Date(year, month - 1, 1).toLocaleDateString("pt-BR", { month: "long" });
   const mesCapitalizado = mesNome.charAt(0).toUpperCase() + mesNome.slice(1);
-  const totalDias = diasTotaisMemorandoPagamento(year, month);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
@@ -53,7 +81,7 @@ export function gerarPdfMemorandoSgp(
     const body = integrantes.map((i) => [
       String(i.matricula),
       (i.nome ?? "").trim() || "—",
-      String(totalDias),
+      String(diasTotaisMemorandoSgp(i, year, month)),
     ]);
 
     autoTable(doc, {
