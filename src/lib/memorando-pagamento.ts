@@ -56,6 +56,71 @@ export function diasTotaisMemorandoPagamento(
   return diasNoMesReferencia(year, month1a12);
 }
 
+export type PeriodoEspecialMemorando = {
+  integranteId: string;
+  diaInicio: number;
+  diaFim: number;
+};
+
+function diaNoMes(valor: number, max: number): number {
+  if (!Number.isFinite(valor)) return 1;
+  return Math.min(Math.max(Math.trunc(valor), 1), max);
+}
+
+function doisDigitos(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+export function periodoDiasMemorandoParticipante(
+  integrante: Integrante,
+  year: number,
+  month: number,
+  periodoEspecial?: PeriodoEspecialMemorando | null
+): { diaInicio: number; diaFim: number } {
+  const max = diasNoMesReferencia(year, month);
+  if (periodoEspecial && periodoEspecial.integranteId === integrante.id) {
+    const inicio = diaNoMes(periodoEspecial.diaInicio, max);
+    const fim = diaNoMes(periodoEspecial.diaFim, max);
+    return inicio <= fim ? { diaInicio: inicio, diaFim: fim } : { diaInicio: fim, diaFim: inicio };
+  }
+  return { diaInicio: 1, diaFim: max };
+}
+
+export function textoPeriodoMemorandoParticipante(
+  integrante: Integrante,
+  year: number,
+  month: number,
+  periodoEspecial?: PeriodoEspecialMemorando | null
+): string {
+  const { diaInicio, diaFim } = periodoDiasMemorandoParticipante(
+    integrante,
+    year,
+    month,
+    periodoEspecial
+  );
+  const mes = doisDigitos(month);
+  return `${doisDigitos(diaInicio)}/${mes}/${year} a ${doisDigitos(diaFim)}/${mes}/${year}`;
+}
+
+/** Mês completo, salvo período informado para um participante. */
+export function diasTotaisMemorandoParticipante(
+  integrante: Integrante,
+  year: number,
+  month: number,
+  periodoEspecial?: PeriodoEspecialMemorando | null
+): number {
+  if (periodoEspecial && periodoEspecial.integranteId === integrante.id) {
+    const { diaInicio, diaFim } = periodoDiasMemorandoParticipante(
+      integrante,
+      year,
+      month,
+      periodoEspecial
+    );
+    return diaFim - diaInicio + 1;
+  }
+  return diasTotaisMemorandoPagamento(year, month);
+}
+
 export { parseSetorMicroMacro };
 
 /** Critérios de vinculação entre integrantes e atividades (setor, linhas de equipe, responsável). */
@@ -147,7 +212,7 @@ export function gerarPdfMemorandoPagamento(
   resultado: ResultadoMemorandoPagamento,
   year: number,
   month: number,
-  periodo?: PeriodoMemorandoPagamento | null
+  periodoEspecial?: PeriodoEspecialMemorando | null
 ): void {
   const { integrantes, atividadesNoMes } = resultado;
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
@@ -156,8 +221,6 @@ export function gerarPdfMemorandoPagamento(
     month: "long",
     year: "numeric",
   });
-
-  const totalDias = diasTotaisMemorandoPagamento(year, month, periodo);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
@@ -210,7 +273,7 @@ export function gerarPdfMemorandoPagamento(
     }
 
     let startY = 36;
-    const head = [["Setor", "Matrícula", "Nome", "Total de dias"]];
+    const head = [["Setor", "Matrícula", "Nome", "Período", "Total de dias"]];
 
     for (let m = 0; m < macrosOrdenados.length; m++) {
       const macro = macrosOrdenados[m];
@@ -237,7 +300,8 @@ export function gerarPdfMemorandoPagamento(
           micro,
           String(i.matricula),
           (i.nome ?? "").trim() || "—",
-          String(totalDias),
+          textoPeriodoMemorandoParticipante(i, year, month, periodoEspecial),
+          String(diasTotaisMemorandoParticipante(i, year, month, periodoEspecial)),
         ];
       });
 
@@ -251,10 +315,11 @@ export function gerarPdfMemorandoPagamento(
         margin: { left: marginX, right: marginX },
         tableWidth: "auto",
         columnStyles: {
-          0: { cellWidth: 36 },
-          1: { cellWidth: 26 },
-          2: { cellWidth: 173 },
-          3: { cellWidth: 26 },
+          0: { cellWidth: 32 },
+          1: { cellWidth: 24 },
+          2: { cellWidth: 120 },
+          3: { cellWidth: 52 },
+          4: { cellWidth: 26, halign: "center" },
         },
       });
 

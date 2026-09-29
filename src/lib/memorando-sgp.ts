@@ -2,65 +2,18 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
   coletarIdsIntegrantesVinculados,
-  diasNoMesReferencia,
-  diasTotaisMemorandoPagamento,
+  diasTotaisMemorandoParticipante,
+  textoPeriodoMemorandoParticipante,
+  type PeriodoEspecialMemorando,
 } from "@/lib/memorando-pagamento";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
 
-export type PeriodoEspecialMemorandoSgp = {
-  integranteId: string;
-  diaInicio: number;
-  diaFim: number;
+export type PeriodoEspecialMemorandoSgp = PeriodoEspecialMemorando;
+
+export {
+  diasTotaisMemorandoParticipante as diasTotaisMemorandoSgp,
+  textoPeriodoMemorandoParticipante as textoPeriodoMemorandoSgp,
 };
-
-function diaNoMes(valor: number, max: number): number {
-  if (!Number.isFinite(valor)) return 1;
-  return Math.min(Math.max(Math.trunc(valor), 1), max);
-}
-
-function doisDigitos(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
-export function periodoDiasMemorandoSgp(
-  integrante: Integrante,
-  year: number,
-  month: number,
-  periodoEspecial?: PeriodoEspecialMemorandoSgp | null
-): { diaInicio: number; diaFim: number } {
-  const max = diasNoMesReferencia(year, month);
-  if (periodoEspecial && periodoEspecial.integranteId === integrante.id) {
-    const inicio = diaNoMes(periodoEspecial.diaInicio, max);
-    const fim = diaNoMes(periodoEspecial.diaFim, max);
-    return inicio <= fim ? { diaInicio: inicio, diaFim: fim } : { diaInicio: fim, diaFim: inicio };
-  }
-  return { diaInicio: 1, diaFim: max };
-}
-
-export function textoPeriodoMemorandoSgp(
-  integrante: Integrante,
-  year: number,
-  month: number,
-  periodoEspecial?: PeriodoEspecialMemorandoSgp | null
-): string {
-  const { diaInicio, diaFim } = periodoDiasMemorandoSgp(integrante, year, month, periodoEspecial);
-  const mes = doisDigitos(month);
-  return `${doisDigitos(diaInicio)}/${mes}/${year} a ${doisDigitos(diaFim)}/${mes}/${year}`;
-}
-
-/** Dias do memorando SGP: mês completo, salvo período informado para um participante. */
-export function diasTotaisMemorandoSgp(
-  integrante: Integrante,
-  year: number,
-  month: number,
-  periodoEspecial?: PeriodoEspecialMemorandoSgp | null
-): number {
-  if (periodoEspecial && periodoEspecial.integranteId === integrante.id) {
-    const { diaInicio, diaFim } = periodoDiasMemorandoSgp(integrante, year, month, periodoEspecial);
-    return diaFim - diaInicio + 1;
-  }
-  return diasTotaisMemorandoPagamento(year, month);
-}
 
 /** Integrantes vinculados a qualquer atividade da IS selecionada (dados já filtrados por IS). */
 export function listarIntegrantesMemorandoSgp(
@@ -109,8 +62,8 @@ export function gerarPdfMemorandoSgp(
     const body = integrantes.map((i) => [
       String(i.matricula),
       (i.nome ?? "").trim() || "—",
-      textoPeriodoMemorandoSgp(i, year, month, periodoEspecial),
-      String(diasTotaisMemorandoSgp(i, year, month, periodoEspecial)),
+      textoPeriodoMemorandoParticipante(i, year, month, periodoEspecial),
+      String(diasTotaisMemorandoParticipante(i, year, month, periodoEspecial)),
     ]);
 
     autoTable(doc, {

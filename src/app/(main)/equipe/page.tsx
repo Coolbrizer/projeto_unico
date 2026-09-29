@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { useInstrucaoServicoSelecionada, usePerfil } from "@/components/AppShell";
 import { canEditarEquipe } from "@/lib/auth/roles";
-import { formatarPeriodoAtividade, normalizarDataParaApi } from "@/lib/datas-atividade";
+import { formatarPeriodoAtividade } from "@/lib/datas-atividade";
 import { parsePartesCodigoAtividade, tiposAtividadeDistintos } from "@/lib/atividade-codigo";
 import {
   equipeLinhaEhResponsavel,
@@ -243,21 +243,6 @@ export default function EquipePage() {
     [equipes, atividades, integrantes]
   );
 
-  const periodoInstrucaoSelecionada = useMemo(() => {
-    if (!instrucaoServicoId) return null;
-    let inicio: string | null = null;
-    let fim: string | null = null;
-
-    for (const atividade of atividades) {
-      const ini = normalizarDataParaApi(atividade.inicio);
-      const end = normalizarDataParaApi(atividade.fim);
-      if (ini && (!inicio || ini < inicio)) inicio = ini;
-      if (end && (!fim || end > fim)) fim = end;
-    }
-
-    return inicio && fim ? { inicio, fim } : null;
-  }, [atividades, instrucaoServicoId]);
-
   const tiposDisponiveis = useMemo(
     () =>
       tiposAtividadeDistintos([
@@ -354,6 +339,39 @@ export default function EquipePage() {
     void load();
   }
 
+  function lerPeriodoEspecial(
+    year: number,
+    month: number
+  ): PeriodoEspecialMemorandoSgp | null | undefined {
+    const informouAlgumPeriodo = Boolean(
+      sgpParticipanteId || sgpDiaInicio.trim() || sgpDiaFim.trim()
+    );
+    if (!informouAlgumPeriodo) return null;
+    if (!sgpParticipanteId) {
+      window.alert("Selecione o participante do período especial.");
+      return undefined;
+    }
+    const max = diasNoMesReferencia(year, month);
+    const diaInicio = Number(sgpDiaInicio);
+    const diaFim = Number(sgpDiaFim);
+    if (
+      !Number.isInteger(diaInicio) ||
+      !Number.isInteger(diaFim) ||
+      diaInicio < 1 ||
+      diaFim < 1 ||
+      diaInicio > max ||
+      diaFim > max
+    ) {
+      window.alert(`Informe o dia inicial e o dia final entre 1 e ${max}.`);
+      return undefined;
+    }
+    if (diaInicio > diaFim) {
+      window.alert("O dia inicial não pode ser posterior ao dia final.");
+      return undefined;
+    }
+    return { integranteId: sgpParticipanteId, diaInicio, diaFim };
+  }
+
   function handleMemorandoPagamento() {
     if (!mesExtracao || !anoExtracao) {
       window.alert("Selecione o mês e o ano para extração do relatório");
@@ -365,6 +383,8 @@ export default function EquipePage() {
       window.alert("Selecione o mês e o ano para extração do relatório");
       return;
     }
+    const periodoEspecial = lerPeriodoEspecial(year, month);
+    if (periodoEspecial === undefined) return;
     const resultado = listarIntegrantesMemorandoPagamento(
       equipes,
       atividades,
@@ -372,7 +392,7 @@ export default function EquipePage() {
       year,
       month
     );
-    gerarPdfMemorandoPagamento(resultado, year, month, periodoInstrucaoSelecionada);
+    gerarPdfMemorandoPagamento(resultado, year, month, periodoEspecial);
   }
 
   function handleMemorandoSgp() {
@@ -387,35 +407,8 @@ export default function EquipePage() {
       return;
     }
 
-    const informouAlgumPeriodo = Boolean(
-      sgpParticipanteId || sgpDiaInicio.trim() || sgpDiaFim.trim()
-    );
-    let periodoEspecial: PeriodoEspecialMemorandoSgp | null = null;
-    if (informouAlgumPeriodo) {
-      if (!sgpParticipanteId) {
-        window.alert("Selecione o participante do período especial.");
-        return;
-      }
-      const max = diasNoMesReferencia(year, month);
-      const diaInicio = Number(sgpDiaInicio);
-      const diaFim = Number(sgpDiaFim);
-      if (
-        !Number.isInteger(diaInicio) ||
-        !Number.isInteger(diaFim) ||
-        diaInicio < 1 ||
-        diaFim < 1 ||
-        diaInicio > max ||
-        diaFim > max
-      ) {
-        window.alert(`Informe o dia inicial e o dia final entre 1 e ${max}.`);
-        return;
-      }
-      if (diaInicio > diaFim) {
-        window.alert("O dia inicial não pode ser posterior ao dia final.");
-        return;
-      }
-      periodoEspecial = { integranteId: sgpParticipanteId, diaInicio, diaFim };
-    }
+    const periodoEspecial = lerPeriodoEspecial(year, month);
+    if (periodoEspecial === undefined) return;
 
     const lista = listarIntegrantesMemorandoSgp(equipes, atividades, integrantes);
     gerarPdfMemorandoSgp(lista, year, month, periodoEspecial);
@@ -482,11 +475,11 @@ export default function EquipePage() {
 
         <div className="rounded-lg border border-[var(--card-border)] bg-[var(--background)]/60 px-3 py-3">
           <p className="text-sm font-medium text-[var(--foreground)]">
-            Período especial no Memorando para SGP
+            Período especial nos memorandos
           </p>
           <p className="mt-1 text-xs text-[var(--muted)]">
-            Opcional. Informe o dia inicial e o dia final de um participante. Os demais ficam com o
-            período completo do mês.
+            Opcional. Vale para o Memorando de Pagamento e para o Memorando para SGP. Informe o dia
+            inicial e o dia final de um participante. Os demais ficam com o período completo do mês.
           </p>
           <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
             <div className="min-w-0 flex-1 sm:min-w-[220px]">
