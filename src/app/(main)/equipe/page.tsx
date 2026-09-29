@@ -13,6 +13,8 @@ import {
 } from "@/lib/equipe-page-helpers";
 import { grupoAtividadeMatchesBusca, montarGrupos, type GrupoAtividade } from "@/lib/equipe-grupos";
 import {
+  diasNoMesReferencia,
+  diasTotaisMemorandoPagamento,
   gerarPdfMemorandoPagamento,
   listarIntegrantesMemorandoPagamento,
 } from "@/lib/memorando-pagamento";
@@ -21,7 +23,6 @@ import {
   listarIntegrantesMemorandoSgp,
   type PeriodoEspecialMemorandoSgp,
 } from "@/lib/memorando-sgp";
-import { diasNoMesReferencia, diasTotaisMemorandoPagamento } from "@/lib/memorando-pagamento";
 import { verificarDadosIS } from "@/lib/verificacao-dados-is";
 import { useMounted } from "@/hooks/useMounted";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
@@ -140,6 +141,9 @@ export default function EquipePage() {
   const [filtroTipo, setFiltroTipo] = useState("");
   const [mesExtracao, setMesExtracao] = useState("");
   const [anoExtracao, setAnoExtracao] = useState("");
+  const [sgpParticipanteId, setSgpParticipanteId] = useState("");
+  const [sgpDiaInicio, setSgpDiaInicio] = useState("");
+  const [sgpDiaFim, setSgpDiaFim] = useState("");
   const [mostrarVerificacao, setMostrarVerificacao] = useState(false);
 
   const anosExtracao = useMemo(() => {
@@ -149,6 +153,23 @@ export default function EquipePage() {
     for (let y = 2026; y <= end; y++) out.push(y);
     return out;
   }, []);
+
+  const integrantesOpcoesSgp = useMemo(
+    () =>
+      [...integrantes].sort((a, b) =>
+        (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR", { sensitivity: "base" })
+      ),
+    [integrantes]
+  );
+
+  const mesAnoSgp = useMemo(() => {
+    const month = Number(mesExtracao);
+    const year = Number(anoExtracao);
+    if (!year || !month || month < 1 || month > 12) return null;
+    return { year, month };
+  }, [anoExtracao, mesExtracao]);
+
+  const maxDiaSgp = mesAnoSgp ? diasNoMesReferencia(mesAnoSgp.year, mesAnoSgp.month) : 31;
 
   const [codigo, setCodigo] = useState("");
   const [equipe, setEquipe] = useState("");
@@ -340,8 +361,39 @@ export default function EquipePage() {
       window.alert("Selecione o mês e o ano para extração do relatório");
       return;
     }
+
+    const informouAlgumPeriodo = Boolean(
+      sgpParticipanteId || sgpDiaInicio.trim() || sgpDiaFim.trim()
+    );
+    let periodoEspecial: PeriodoEspecialMemorandoSgp | null = null;
+    if (informouAlgumPeriodo) {
+      if (!sgpParticipanteId) {
+        window.alert("Selecione o participante do período especial.");
+        return;
+      }
+      const max = diasNoMesReferencia(year, month);
+      const diaInicio = Number(sgpDiaInicio);
+      const diaFim = Number(sgpDiaFim);
+      if (
+        !Number.isInteger(diaInicio) ||
+        !Number.isInteger(diaFim) ||
+        diaInicio < 1 ||
+        diaFim < 1 ||
+        diaInicio > max ||
+        diaFim > max
+      ) {
+        window.alert(`Informe o dia inicial e o dia final entre 1 e ${max}.`);
+        return;
+      }
+      if (diaInicio > diaFim) {
+        window.alert("O dia inicial não pode ser posterior ao dia final.");
+        return;
+      }
+      periodoEspecial = { integranteId: sgpParticipanteId, diaInicio, diaFim };
+    }
+
     const lista = listarIntegrantesMemorandoSgp(equipes, atividades, integrantes);
-    gerarPdfMemorandoSgp(lista, year, month);
+    gerarPdfMemorandoSgp(lista, year, month, periodoEspecial);
   }
 
   return (
@@ -365,7 +417,7 @@ export default function EquipePage() {
         </p>
       )}
 
-      <div className="mb-6 flex flex-col gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--card)]/80 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-end">
+      <div className="mb-6 flex flex-col gap-4 rounded-xl border border-[var(--card-border)] bg-[var(--card)]/80 px-4 py-4">
         <div className="flex flex-wrap items-end gap-3">
           <div>
             <label className="block text-xs font-medium text-[var(--muted)]">
@@ -402,27 +454,106 @@ export default function EquipePage() {
             </select>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={handleMemorandoPagamento}
-          disabled={!configured || loading}
-          className="rounded-lg border border-[var(--warning)]/30 bg-[#f4ead5] px-4 py-2 text-sm font-semibold text-[#6f4d14] hover:bg-[#eeddbd] disabled:opacity-50"
-        >
-          Memorando de Pagamento
-        </button>
-        <button
-          type="button"
-          onClick={handleMemorandoSgp}
-          disabled={!configured || loading}
-          className="rounded-lg border border-[var(--accent)]/35 bg-[var(--accent-muted)] px-4 py-2 text-sm font-semibold text-[var(--accent)] hover:brightness-95 disabled:opacity-50"
-        >
-          Memorando para SGP
-        </button>
-        <p className="text-xs text-[var(--muted)] sm:max-w-md">
-          Lista em PDF com cada nome uma vez: integrantes vinculados às atividades com período que cruza o
-          mês (setor alinhado ao código ou às linhas de equipe, nome alinhado a cada linha em Equipes/funções,
-          ou ao responsável cadastrado na atividade).
-        </p>
+
+        <div className="rounded-lg border border-[var(--card-border)] bg-[var(--background)]/60 px-3 py-3">
+          <p className="text-sm font-medium text-[var(--foreground)]">
+            Período especial no Memorando para SGP
+          </p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Opcional. Informe o dia inicial e o dia final de um participante. Os demais ficam com o
+            período completo do mês.
+          </p>
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="min-w-0 flex-1 sm:min-w-[220px]">
+              <label className="block text-xs font-medium text-[var(--muted)]" htmlFor="sgp-participante">
+                Participante
+              </label>
+              <select
+                id="sgp-participante"
+                value={sgpParticipanteId}
+                onChange={(e) => setSgpParticipanteId(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+              >
+                <option value="">Nenhum (mês completo para todos)</option>
+                {integrantesOpcoesSgp.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {(i.nome ?? "").trim() || "Sem nome"}
+                    {i.matricula != null ? ` · mat. ${i.matricula}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--muted)]" htmlFor="sgp-dia-inicio">
+                Dia inicial
+              </label>
+              <input
+                id="sgp-dia-inicio"
+                type="number"
+                min={1}
+                max={maxDiaSgp}
+                value={sgpDiaInicio}
+                onChange={(e) => setSgpDiaInicio(e.target.value)}
+                placeholder="1"
+                className="mt-1 w-28 rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--muted)]" htmlFor="sgp-dia-fim">
+                Dia final
+              </label>
+              <input
+                id="sgp-dia-fim"
+                type="number"
+                min={1}
+                max={maxDiaSgp}
+                value={sgpDiaFim}
+                onChange={(e) => setSgpDiaFim(e.target.value)}
+                placeholder={String(maxDiaSgp)}
+                className="mt-1 w-28 rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+              />
+            </div>
+          </div>
+          {mesAnoSgp && sgpParticipanteId && sgpDiaInicio && sgpDiaFim && (
+            <p className="mt-2 text-xs text-[var(--muted)]">
+              {(() => {
+                const participante = integrantes.find((i) => i.id === sgpParticipanteId);
+                const ini = Number(sgpDiaInicio);
+                const fim = Number(sgpDiaFim);
+                if (!participante || !Number.isInteger(ini) || !Number.isInteger(fim) || ini > fim) {
+                  return null;
+                }
+                const dias = fim - ini + 1;
+                const diasMes = diasTotaisMemorandoPagamento(mesAnoSgp.year, mesAnoSgp.month);
+                return `${participante.nome}: ${dias} dia(s). Demais participantes: ${diasMes} dia(s).`;
+              })()}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-end gap-3">
+          <button
+            type="button"
+            onClick={handleMemorandoPagamento}
+            disabled={!configured || loading}
+            className="rounded-lg border border-[var(--warning)]/30 bg-[#f4ead5] px-4 py-2 text-sm font-semibold text-[#6f4d14] hover:bg-[#eeddbd] disabled:opacity-50"
+          >
+            Memorando de Pagamento
+          </button>
+          <button
+            type="button"
+            onClick={handleMemorandoSgp}
+            disabled={!configured || loading}
+            className="rounded-lg border border-[var(--accent)]/35 bg-[var(--accent-muted)] px-4 py-2 text-sm font-semibold text-[var(--accent)] hover:brightness-95 disabled:opacity-50"
+          >
+            Memorando para SGP
+          </button>
+          <p className="text-xs text-[var(--muted)] sm:max-w-md">
+            Lista em PDF com cada nome uma vez: integrantes vinculados às atividades com período que cruza o
+            mês (setor alinhado ao código ou às linhas de equipe, nome alinhado a cada linha em Equipes/funções,
+            ou ao responsável cadastrado na atividade).
+          </p>
+        </div>
       </div>
 
       <div className="mb-6 rounded-xl border border-[var(--card-border)] bg-[var(--card)]/80 px-4 py-4">
