@@ -19,7 +19,9 @@ import {
 import {
   gerarPdfMemorandoSgp,
   listarIntegrantesMemorandoSgp,
+  type PeriodoEspecialMemorandoSgp,
 } from "@/lib/memorando-sgp";
+import { diasNoMesReferencia, diasTotaisMemorandoPagamento } from "@/lib/memorando-pagamento";
 import { verificarDadosIS } from "@/lib/verificacao-dados-is";
 import { useMounted } from "@/hooks/useMounted";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";

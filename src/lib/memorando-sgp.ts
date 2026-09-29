@@ -2,37 +2,38 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
   coletarIdsIntegrantesVinculados,
+  diasNoMesReferencia,
   diasTotaisMemorandoPagamento,
 } from "@/lib/memorando-pagamento";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
 
-/** Matrícula de Renato Luft; entrou no projeto em setembro/2026. */
-const MATRICULA_RENATO_LUFT = 3046;
-const DIAS_RENATO_LUFT_SET_2026 = 20;
+export type PeriodoEspecialMemorandoSgp = {
+  integranteId: string;
+  diaInicio: number;
+  diaFim: number;
+};
 
-function nomeEhRenatoLuft(nome: string | null | undefined): boolean {
-  const n = (nome ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
-  return n === "renato luft";
+function diaNoMes(valor: number, max: number): number {
+  if (!Number.isFinite(valor)) return 1;
+  return Math.min(Math.max(Math.trunc(valor), 1), max);
 }
 
-/** Dias do memorando SGP; exceção pontual para quem entrou no meio do mês. */
+/** Dias do memorando SGP: mês completo, salvo período informado para um participante. */
 export function diasTotaisMemorandoSgp(
   integrante: Integrante,
   year: number,
-  month: number
+  month: number,
+  periodoEspecial?: PeriodoEspecialMemorandoSgp | null
 ): number {
-  const total = diasTotaisMemorandoPagamento(year, month);
-  const ehRenatoLuft =
-    Number(integrante.matricula) === MATRICULA_RENATO_LUFT || nomeEhRenatoLuft(integrante.nome);
-  if (year === 2026 && month === 9 && ehRenatoLuft) {
-    return Math.min(DIAS_RENATO_LUFT_SET_2026, total);
+  const totalMes = diasTotaisMemorandoPagamento(year, month);
+  if (!periodoEspecial || periodoEspecial.integranteId !== integrante.id) {
+    return totalMes;
   }
-  return total;
+  const max = diasNoMesReferencia(year, month);
+  const inicio = diaNoMes(periodoEspecial.diaInicio, max);
+  const fim = diaNoMes(periodoEspecial.diaFim, max);
+  if (inicio > fim) return 0;
+  return fim - inicio + 1;
 }
 
 /** Integrantes vinculados a qualquer atividade da IS selecionada (dados já filtrados por IS). */
@@ -53,7 +54,8 @@ export function listarIntegrantesMemorandoSgp(
 export function gerarPdfMemorandoSgp(
   integrantes: Integrante[],
   year: number,
-  month: number
+  month: number,
+  periodoEspecial?: PeriodoEspecialMemorandoSgp | null
 ): void {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const marginX = 18;
@@ -81,7 +83,7 @@ export function gerarPdfMemorandoSgp(
     const body = integrantes.map((i) => [
       String(i.matricula),
       (i.nome ?? "").trim() || "—",
-      String(diasTotaisMemorandoSgp(i, year, month)),
+      String(diasTotaisMemorandoSgp(i, year, month, periodoEspecial)),
     ]);
 
     autoTable(doc, {
