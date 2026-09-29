@@ -18,6 +18,36 @@ function diaNoMes(valor: number, max: number): number {
   return Math.min(Math.max(Math.trunc(valor), 1), max);
 }
 
+function doisDigitos(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+export function periodoDiasMemorandoSgp(
+  integrante: Integrante,
+  year: number,
+  month: number,
+  periodoEspecial?: PeriodoEspecialMemorandoSgp | null
+): { diaInicio: number; diaFim: number } {
+  const max = diasNoMesReferencia(year, month);
+  if (periodoEspecial && periodoEspecial.integranteId === integrante.id) {
+    const inicio = diaNoMes(periodoEspecial.diaInicio, max);
+    const fim = diaNoMes(periodoEspecial.diaFim, max);
+    return inicio <= fim ? { diaInicio: inicio, diaFim: fim } : { diaInicio: fim, diaFim: inicio };
+  }
+  return { diaInicio: 1, diaFim: max };
+}
+
+export function textoPeriodoMemorandoSgp(
+  integrante: Integrante,
+  year: number,
+  month: number,
+  periodoEspecial?: PeriodoEspecialMemorandoSgp | null
+): string {
+  const { diaInicio, diaFim } = periodoDiasMemorandoSgp(integrante, year, month, periodoEspecial);
+  const mes = doisDigitos(month);
+  return `${doisDigitos(diaInicio)}/${mes}/${year} a ${doisDigitos(diaFim)}/${mes}/${year}`;
+}
+
 /** Dias do memorando SGP: mês completo, salvo período informado para um participante. */
 export function diasTotaisMemorandoSgp(
   integrante: Integrante,
@@ -25,15 +55,11 @@ export function diasTotaisMemorandoSgp(
   month: number,
   periodoEspecial?: PeriodoEspecialMemorandoSgp | null
 ): number {
-  const totalMes = diasTotaisMemorandoPagamento(year, month);
-  if (!periodoEspecial || periodoEspecial.integranteId !== integrante.id) {
-    return totalMes;
+  if (periodoEspecial && periodoEspecial.integranteId === integrante.id) {
+    const { diaInicio, diaFim } = periodoDiasMemorandoSgp(integrante, year, month, periodoEspecial);
+    return diaFim - diaInicio + 1;
   }
-  const max = diasNoMesReferencia(year, month);
-  const inicio = diaNoMes(periodoEspecial.diaInicio, max);
-  const fim = diaNoMes(periodoEspecial.diaFim, max);
-  if (inicio > fim) return 0;
-  return fim - inicio + 1;
+  return diasTotaisMemorandoPagamento(year, month);
 }
 
 /** Integrantes vinculados a qualquer atividade da IS selecionada (dados já filtrados por IS). */
@@ -83,21 +109,23 @@ export function gerarPdfMemorandoSgp(
     const body = integrantes.map((i) => [
       String(i.matricula),
       (i.nome ?? "").trim() || "—",
+      textoPeriodoMemorandoSgp(i, year, month, periodoEspecial),
       String(diasTotaisMemorandoSgp(i, year, month, periodoEspecial)),
     ]);
 
     autoTable(doc, {
       startY: 44,
-      head: [["Matrícula", "Nome", "Total de dias"]],
+      head: [["Matrícula", "Nome", "Período", "Total de dias"]],
       body,
       styles: { fontSize: 9, cellPadding: 2, overflow: "linebreak" },
       headStyles: { fillColor: [55, 75, 95], textColor: 255, fontStyle: "bold" },
       alternateRowStyles: { fillColor: [248, 250, 252] },
       margin: { left: marginX, right: marginX },
       columnStyles: {
-        0: { cellWidth: 28 },
+        0: { cellWidth: 24 },
         1: { cellWidth: "auto" },
-        2: { cellWidth: 32, halign: "center" },
+        2: { cellWidth: 52 },
+        3: { cellWidth: 28, halign: "center" },
       },
     });
   }
