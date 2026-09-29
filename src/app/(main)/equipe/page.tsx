@@ -19,6 +19,7 @@ import {
   listarIntegrantesMemorandoPagamento,
 } from "@/lib/memorando-pagamento";
 import {
+  diasTotaisMemorandoSgp,
   gerarPdfMemorandoSgp,
   listarIntegrantesMemorandoSgp,
   type PeriodoEspecialMemorandoSgp,
@@ -170,6 +171,30 @@ export default function EquipePage() {
   }, [anoExtracao, mesExtracao]);
 
   const maxDiaSgp = mesAnoSgp ? diasNoMesReferencia(mesAnoSgp.year, mesAnoSgp.month) : 31;
+
+  const resumoPeriodoSgp = useMemo(() => {
+    if (!mesAnoSgp || !sgpParticipanteId) return null;
+    const participante = integrantes.find((i) => i.id === sgpParticipanteId);
+    const diaInicio = Number(sgpDiaInicio);
+    const diaFim = Number(sgpDiaFim);
+    if (
+      !participante ||
+      !Number.isInteger(diaInicio) ||
+      !Number.isInteger(diaFim) ||
+      diaInicio < 1 ||
+      diaFim < 1 ||
+      diaInicio > diaFim
+    ) {
+      return null;
+    }
+    const dias = diasTotaisMemorandoSgp(participante, mesAnoSgp.year, mesAnoSgp.month, {
+      integranteId: participante.id,
+      diaInicio,
+      diaFim,
+    });
+    const diasMes = diasTotaisMemorandoPagamento(mesAnoSgp.year, mesAnoSgp.month);
+    return `${participante.nome}: ${dias} dia(s). Demais participantes: ${diasMes} dia(s).`;
+  }, [integrantes, mesAnoSgp, sgpDiaFim, sgpDiaInicio, sgpParticipanteId]);
 
   const [codigo, setCodigo] = useState("");
   const [equipe, setEquipe] = useState("");
@@ -514,20 +539,8 @@ export default function EquipePage() {
               />
             </div>
           </div>
-          {mesAnoSgp && sgpParticipanteId && sgpDiaInicio && sgpDiaFim && (
-            <p className="mt-2 text-xs text-[var(--muted)]">
-              {(() => {
-                const participante = integrantes.find((i) => i.id === sgpParticipanteId);
-                const ini = Number(sgpDiaInicio);
-                const fim = Number(sgpDiaFim);
-                if (!participante || !Number.isInteger(ini) || !Number.isInteger(fim) || ini > fim) {
-                  return null;
-                }
-                const dias = fim - ini + 1;
-                const diasMes = diasTotaisMemorandoPagamento(mesAnoSgp.year, mesAnoSgp.month);
-                return `${participante.nome}: ${dias} dia(s). Demais participantes: ${diasMes} dia(s).`;
-              })()}
-            </p>
+          {resumoPeriodoSgp && (
+            <p className="mt-2 text-xs text-[var(--muted)]">{resumoPeriodoSgp}</p>
           )}
         </div>
 
