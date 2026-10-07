@@ -12,6 +12,11 @@ import {
   normalizarDataParaApi,
 } from "@/lib/datas-atividade";
 import { camposCorrespondemBusca } from "@/lib/busca-texto";
+import {
+  montarLinhasPlanilhaAtividades,
+  nomeArquivoPlanilhaAtividades,
+} from "@/lib/planilha-atividades";
+import { baixarPlanilhaXlsx } from "@/lib/planilha-xlsx";
 import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import {
@@ -23,7 +28,7 @@ import { ETAPAS_CODIGO_ATIVIDADE } from "@/lib/atividades-csv-import";
 import { TIPOS_DOCUMENTO } from "@/lib/documentos-constants";
 import { ordenarDocumentosPorReferencia } from "@/lib/documentos-sort";
 import { rotuloDocumentoNumeroAno } from "@/lib/documento-referencia";
-import type { Atividade, Documento } from "@/types/database";
+import type { Atividade, Documento, Equipe, Integrante } from "@/types/database";
 
 const TIPO_IS = TIPOS_DOCUMENTO[0];
 
@@ -99,6 +104,7 @@ export default function AtividadesPage() {
   const [importPlanoAtividades, setImportPlanoAtividades] = useState("2");
   const [importArquivo, setImportArquivo] = useState<File | null>(null);
   const [importando, setImportando] = useState(false);
+  const [exportando, setExportando] = useState(false);
 
   const showAviso = useCallback((tipo: "sucesso" | "erro", texto: string) => {
     setAviso({ tipo, texto });
@@ -208,6 +214,47 @@ export default function AtividadesPage() {
       compararCodigoAtividade(a.codigo ?? "", b.codigo ?? "")
     );
   }, [rows, busca, filtroTipo]);
+
+  async function extrairPlanilha() {
+    if (exportando || loading || rows.length === 0) return;
+    setExportando(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      if (instrucaoServicoGlobalId) params.set("instrucaoServicoId", instrucaoServicoGlobalId);
+      if (planoAtividadesGlobal !== null) {
+        params.set("planoAtividades", String(planoAtividadesGlobal));
+      }
+      const filtro = params.size > 0 ? `?${params.toString()}` : "";
+      const [resEq, resInt] = await Promise.all([
+        fetch(`/api/equipe${filtro}`, { credentials: "include" }),
+        fetch("/api/integrantes", { credentials: "include" }),
+      ]);
+      const jEq = (await resEq.json()) as { error?: string; equipe?: Equipe[] };
+      const jInt = (await resInt.json()) as { error?: string; integrantes?: Integrante[] };
+      if (!resEq.ok) {
+        setError(jEq.error ?? "Não foi possível carregar a equipe para a planilha.");
+        return;
+      }
+      if (!resInt.ok) {
+        setError(jInt.error ?? "Não foi possível carregar os integrantes para a planilha.");
+        return;
+      }
+
+      const doc = docPorId.get(instrucaoServicoGlobalId);
+      const rotulo = doc ? rotuloInstrucaoServico(doc) : "instrucao-de-servico";
+      const linhas = montarLinhasPlanilhaAtividades(
+        rows,
+        jInt.integrantes ?? [],
+        jEq.equipe ?? []
+      );
+      baixarPlanilhaXlsx(linhas, nomeArquivoPlanilhaAtividades(rotulo, planoAtividadesGlobal));
+    } catch {
+      setError("Não foi possível extrair a planilha.");
+    } finally {
+      setExportando(false);
+    }
+  }
 
   function limparFormulario() {
     setEditingId(null);
@@ -445,6 +492,15 @@ export default function AtividadesPage() {
             ))}
           </select>
         </div>
+        <button
+          type="button"
+          onClick={() => void extrairPlanilha()}
+          disabled={loading || exportando || rows.length === 0}
+          title="Exporta as atividades da Instrução de Serviço e do Plano de Atividades selecionados no topo"
+          className="rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-4 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--accent-muted)] disabled:opacity-50"
+        >
+          {exportando ? "Extraindo…" : "Extrair planilha"}
+        </button>
         {podeEditar && (
           <>
             <button

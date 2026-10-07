@@ -24,15 +24,27 @@ function extrairNomeResponsavel(
   return extrairNomeExibicaoLinha(raw) || null;
 }
 
+function ordenarNomes(nomes: string[]): string[] {
+  return [...nomes].sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
+}
+
+/** Nome do responsável, sem matrícula nem pontuação, quando for possível identificá-lo. */
+export function nomeResponsavelAtividade(
+  atividade: Atividade,
+  integrantes: Integrante[]
+): string {
+  return extrairNomeResponsavel(atividade, integrantes) ?? atividade.responsavel?.trim() ?? "";
+}
+
 /**
- * Todos os participantes da atividade (responsável + equipe), um nome por linha,
- * no mesmo espírito da coluna «Equipes / funções» da tela Equipe.
+ * Participantes da atividade (responsável + equipe), no mesmo espírito da coluna
+ * «Equipes / funções» da tela Equipe.
  */
-export function textoEquipeParticipantes(
+export function listarNomesParticipantes(
   atividade: Atividade,
   integrantes: Integrante[],
   todasEquipes: Equipe[]
-): string {
+): string[] {
   const codigo = String(atividade.codigo ?? "").trim();
   const equipeRows = codigo
     ? todasEquipes.filter((e) => codigosAtividadeIguais(String(e.codigo ?? ""), codigo))
@@ -40,8 +52,7 @@ export function textoEquipeParticipantes(
 
   const nomes: string[] = [];
 
-  const jaListado = (nome: string) =>
-    nomes.some((n) => nomesPessoaCorrespondem(n, nome));
+  const jaListado = (nome: string) => nomes.some((n) => nomesPessoaCorrespondem(n, nome));
 
   const addNome = (raw: string) => {
     const nome = normalizarNomeSomenteLetras(raw);
@@ -61,12 +72,35 @@ export function textoEquipeParticipantes(
     }
   }
 
-  const respNome = extrairNomeResponsavel(atividade, integrantes);
+  const respNome = nomeResponsavelAtividade(atividade, integrantes);
   if (respNome) addNome(respNome);
-  else if (atividade.responsavel?.trim()) addNome(atividade.responsavel);
 
+  return ordenarNomes(nomes);
+}
+
+/** Integrantes da atividade, sem o responsável. */
+export function listarDemaisIntegrantes(
+  atividade: Atividade,
+  integrantes: Integrante[],
+  todasEquipes: Equipe[]
+): string[] {
+  const respNome = nomeResponsavelAtividade(atividade, integrantes);
+  const respOriginal = atividade.responsavel ?? "";
+  return listarNomesParticipantes(atividade, integrantes, todasEquipes).filter(
+    (nome) => !nomesPessoaCorrespondem(nome, respNome) && !nomesPessoaCorrespondem(nome, respOriginal)
+  );
+}
+
+/**
+ * Todos os participantes da atividade (responsável + equipe), um nome por linha,
+ * no mesmo espírito da coluna «Equipes / funções» da tela Equipe.
+ */
+export function textoEquipeParticipantes(
+  atividade: Atividade,
+  integrantes: Integrante[],
+  todasEquipes: Equipe[]
+): string {
+  const nomes = listarNomesParticipantes(atividade, integrantes, todasEquipes);
   if (nomes.length === 0) return "—";
-
-  nomes.sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
   return nomes.join("\n");
 }
