@@ -1,4 +1,5 @@
 import { compararCodigoAtividade } from "@/lib/atividade-codigo";
+import { camposCorrespondemBusca } from "@/lib/busca-texto";
 import { integranteVinculadoAEquipeAtividade } from "@/lib/equipe-page-helpers";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
 
@@ -9,24 +10,20 @@ export type GrupoAtividade = {
   integrantes: Integrante[];
 };
 
-/** Código, equipes, integrantes (nome, setor, matrícula) e dados da atividade: cada palavra deve aparecer em algum desses campos. */
+/** Código, equipes, integrantes (nome, setor, matrícula) e dados da atividade: cada palavra deve aparecer em algum desses campos. Acentuação não restringe. */
 export function grupoAtividadeMatchesBusca(g: GrupoAtividade, raw: string): boolean {
-  const q = raw.trim().toLowerCase();
-  if (!q) return true;
-  const tokens = q.split(/\s+/).filter(Boolean);
-  const codigo = (g.codigo ?? "").toLowerCase();
-  const atDesc = (g.atividade?.descricao ?? "").toLowerCase();
-  const atResp = (g.atividade?.responsavel ?? "").toLowerCase();
-  const campos: string[] = [codigo, atDesc, atResp];
+  const campos: Array<string | number | null | undefined> = [
+    g.codigo,
+    g.atividade?.descricao,
+    g.atividade?.responsavel,
+  ];
   for (const e of g.equipeRows) {
-    campos.push((e.equipe ?? "").toLowerCase());
+    campos.push(e.equipe);
   }
   for (const i of g.integrantes) {
-    campos.push((i.nome ?? "").toLowerCase());
-    campos.push((i.setor ?? "").toLowerCase());
-    campos.push(String(i.matricula).toLowerCase());
+    campos.push(i.nome, i.setor, i.matricula);
   }
-  return tokens.every((tok) => campos.some((c) => c.includes(tok)));
+  return camposCorrespondemBusca(campos, raw);
 }
 
 export function montarGrupos(

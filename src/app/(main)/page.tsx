@@ -11,6 +11,7 @@ import {
   formatDataParaExibicao,
   normalizarDataParaApi,
 } from "@/lib/datas-atividade";
+import { camposCorrespondemBusca } from "@/lib/busca-texto";
 import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import {
@@ -41,17 +42,10 @@ function rotuloInstrucaoServico(d: Documento): string {
   });
 }
 
-/** Busca em código, descrição e responsável: cada palavra deve aparecer em algum desses campos. */
+/** Busca em código, descrição, responsável e plano: cada palavra deve aparecer em algum desses campos. Acentuação não restringe. */
 function atividadeMatchesBusca(a: Atividade, raw: string): boolean {
-  const q = raw.trim().toLowerCase();
-  if (!q) return true;
-  const tokens = q.split(/\s+/).filter(Boolean);
-  const codigo = (a.codigo ?? "").toLowerCase();
-  const desc = (a.descricao ?? "").toLowerCase();
-  const resp = (a.responsavel ?? "").toLowerCase();
   const plano = a.plano_atividades ? `plano ${a.plano_atividades}` : "";
-  const campos = [codigo, desc, resp, plano];
-  return tokens.every((tok) => campos.some((c) => c.includes(tok)));
+  return camposCorrespondemBusca([a.codigo, a.descricao, a.responsavel, plano], raw);
 }
 
 function formatarPlanoAtividades(valor: number | null | undefined): string {

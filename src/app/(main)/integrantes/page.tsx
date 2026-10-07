@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { usePerfil } from "@/components/AppShell";
 import { canEditarAtividadesIntegrantes, isAdmin, parsePerfil, type Perfil } from "@/lib/auth/roles";
+import { camposCorrespondemBusca } from "@/lib/busca-texto";
 import { useMounted } from "@/hooks/useMounted";
 import { macroSetorIntegrante } from "@/lib/integrante-setor-macro";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
@@ -17,17 +18,9 @@ function parseMatricula(raw: string): number | null {
   return n;
 }
 
-/** Busca em matrícula, nome, setor e e-mail: cada palavra deve aparecer em algum desses campos. */
+/** Busca em matrícula, nome, setor e e-mail: cada palavra deve aparecer em algum desses campos. Acentuação não restringe. */
 function integranteMatchesBusca(r: Integrante, raw: string): boolean {
-  const q = raw.trim().toLowerCase();
-  if (!q) return true;
-  const tokens = q.split(/\s+/).filter(Boolean);
-  const matStr = String(r.matricula).toLowerCase();
-  const nome = (r.nome ?? "").toLowerCase();
-  const setor = (r.setor ?? "").toLowerCase();
-  const email = (r.email ?? "").toLowerCase();
-  const campos = [matStr, nome, setor, email];
-  return tokens.every((tok) => campos.some((c) => c.includes(tok)));
+  return camposCorrespondemBusca([r.matricula, r.nome, r.setor, r.email], raw);
 }
 
 function macroDoSetor(setor: string | null | undefined): string {

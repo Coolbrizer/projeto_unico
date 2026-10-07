@@ -1,3 +1,4 @@
+import { normalizarTextoBusca } from "@/lib/busca-texto";
 import type { GrupoAtividade } from "@/lib/equipe-grupos";
 import type { Integrante } from "@/types/database";
 
@@ -6,12 +7,7 @@ const PREFIXO_MATRICULA_RESPONSAVEL = /^\s*(\d+)\s*[|│｜\-–—:]?\s*/;
 const SEPARADORES_INICIO_NOME = /^[|│｜\-–—•·.,:;]+\s*/;
 
 function normalizeNomeComparacao(s: string): string {
-  return s
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ");
+  return normalizarTextoBusca(s).trim().replace(/\s+/g, " ");
 }
 
 function removerPrefixosMatriculaEPontuacao(raw: string): string {

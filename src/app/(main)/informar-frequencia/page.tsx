@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { useMounted } from "@/hooks/useMounted";
+import { camposCorrespondemBusca } from "@/lib/busca-texto";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import type { FrequenciaMensal, Integrante } from "@/types/database";
 
@@ -24,15 +25,10 @@ function formatarCompetencia(competencia: string): string {
 }
 
 function matchesBusca(integrante: Integrante, raw: string): boolean {
-  const q = raw.trim().toLowerCase();
-  if (!q) return true;
-  const campos = [
-    integrante.nome,
-    integrante.email ?? "",
-    integrante.setor ?? "",
-    String(integrante.matricula),
-  ].map((c) => c.toLowerCase());
-  return q.split(/\s+/).every((token) => campos.some((campo) => campo.includes(token)));
+  return camposCorrespondemBusca(
+    [integrante.nome, integrante.email, integrante.setor, integrante.matricula],
+    raw
+  );
 }
 
 export default function InformarFrequenciaPage() {

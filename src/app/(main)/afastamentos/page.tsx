@@ -13,6 +13,7 @@ import {
   totalDiasAfastamento,
 } from "@/lib/afastamentos";
 import { resumoFolhaAfastamentos } from "@/lib/afastamentos-folha";
+import { camposCorrespondemBusca } from "@/lib/busca-texto";
 import { macroSetorIntegrante, parseSetorMicroMacro, rotuloSetorMicroMacro } from "@/lib/integrante-setor-macro";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import type { FrequenciaMensal, Integrante, RefPgto } from "@/types/database";
@@ -37,19 +38,19 @@ function chaveCelula(integranteId: string, competencia: string): string {
 }
 
 function matchesBusca(integrante: Integrante, raw: string): boolean {
-  const q = raw.trim().toLowerCase();
-  if (!q) return true;
   const { micro, macro } = parseSetorMicroMacro(integrante.setor);
-  const campos = [
-    integrante.nome,
-    String(integrante.matricula),
-    integrante.setor ?? "",
-    micro,
-    macro,
-    rotuloSetorMicroMacro(integrante.setor),
-    macroSetorIntegrante(integrante.setor),
-  ].map((c) => c.toLowerCase());
-  return q.split(/\s+/).every((token) => campos.some((campo) => campo.includes(token)));
+  return camposCorrespondemBusca(
+    [
+      integrante.nome,
+      integrante.matricula,
+      integrante.setor,
+      micro,
+      macro,
+      rotuloSetorMicroMacro(integrante.setor),
+      macroSetorIntegrante(integrante.setor),
+    ],
+    raw
+  );
 }
 
 function valoresIniciais(integrantes: Integrante[], frequencias: FrequenciaMensal[]): ValoresPorIntegrante {

@@ -5,12 +5,22 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useInstrucaoServicoSelecionada, usePerfil } from "@/components/AppShell";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { useMounted } from "@/hooks/useMounted";
+import { camposCorrespondemBusca, normalizarTextoBusca } from "@/lib/busca-texto";
 import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import { isAdmin } from "@/lib/auth/roles";
 import type { Atividade, Integrante } from "@/types/database";
 
 type StatusFaixa = "nao_iniciada" | "em_andamento" | "concluida";
+
+function pessoaPorTexto(
+  pessoas: { valor: string; label: string }[],
+  raw: string
+): { valor: string; label: string } | undefined {
+  const consulta = normalizarTextoBusca(raw).trim();
+  if (!consulta) return undefined;
+  return pessoas.find((item) => normalizarTextoBusca(item.label).trim() === consulta);
+}
 
 const STATUS_CONFIG: Record<
   StatusFaixa,
@@ -120,6 +130,7 @@ export default function MeuPerfilPage() {
   const [integrantes, setIntegrantes] = useState<Integrante[]>([]);
   const [pessoaSelecionada, setPessoaSelecionada] = useState("");
   const [buscaPessoa, setBuscaPessoa] = useState("");
+  const [pessoaCampoFocado, setPessoaCampoFocado] = useState(false);
   const [filtroStatus, setFiltroStatus] = useState<StatusFaixa | "todos">("todos");
   const [busca, setBusca] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -219,6 +230,12 @@ export default function MeuPerfilPage() {
       .sort((a, b) => a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" }));
   }, [rows, integrantes]);
 
+  const sugestoesPessoa = useMemo(() => {
+    const consulta = buscaPessoa.trim();
+    if (!consulta) return pessoasComAtividades;
+    return pessoasComAtividades.filter((item) => camposCorrespondemBusca([item.label], consulta));
+  }, [buscaPessoa, pessoasComAtividades]);
+
   useEffect(() => {
     if (!isAdmin(perfil)) return;
     setBuscaPessoa((atual) => (atual ? atual : pessoaSelecionada));
@@ -248,17 +265,15 @@ export default function MeuPerfilPage() {
   }, [rows, nomePerfilVisualizado]);
 
   const atividadesFiltradas = useMemo(() => {
-    const termo = busca.trim().toLowerCase();
     return minhasAtividades
       .filter((atividade) => {
         if (filtroStatus !== "todos" && statusPorProgresso(atividade.progresso) !== filtroStatus) {
           return false;
         }
-        if (!termo) return true;
-        const codigo = (atividade.codigo ?? "").toLowerCase();
-        const descricao = (atividade.descricao ?? "").toLowerCase();
-        const responsavel = (atividade.responsavel ?? "").toLowerCase();
-        return [codigo, descricao, responsavel].some((texto) => texto.includes(termo));
+        return camposCorrespondemBusca(
+          [atividade.codigo, atividade.descricao, atividade.responsavel],
+          busca
+        );
       })
       .sort((a, b) => (a.codigo ?? "").localeCompare(b.codigo ?? "", "pt-BR", { sensitivity: "base" }));
   }, [minhasAtividades, filtroStatus, busca]);
@@ -370,37 +385,48 @@ export default function MeuPerfilPage() {
             <section className="mb-6 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-5">
               <h3 className="mb-3 text-sm font-medium text-[var(--muted)]">Perfil visualizado</h3>
               <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_16rem] md:items-end">
-                <div>
+                <div className="relative">
                   <label className="block text-xs text-[var(--muted)]">Pessoa</label>
                   <input
-                    list="pessoas-com-atividades"
                     value={buscaPessoa}
+                    onFocus={() => setPessoaCampoFocado(true)}
                     onChange={(e) => {
                       const valor = e.target.value;
                       setBuscaPessoa(valor);
-                      const opcaoEncontrada = pessoasComAtividades.find(
-                        (item) => item.label.toLowerCase() === valor.trim().toLowerCase()
-                      );
-                      if (opcaoEncontrada) {
-                        setPessoaSelecionada(opcaoEncontrada.valor);
-                      }
+                      const opcaoEncontrada = pessoaPorTexto(pessoasComAtividades, valor);
+                      if (opcaoEncontrada) setPessoaSelecionada(opcaoEncontrada.valor);
                     }}
                     onBlur={() => {
-                      const opcaoEncontrada = pessoasComAtividades.find(
-                        (item) => item.label.toLowerCase() === buscaPessoa.trim().toLowerCase()
-                      );
+                      setPessoaCampoFocado(false);
+                      const opcaoEncontrada = pessoaPorTexto(pessoasComAtividades, buscaPessoa);
                       const proximo = opcaoEncontrada?.valor ?? pessoaSelecionada;
                       setPessoaSelecionada(proximo);
                       setBuscaPessoa(proximo);
                     }}
                     placeholder="Digite para buscar uma pessoa"
                     className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+                    autoComplete="off"
                   />
-                  <datalist id="pessoas-com-atividades">
-                    {pessoasComAtividades.map((item) => (
-                      <option key={item.valor} value={item.label} />
-                    ))}
-                  </datalist>
+                  {pessoaCampoFocado && sugestoesPessoa.length > 0 && (
+                    <ul className="absolute z-20 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-[var(--card-border)] bg-[var(--card)] py-1 shadow-lg">
+                      {sugestoesPessoa.map((item) => (
+                        <li key={item.valor}>
+                          <button
+                            type="button"
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-[var(--background)]"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setPessoaSelecionada(item.valor);
+                              setBuscaPessoa(item.label);
+                              setPessoaCampoFocado(false);
+                            }}
+                          >
+                            {item.label}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
                 <p className="text-sm text-[var(--muted)]">
                   Visualizando:{" "}
