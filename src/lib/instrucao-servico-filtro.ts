@@ -24,6 +24,20 @@ export function parsePlanoAtividades(raw: string | null | undefined): number | n
   return numero;
 }
 
+/** Atividade visível no filtro global de Instrução de Serviço e plano. Sem IS selecionada, todas entram. */
+export function atividadePertenceAoFiltro(
+  atividade: { instrucao_servico?: string | null; plano_atividades?: number | string | null },
+  instrucaoServicoId: string,
+  planoAtividades: number | null
+): boolean {
+  if (!instrucaoServicoId) return true;
+  if ((atividade.instrucao_servico ?? "") !== instrucaoServicoId) return false;
+  if (planoAtividades === null) return true;
+  if (atividade.plano_atividades == null || atividade.plano_atividades === "") return false;
+  const plano = Number(atividade.plano_atividades);
+  return Number.isInteger(plano) && plano === planoAtividades;
+}
+
 export function extrairInstrucaoServicoIdDeCookieHeader(cookieHeader: string | null): string {
   if (!cookieHeader) return "";
   const pares = cookieHeader.split(";");

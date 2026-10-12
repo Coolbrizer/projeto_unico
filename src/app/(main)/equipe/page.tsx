@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { useInstrucaoServicoSelecionada, usePerfil } from "@/components/AppShell";
 import { canEditarEquipe } from "@/lib/auth/roles";
@@ -12,6 +12,7 @@ import {
   responsavelAusenteNasLinhasEquipe,
 } from "@/lib/equipe-page-helpers";
 import { grupoAtividadeMatchesBusca, montarGrupos, type GrupoAtividade } from "@/lib/equipe-grupos";
+import { atividadePertenceAoFiltro } from "@/lib/instrucao-servico-filtro";
 import {
   diasNoMesReferencia,
   diasTotaisMemorandoPagamento,
@@ -130,7 +131,8 @@ export default function EquipePage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
   const perfil = usePerfil();
-  const { instrucaoServicoId, planoAtividades } = useInstrucaoServicoSelecionada();
+  const { instrucaoServicoId, planoAtividades, filtroInstrucaoPronto } = useInstrucaoServicoSelecionada();
+  const loadGeracao = useRef(0);
   const podeEditar = canEditarEquipe(perfil);
   const [equipes, setEquipes] = useState<Equipe[]>([]);
   const [atividades, setAtividades] = useState<Atividade[]>([]);
@@ -207,6 +209,7 @@ export default function EquipePage() {
   const [paginaAtual, setPaginaAtual] = useState(1);
 
   const load = useCallback(async () => {
+    const geracao = ++loadGeracao.current;
     setError(null);
     setLoading(true);
     const params = new URLSearchParams();
@@ -218,6 +221,7 @@ export default function EquipePage() {
       fetch(`/api/atividades${filtro}`, { credentials: "include" }),
       fetch("/api/integrantes", { credentials: "include" }),
     ]);
+    if (geracao !== loadGeracao.current) return;
     const jEq = (await resEq.json()) as { error?: string; equipe?: Equipe[] };
     const jAt = (await resAt.json()) as { error?: string; atividades?: Atividade[] };
     const jInt = (await resInt.json()) as { error?: string; integrantes?: Integrante[] };
@@ -231,26 +235,41 @@ export default function EquipePage() {
   }, [instrucaoServicoId, planoAtividades]);
 
   useEffect(() => {
+    if (!filtroInstrucaoPronto) return;
     void load();
-  }, [load]);
+  }, [filtroInstrucaoPronto, load]);
+
+  const atividadesDoFiltro = useMemo(
+    () =>
+      atividades.filter((a) => atividadePertenceAoFiltro(a, instrucaoServicoId, planoAtividades)),
+    [atividades, instrucaoServicoId, planoAtividades]
+  );
+
+  const equipesDoFiltro = useMemo(() => {
+    if (!instrucaoServicoId) return equipes;
+    const codigos = new Set(
+      atividadesDoFiltro.map((a) => (a.codigo ?? "").trim()).filter(Boolean)
+    );
+    return equipes.filter((e) => codigos.has((e.codigo ?? "").trim()));
+  }, [equipes, atividadesDoFiltro, instrucaoServicoId]);
 
   const grupos = useMemo(
-    () => montarGrupos(equipes, atividades, integrantes),
-    [equipes, atividades, integrantes]
+    () => montarGrupos(equipesDoFiltro, atividadesDoFiltro, integrantes),
+    [equipesDoFiltro, atividadesDoFiltro, integrantes]
   );
 
   const verificacaoIS = useMemo(
-    () => verificarDadosIS(equipes, atividades, integrantes),
-    [equipes, atividades, integrantes]
+    () => verificarDadosIS(equipesDoFiltro, atividadesDoFiltro, integrantes),
+    [equipesDoFiltro, atividadesDoFiltro, integrantes]
   );
 
   const tiposDisponiveis = useMemo(
     () =>
       tiposAtividadeDistintos([
-        ...atividades.map((a) => a.codigo),
-        ...equipes.map((e) => e.codigo),
+        ...atividadesDoFiltro.map((a) => a.codigo),
+        ...equipesDoFiltro.map((e) => e.codigo),
       ]),
-    [atividades, equipes]
+    [atividadesDoFiltro, equipesDoFiltro]
   );
 
   const gruposFiltrados = useMemo(() => {
@@ -266,7 +285,7 @@ export default function EquipePage() {
 
   useEffect(() => {
     setPaginaAtual(1);
-  }, [busca, filtroTipo, instrucaoServicoId, tamanhoPagina]);
+  }, [busca, filtroTipo, instrucaoServicoId, planoAtividades, tamanhoPagina]);
 
   useEffect(() => {
     if (tamanhoPagina === "all") return;
@@ -387,8 +406,8 @@ export default function EquipePage() {
     const periodoEspecial = lerPeriodoEspecial(year, month);
     if (periodoEspecial === undefined) return;
     const resultado = listarIntegrantesMemorandoPagamento(
-      equipes,
-      atividades,
+      equipesDoFiltro,
+      atividadesDoFiltro,
       integrantes,
       year,
       month
@@ -411,7 +430,7 @@ export default function EquipePage() {
     const periodoEspecial = lerPeriodoEspecial(year, month);
     if (periodoEspecial === undefined) return;
 
-    const lista = listarIntegrantesMemorandoSgp(equipes, atividades, integrantes);
+    const lista = listarIntegrantesMemorandoSgp(equipesDoFiltro, atividadesDoFiltro, integrantes);
     gerarPdfMemorandoSgp(lista, year, month, periodoEspecial);
   }
 

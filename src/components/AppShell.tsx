@@ -18,11 +18,14 @@ const PerfilContext = createContext<Perfil>("basico");
 const InstrucaoServicoContext = createContext<{
   instrucaoServicoId: string;
   planoAtividades: number | null;
+  /** False até ler a IS salva. Evita buscar “todas” antes de restaurar o filtro. */
+  filtroInstrucaoPronto: boolean;
   setInstrucaoServicoId: (id: string) => void;
   setFiltroInstrucaoServico: (instrucaoServicoId: string, planoAtividades?: number | null) => void;
 }>({
   instrucaoServicoId: "",
   planoAtividades: null,
+  filtroInstrucaoPronto: false,
   setInstrucaoServicoId: () => {},
   setFiltroInstrucaoServico: () => {},
 });
@@ -103,6 +106,7 @@ export function AppShell({
   const [documentosCarregados, setDocumentosCarregados] = useState(false);
   const [instrucaoServicoId, setInstrucaoServicoIdState] = useState("");
   const [planoAtividades, setPlanoAtividadesState] = useState<number | null>(null);
+  const [filtroInstrucaoPronto, setFiltroInstrucaoPronto] = useState(false);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
@@ -182,6 +186,7 @@ export function AppShell({
       setInstrucaoServicoIdState(salvo);
       setPlanoAtividadesState(planoSalvo);
     }
+    setFiltroInstrucaoPronto(true);
   }, []);
 
   useEffect(() => {
@@ -213,6 +218,7 @@ export function AppShell({
   }, [filtroSelecionadoEhValido, instrucaoServicoId, opcoesFiltroInstrucao]);
 
   useEffect(() => {
+    if (!filtroInstrucaoPronto) return;
     if (instrucaoServicoId) {
       window.localStorage.setItem(INSTRUCAO_SERVICO_COOKIE, instrucaoServicoId);
       document.cookie = `${INSTRUCAO_SERVICO_COOKIE}=${encodeURIComponent(
@@ -233,12 +239,18 @@ export function AppShell({
       window.localStorage.removeItem(PLANO_ATIVIDADES_COOKIE);
       document.cookie = `${PLANO_ATIVIDADES_COOKIE}=; path=/; max-age=0; samesite=lax`;
     }
-  }, [instrucaoServicoId, planoAtividades]);
+  }, [filtroInstrucaoPronto, instrucaoServicoId, planoAtividades]);
 
   return (
     <PerfilContext.Provider value={role}>
       <InstrucaoServicoContext.Provider
-        value={{ instrucaoServicoId, planoAtividades, setInstrucaoServicoId, setFiltroInstrucaoServico }}
+        value={{
+          instrucaoServicoId,
+          planoAtividades,
+          filtroInstrucaoPronto,
+          setInstrucaoServicoId,
+          setFiltroInstrucaoServico,
+        }}
       >
         <div className="flex min-h-screen flex-col">
           <header className="sticky top-0 z-20 border-b border-[var(--card-border)] bg-[var(--card)]/92 shadow-sm backdrop-blur-sm">
