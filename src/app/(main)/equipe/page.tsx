@@ -146,6 +146,7 @@ export default function EquipePage() {
   const [sgpDiaInicio, setSgpDiaInicio] = useState("");
   const [sgpDiaFim, setSgpDiaFim] = useState("");
   const [mostrarVerificacao, setMostrarVerificacao] = useState(false);
+  const [mostrarPeriodoEspecial, setMostrarPeriodoEspecial] = useState(false);
 
   const anosExtracao = useMemo(() => {
     const now = new Date().getFullYear();
@@ -474,66 +475,87 @@ export default function EquipePage() {
         </div>
 
         <div className="rounded-lg border border-[var(--card-border)] bg-[var(--background)]/60 px-3 py-3">
-          <p className="text-sm font-medium text-[var(--foreground)]">
-            Período especial nos memorandos
-          </p>
-          <p className="mt-1 text-xs text-[var(--muted)]">
-            Opcional. Vale para o Memorando para Chefias e para o Memorando para SGP. Informe o dia
-            inicial e o dia final de um participante. Os demais ficam com o período completo do mês.
-          </p>
-          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-            <div className="min-w-0 flex-1 sm:min-w-[220px]">
-              <label className="block text-xs font-medium text-[var(--muted)]" htmlFor="sgp-participante">
-                Participante
-              </label>
-              <select
-                id="sgp-participante"
-                value={sgpParticipanteId}
-                onChange={(e) => setSgpParticipanteId(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
-              >
-                <option value="">Nenhum (mês completo para todos)</option>
-                {integrantesOpcoesSgp.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {(i.nome ?? "").trim() || "Sem nome"}
-                    {i.matricula != null ? ` · mat. ${i.matricula}` : ""}
-                  </option>
-                ))}
-              </select>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-[var(--foreground)]">
+                Período especial nos memorandos
+              </p>
+              <p className="mt-0.5 text-xs text-[var(--muted)]">
+                Opcional. Vale para o Memorando para Chefias e para o Memorando para SGP.
+              </p>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-[var(--muted)]" htmlFor="sgp-dia-inicio">
-                Dia inicial
-              </label>
-              <input
-                id="sgp-dia-inicio"
-                type="number"
-                min={1}
-                max={maxDiaSgp}
-                value={sgpDiaInicio}
-                onChange={(e) => setSgpDiaInicio(e.target.value)}
-                placeholder="1"
-                className="mt-1 w-28 rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[var(--muted)]" htmlFor="sgp-dia-fim">
-                Dia final
-              </label>
-              <input
-                id="sgp-dia-fim"
-                type="number"
-                min={1}
-                max={maxDiaSgp}
-                value={sgpDiaFim}
-                onChange={(e) => setSgpDiaFim(e.target.value)}
-                placeholder={String(maxDiaSgp)}
-                className="mt-1 w-28 rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
-              />
-            </div>
+            <button
+              type="button"
+              onClick={() => setMostrarPeriodoEspecial((v) => !v)}
+              className="rounded-lg border border-[var(--card-border)] bg-white/70 px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--accent-muted)]/55"
+            >
+              {mostrarPeriodoEspecial ? "Ocultar período especial" : "Definir período especial"}
+            </button>
           </div>
-          {resumoPeriodoSgp && (
+          {!mostrarPeriodoEspecial && resumoPeriodoSgp && (
             <p className="mt-2 text-xs text-[var(--muted)]">{resumoPeriodoSgp}</p>
+          )}
+          {mostrarPeriodoEspecial && (
+            <div className="mt-3">
+              <p className="text-xs text-[var(--muted)]">
+                Informe o dia inicial e o dia final de um participante. Os demais ficam com o período
+                completo do mês.
+              </p>
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+                <div className="min-w-0 flex-1 sm:min-w-[220px]">
+                  <label className="block text-xs font-medium text-[var(--muted)]" htmlFor="sgp-participante">
+                    Participante
+                  </label>
+                  <select
+                    id="sgp-participante"
+                    value={sgpParticipanteId}
+                    onChange={(e) => setSgpParticipanteId(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+                  >
+                    <option value="">Nenhum (mês completo para todos)</option>
+                    {integrantesOpcoesSgp.map((i) => (
+                      <option key={i.id} value={i.id}>
+                        {(i.nome ?? "").trim() || "Sem nome"}
+                        {i.matricula != null ? ` · mat. ${i.matricula}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--muted)]" htmlFor="sgp-dia-inicio">
+                    Dia inicial
+                  </label>
+                  <input
+                    id="sgp-dia-inicio"
+                    type="number"
+                    min={1}
+                    max={maxDiaSgp}
+                    value={sgpDiaInicio}
+                    onChange={(e) => setSgpDiaInicio(e.target.value)}
+                    placeholder="1"
+                    className="mt-1 w-28 rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--muted)]" htmlFor="sgp-dia-fim">
+                    Dia final
+                  </label>
+                  <input
+                    id="sgp-dia-fim"
+                    type="number"
+                    min={1}
+                    max={maxDiaSgp}
+                    value={sgpDiaFim}
+                    onChange={(e) => setSgpDiaFim(e.target.value)}
+                    placeholder={String(maxDiaSgp)}
+                    className="mt-1 w-28 rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+                  />
+                </div>
+              </div>
+              {resumoPeriodoSgp && (
+                <p className="mt-2 text-xs text-[var(--muted)]">{resumoPeriodoSgp}</p>
+              )}
+            </div>
           )}
         </div>
 
@@ -761,7 +783,7 @@ export default function EquipePage() {
                 posicao="topo"
               />
             </div>
-            <div className="space-y-8">
+            <div className="space-y-4">
               {gruposPaginados.map((g) => {
                 const responsavelSemLinhaEquipe = responsavelAusenteNasLinhasEquipe(
                   g.equipeRows,
@@ -777,18 +799,15 @@ export default function EquipePage() {
                 key={g.codigo || "__vazio__"}
                 className="overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)]"
               >
-                <div className="border-b border-[var(--card-border)] bg-[var(--accent-muted)]/85 px-4 py-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-                    Código da atividade
+                <div className="flex flex-col gap-0.5 border-b border-[var(--card-border)] bg-[var(--accent-muted)]/85 px-4 py-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                  <p className="line-clamp-2 min-w-0 text-sm leading-snug text-[var(--foreground)]">
+                    <span className="font-semibold text-[var(--accent)]">
+                      {g.codigo ? g.codigo : "(sem código)"}
+                    </span>
+                    {g.atividade?.descricao?.trim() ? ` - ${g.atividade.descricao.trim()}` : ""}
                   </p>
-                  <p className="mt-1 text-lg font-semibold text-[var(--accent)]">
-                    {g.codigo ? g.codigo : "(sem código)"}
-                  </p>
-                  {g.atividade?.descricao && (
-                    <p className="mt-2 text-sm text-[var(--foreground)]">{g.atividade.descricao}</p>
-                  )}
                   {g.atividade && (
-                    <p className="mt-1 text-xs text-[var(--muted)]">
+                    <p className="shrink-0 text-xs text-[var(--muted)] sm:pt-0.5">
                       Período: {formatarPeriodoAtividade(g.atividade)}
                     </p>
                   )}
