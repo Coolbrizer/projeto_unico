@@ -438,13 +438,6 @@ export default function EquipePage() {
     <div className="mx-auto max-w-5xl">
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Equipe</h2>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          Agrupado por código de atividade. Integrantes aparecem quando o setor coincide com o nome da
-          equipe ou com o código, ou quando são vinculados com «Adicionar integrante» em cada atividade.
-          O responsável vem do cadastro de Atividades (mesmo código). A busca cobre
-          código, linhas de equipe, integrantes (nome, setor, matrícula), descrição e responsável da
-          atividade.
-        </p>
       </header>
 
       {mounted && !configured && <ConfigWarning />}
@@ -494,23 +487,13 @@ export default function EquipePage() {
         </div>
 
         <div className="rounded-lg border border-[var(--card-border)] bg-[var(--background)]/60 px-3 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-[var(--foreground)]">
-                Período especial nos memorandos
-              </p>
-              <p className="mt-0.5 text-xs text-[var(--muted)]">
-                Opcional. Vale para o Memorando para Chefias e para o Memorando para SGP.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setMostrarPeriodoEspecial((v) => !v)}
-              className="rounded-lg border border-[var(--card-border)] bg-white/70 px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--accent-muted)]/55"
-            >
-              {mostrarPeriodoEspecial ? "Ocultar período especial" : "Definir período especial"}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setMostrarPeriodoEspecial((v) => !v)}
+            className="rounded-lg border border-[var(--card-border)] bg-white/70 px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--accent-muted)]/55"
+          >
+            {mostrarPeriodoEspecial ? "Ocultar período especial" : "Definir período especial"}
+          </button>
           {!mostrarPeriodoEspecial && resumoPeriodoSgp && (
             <p className="mt-2 text-xs text-[var(--muted)]">{resumoPeriodoSgp}</p>
           )}
@@ -595,11 +578,6 @@ export default function EquipePage() {
           >
             Memorando para SGP
           </button>
-          <p className="text-xs text-[var(--muted)] sm:max-w-md">
-            Lista em PDF com cada nome uma vez: integrantes vinculados às atividades com período que cruza o
-            mês (setor alinhado ao código ou às linhas de equipe, nome alinhado a cada linha em Equipes/funções,
-            ou ao responsável cadastrado na atividade).
-          </p>
         </div>
       </div>
 
