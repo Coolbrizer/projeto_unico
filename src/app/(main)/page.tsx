@@ -955,7 +955,7 @@ export default function AtividadesPage() {
             <table className="w-full min-w-[760px] border-collapse text-left text-sm">
               <thead className="border-b border-[var(--card-border)] bg-[var(--background)]/70 text-xs uppercase tracking-wide text-[var(--muted)]">
                 <tr>
-                  <th className="px-3 py-2 font-medium">Código</th>
+                  <th className="whitespace-nowrap px-3 py-2 font-medium">Código</th>
                   <th className="px-3 py-2 font-medium">Descrição</th>
                   <th className="px-3 py-2 font-medium">Responsável</th>
                   <th className="px-3 py-2 font-medium">Período</th>
@@ -973,7 +973,7 @@ export default function AtividadesPage() {
                     editingId === a.id ? "bg-[var(--accent-muted)]/40" : ""
                   }`}
                 >
-                  <td className="cursor-text select-text px-3 py-2 align-top font-medium text-[var(--accent)]">
+                  <td className="cursor-text select-text whitespace-nowrap px-3 py-2 align-top font-medium text-[var(--accent)]">
                     {a.codigo?.trim() || "—"}
                   </td>
                   <td className="cursor-text select-text px-3 py-2 align-top text-[var(--foreground)]">
