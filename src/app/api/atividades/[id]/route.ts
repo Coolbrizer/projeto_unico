@@ -4,6 +4,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSessionFromCookies } from "@/lib/auth/getSession";
 import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
+import { resolverResponsavelId } from "@/lib/responsavel-atividade";
+import { calcularStatusExecucao } from "@/lib/status-execucao";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { isAdmin } from "@/lib/auth/roles";
 import { writeAuditLog } from "@/lib/audit-log";
@@ -102,31 +104,51 @@ export async function PATCH(request: Request, ctx: Ctx) {
   }
 
   if (relatorio && !isAdmin(session.role)) {
-    const { data: integranteRow, error: errInt } = await supabase
-      .from("integrantes")
-      .select("nome")
-      .eq("id", session.sub)
-      .maybeSingle();
-    if (errInt || !integranteRow) {
-      return NextResponse.json({ error: "Integrante não encontrado." }, { status: 403 });
-    }
-    const nome = (integranteRow as { nome?: string }).nome;
-    const resp = (atividadeRow as { responsavel?: string | null }).responsavel;
-    if (!integranteNomeMatchResponsavelAtividade(nome, resp)) {
-      return NextResponse.json(
-        {
-          error:
-            "Apenas o responsável pela atividade pode alterar progresso, etiqueta ou link do relatório.",
-        },
-        { status: 403 }
-      );
+    const responsavelId = (atividadeRow as { responsavel_id?: string | null }).responsavel_id ?? null;
+    if (responsavelId) {
+      if (responsavelId !== session.sub) {
+        return NextResponse.json(
+          {
+            error:
+              "Apenas o responsável pela atividade pode alterar progresso, etiqueta ou link do relatório.",
+          },
+          { status: 403 }
+        );
+      }
+    } else {
+      const { data: integranteRow, error: errInt } = await supabase
+        .from("integrantes")
+        .select("nome")
+        .eq("id", session.sub)
+        .maybeSingle();
+      if (errInt || !integranteRow) {
+        return NextResponse.json({ error: "Integrante não encontrado." }, { status: 403 });
+      }
+      const nome = (integranteRow as { nome?: string }).nome;
+      const resp = (atividadeRow as { responsavel?: string | null }).responsavel;
+      if (!integranteNomeMatchResponsavelAtividade(nome, resp)) {
+        return NextResponse.json(
+          {
+            error:
+              "Apenas o responsável pela atividade pode alterar progresso, etiqueta ou link do relatório.",
+          },
+          { status: 403 }
+        );
+      }
     }
   }
 
   const patch: Record<string, string | number | null> = {};
   if ("codigo" in body) patch.codigo = String(body.codigo ?? "").trim();
   if ("descricao" in body) patch.descricao = body.descricao ? String(body.descricao).trim() : null;
-  if ("responsavel" in body) patch.responsavel = body.responsavel ? String(body.responsavel).trim() : null;
+  if ("responsavel" in body) {
+    patch.responsavel = body.responsavel ? String(body.responsavel).trim() : null;
+    const { data: integrantes } = await supabase.from("integrantes").select("id, nome");
+    patch.responsavel_id = resolverResponsavelId(
+      patch.responsavel,
+      (integrantes ?? []) as Array<{ id: string; nome: string | null }>
+    );
+  }
   if ("inicio" in body) {
     const raw = body.inicio;
     patch.inicio =
@@ -140,6 +162,26 @@ export async function PATCH(request: Request, ctx: Ctx) {
       raw === null || raw === undefined || String(raw).trim() === ""
         ? null
         : normalizarDataParaApi(String(raw));
+  }
+  const inicioFinal =
+    "inicio" in patch
+      ? (patch.inicio as string | null)
+      : ((atividadeRow as { inicio?: string | null }).inicio ?? null);
+  const fimFinal =
+    "fim" in patch ? (patch.fim as string | null) : ((atividadeRow as { fim?: string | null }).fim ?? null);
+  const inicioIso = typeof inicioFinal === "string" ? inicioFinal.slice(0, 10) : null;
+  const fimIso = typeof fimFinal === "string" ? fimFinal.slice(0, 10) : null;
+  if (inicioIso && fimIso && inicioIso > fimIso) {
+    return NextResponse.json(
+      { error: "A data de início precisa ser anterior ou igual à data de fim." },
+      { status: 400 }
+    );
+  }
+  if ("fim" in body) {
+    patch.status_execucao = calcularStatusExecucao(
+      fimIso,
+      normalizarProgresso((atividadeRow as { progresso?: number | null }).progresso)
+    );
   }
   if ("plano_atividades" in body) {
     const plano = parsePlanoAtividades(body.plano_atividades);
@@ -161,9 +203,26 @@ export async function PATCH(request: Request, ctx: Ctx) {
       .select("*")
       .single();
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      const mensagem =
+        error.code === "23514"
+          ? "A data de início precisa ser anterior ou igual à data de fim."
+          : error.message;
+      return NextResponse.json({ error: mensagem }, { status: 400 });
     }
     atividadeAtualizada = data as Record<string, unknown>;
+
+    const codigoAntigo = String((atividadeRow as { codigo?: string | null }).codigo ?? "").trim();
+    const codigoNovo = "codigo" in patch ? String(patch.codigo ?? "").trim() : codigoAntigo;
+    if (codigoAntigo && codigoNovo && codigoAntigo !== codigoNovo) {
+      const { count } = await supabase
+        .from("atividades")
+        .select("id", { count: "exact", head: true })
+        .neq("id", id)
+        .eq("codigo", codigoAntigo);
+      if ((count ?? 0) === 0) {
+        await supabase.from("equipe").update({ codigo: codigoNovo }).eq("codigo", codigoAntigo);
+      }
+    }
   }
 
   if (touchedRelatorioTabela) {
@@ -206,7 +265,12 @@ export async function PATCH(request: Request, ctx: Ctx) {
     } else {
       if (etiqueta !== undefined) updateRel.etiqueta_relatorio = etiqueta;
       if (link !== undefined) updateRel.link_relatorio = link;
-      if (progresso !== undefined) updateRel.progresso = progressoFinal;
+      if (progresso !== undefined) {
+        updateRel.progresso = progressoFinal;
+        const fimParaStatus =
+          typeof base.fim === "string" ? base.fim.slice(0, 10) : null;
+        updateRel.status_execucao = calcularStatusExecucao(fimParaStatus, progressoFinal);
+      }
     }
 
     if (Object.keys(updateRel).length > 0) {

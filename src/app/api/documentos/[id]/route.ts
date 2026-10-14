@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
-import { parseCorpoDocumento } from "@/lib/documentos-validacao";
+import { mensagemErroGravacaoDocumento, parseCorpoDocumento } from "@/lib/documentos-validacao";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -20,6 +20,8 @@ export async function PATCH(request: Request, ctx: Ctx) {
     ano?: string;
     etiqueta?: string | null;
     link?: string | null;
+    periodo_inicio?: string | null;
+    periodo_fim?: string | null;
   };
   try {
     body = (await request.json()) as typeof body;
@@ -32,7 +34,8 @@ export async function PATCH(request: Request, ctx: Ctx) {
     return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   }
 
-  const { tipo_documento: tipoRaw, numero, ano, etiqueta, link } = parsed.data;
+  const { tipo_documento: tipoRaw, numero, ano, etiqueta, link, periodo_inicio, periodo_fim } =
+    parsed.data;
 
   let supabase;
   try {
@@ -49,13 +52,15 @@ export async function PATCH(request: Request, ctx: Ctx) {
       ano: Number(ano),
       etiqueta,
       link,
+      periodo_inicio,
+      periodo_fim,
     })
     .eq("id", id)
     .select("*")
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: mensagemErroGravacaoDocumento(error) }, { status: 400 });
   }
 
   return NextResponse.json({ ok: true, documento: data });

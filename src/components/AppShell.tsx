@@ -325,7 +325,7 @@ export function AppShell({
                           opcao.instrucaoServicoId === instrucaoServicoId &&
                           opcao.planoAtividades === planoAtividades
                       )?.label ?? "instrução selecionada"
-                    }. Atividades, Equipe, Progresso, Meu perfil, Prestação de contas e Orçamento mostram só este recorte.`
+                    }. Atividades, Equipe, Progresso, Meu perfil, Afastamentos, Prestação de contas e Orçamento mostram só este recorte.`
                   : "Nenhuma instrução selecionada. Essas telas mostram todas as instruções de serviço."}
               </p>
             </div>

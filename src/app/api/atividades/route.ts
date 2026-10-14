@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { normalizarDataParaApi } from "@/lib/datas-atividade";
+import { resolverResponsavelId } from "@/lib/responsavel-atividade";
+import { calcularStatusExecucao } from "@/lib/status-execucao";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
@@ -43,10 +45,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: atividadesResult.error.message }, { status: 400 });
   }
 
-  const atividades = ((atividadesResult.data as Atividade[] | null) ?? []).map((atividade) => ({
-    ...atividade,
-    progresso: normalizarProgresso(atividade.progresso),
-  }));
+  const atividades = ((atividadesResult.data as Atividade[] | null) ?? []).map((atividade) => {
+    const progresso = normalizarProgresso(atividade.progresso);
+    return {
+      ...atividade,
+      progresso,
+      status_execucao:
+        atividade.status_execucao ?? calcularStatusExecucao(atividade.fim, progresso),
+    };
+  });
 
   return NextResponse.json({ ok: true, atividades });
 }
@@ -95,23 +102,45 @@ export async function POST(request: Request) {
     );
   }
 
+  const inicio = normalizarDataParaApi(body.inicio ?? undefined);
+  const fim = normalizarDataParaApi(body.fim ?? undefined);
+  if (inicio && fim && inicio > fim) {
+    return NextResponse.json(
+      { error: "A data de início precisa ser anterior ou igual à data de fim." },
+      { status: 400 }
+    );
+  }
+
+  const responsavel = body.responsavel?.trim() || null;
+  const { data: integrantes } = await supabase.from("integrantes").select("id, nome");
+  const responsavelId = resolverResponsavelId(
+    responsavel,
+    (integrantes ?? []) as Array<{ id: string; nome: string | null }>
+  );
+
   const { data, error } = await supabase
     .from("atividades")
     .insert({
       codigo: (body.codigo ?? "").trim(),
       descricao: body.descricao?.trim() || null,
-      responsavel: body.responsavel?.trim() || null,
-      inicio: normalizarDataParaApi(body.inicio ?? undefined),
-      fim: normalizarDataParaApi(body.fim ?? undefined),
+      responsavel,
+      responsavel_id: responsavelId,
+      inicio,
+      fim,
       instrucao_servico: instrucaoId,
       progresso,
       plano_atividades: planoAtividades,
+      status_execucao: calcularStatusExecucao(fim, progresso),
     })
     .select("*")
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    const mensagem =
+      error.code === "23514"
+        ? "A data de início precisa ser anterior ou igual à data de fim."
+        : error.message;
+    return NextResponse.json({ error: mensagem }, { status: 400 });
   }
 
   return NextResponse.json({ ok: true, atividade: data });

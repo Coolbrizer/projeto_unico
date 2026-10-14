@@ -1,23 +1,49 @@
 import { NextResponse } from "next/server";
 import { writeAuditLog } from "@/lib/audit-log";
 import {
-  COMPETENCIAS_AFASTAMENTO,
+  PERIODO_AFASTAMENTO_PADRAO,
+  competenciasDoPeriodo,
   diasMaximosNoPeriodo,
-  isCompetenciaAfastamento,
+  isCompetenciaNoPeriodo,
   parseDiasAfastamento,
   podeGerirAfastamentos,
+  rotuloPeriodoAfastamento,
+  type PeriodoAfastamento,
 } from "@/lib/afastamentos";
 import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
+import { extrairInstrucaoServicoIdSelecionada } from "@/lib/instrucao-servico-filtro";
 import type { FrequenciaMensal, Integrante, RefPgto } from "@/types/database";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { VINCULO_INTEGRANTE } from "@/lib/vinculo-pessoa";
 
-const COMPETENCIAS = COMPETENCIAS_AFASTAMENTO.map((item) => item.competencia);
+async function periodoDaInstrucao(
+  supabase: SupabaseClient,
+  instrucaoServicoId: string
+): Promise<PeriodoAfastamento> {
+  if (!instrucaoServicoId) return PERIODO_AFASTAMENTO_PADRAO;
+  const { data } = await supabase
+    .from("documentos")
+    .select("periodo_inicio, periodo_fim")
+    .eq("id", instrucaoServicoId)
+    .maybeSingle();
+  const inicio = typeof data?.periodo_inicio === "string" ? data.periodo_inicio.slice(0, 10) : "";
+  const fim = typeof data?.periodo_fim === "string" ? data.periodo_fim.slice(0, 10) : "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(inicio) && /^\d{4}-\d{2}-\d{2}$/.test(fim) && inicio <= fim) {
+    return { inicio, fim };
+  }
+  return PERIODO_AFASTAMENTO_PADRAO;
+}
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireAuthedSupabase();
   if (auth.response) return auth.response;
   const { supabase, session } = auth;
   const canManageAll = podeGerirAfastamentos(session.role);
+  const periodo = await periodoDaInstrucao(
+    supabase,
+    extrairInstrucaoServicoIdSelecionada(request)
+  );
+  const competencias = competenciasDoPeriodo(periodo);
 
   let integrantesQuery = supabase
     .from("integrantes")
@@ -32,7 +58,10 @@ export async function GET() {
   let frequenciasQuery = supabase
     .from("frequencias_mensais")
     .select("id, integrante_id, competencia, dias_afastamento, informado_por, created_at, updated_at")
-    .in("competencia", COMPETENCIAS);
+    .in(
+      "competencia",
+      competencias.map((mes) => mes.competencia)
+    );
 
   if (!canManageAll) {
     frequenciasQuery = frequenciasQuery.eq("integrante_id", session.sub);
@@ -58,7 +87,8 @@ export async function GET() {
 
   return NextResponse.json({
     ok: true,
-    competencias: COMPETENCIAS,
+    periodo: { ...periodo, rotulo: rotuloPeriodoAfastamento(periodo) },
+    competencias,
     canManageAll,
     usuarioId: session.sub,
     integrantes: (integrantesRes.data ?? []) as Integrante[],
@@ -80,20 +110,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
   }
 
+  const periodo = await periodoDaInstrucao(
+    supabase,
+    extrairInstrucaoServicoIdSelecionada(request)
+  );
+  const rotulo = rotuloPeriodoAfastamento(periodo);
   const competencia = typeof body.competencia === "string" ? body.competencia.trim() : "";
-  if (!isCompetenciaAfastamento(competencia)) {
+  if (!isCompetenciaNoPeriodo(competencia, periodo)) {
     return NextResponse.json(
-      { error: "Informe uma competência válida do período (junho a dezembro de 2026)." },
+      { error: `Informe um mês dentro do período de ${rotulo}.` },
       { status: 400 }
     );
   }
 
-  const diasAfastamento = parseDiasAfastamento(body.dias_afastamento, competencia);
+  const diasAfastamento = parseDiasAfastamento(body.dias_afastamento, competencia, periodo);
   if (diasAfastamento === null) {
-    const max = diasMaximosNoPeriodo(competencia);
+    const max = diasMaximosNoPeriodo(competencia, periodo);
     return NextResponse.json(
       {
-        error: `Informe uma quantidade inteira de dias de afastamento entre 0 e ${max}. Apenas o período de 12 de junho até 19 de dezembro de 2026 é considerado.`,
+        error: `Informe uma quantidade inteira de dias de afastamento entre 0 e ${max}. Apenas o período de ${rotulo} é considerado.`,
       },
       { status: 400 }
     );

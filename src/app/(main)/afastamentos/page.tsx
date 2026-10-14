@@ -1,18 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useInstrucaoServicoSelecionada } from "@/components/AppShell";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { useMounted } from "@/hooks/useMounted";
 import {
   COMPETENCIAS_AFASTAMENTO,
   LIMIAR_DIAS_AFASTAMENTO,
-  PERIODO_AFASTAMENTO_FIM,
-  PERIODO_AFASTAMENTO_INICIO,
+  PERIODO_AFASTAMENTO_PADRAO,
   PERIODO_AFASTAMENTO_ROTULO,
   diasConsideradosNoPeriodo,
   diasMaximosNoPeriodo,
   rotuloLimiteMes,
+  rotuloPeriodoAfastamento,
   totalDiasAfastamento,
+  type PeriodoAfastamento,
 } from "@/lib/afastamentos";
 import { resumoFolhaAfastamentos } from "@/lib/afastamentos-folha";
 import { camposCorrespondemBusca } from "@/lib/busca-texto";
@@ -20,10 +22,14 @@ import { macroSetorIntegrante, parseSetorMicroMacro, rotuloSetorMicroMacro } fro
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import type { FrequenciaMensal, Integrante, RefPgto } from "@/types/database";
 
+type MesAfastamento = { competencia: string; label: string; curto: string; ano: number };
+
 type AfastamentosResponse = {
   error?: string;
   canManageAll?: boolean;
   usuarioId?: string;
+  periodo?: { inicio: string; fim: string; rotulo: string };
+  competencias?: MesAfastamento[];
   integrantes?: Integrante[];
   frequencias?: FrequenciaMensal[];
   ref_pgto?: RefPgto[];
@@ -55,7 +61,12 @@ function matchesBusca(integrante: Integrante, raw: string): boolean {
   );
 }
 
-function valoresIniciais(integrantes: Integrante[], frequencias: FrequenciaMensal[]): ValoresPorIntegrante {
+function valoresIniciais(
+  integrantes: Integrante[],
+  frequencias: FrequenciaMensal[],
+  competencias: readonly { competencia: string }[],
+  periodo: PeriodoAfastamento
+): ValoresPorIntegrante {
   const porPessoaEMes = new Map<string, number>();
   for (const freq of frequencias) {
     porPessoaEMes.set(
@@ -67,10 +78,10 @@ function valoresIniciais(integrantes: Integrante[], frequencias: FrequenciaMensa
   const proximos: ValoresPorIntegrante = {};
   for (const integrante of integrantes) {
     proximos[integrante.id] = {};
-    for (const mes of COMPETENCIAS_AFASTAMENTO) {
+    for (const mes of competencias) {
       const bruto = porPessoaEMes.get(chaveCelula(integrante.id, mes.competencia)) ?? 0;
       proximos[integrante.id][mes.competencia] = String(
-        diasConsideradosNoPeriodo(mes.competencia, bruto)
+        diasConsideradosNoPeriodo(mes.competencia, bruto, periodo)
       );
     }
   }
@@ -80,6 +91,7 @@ function valoresIniciais(integrantes: Integrante[], frequencias: FrequenciaMensa
 export default function AfastamentosPage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
+  const { instrucaoServicoId, filtroInstrucaoPronto } = useInstrucaoServicoSelecionada();
   const [canManageAll, setCanManageAll] = useState(false);
   const [usuarioId, setUsuarioId] = useState("");
   const [integrantes, setIntegrantes] = useState<Integrante[]>([]);
@@ -92,11 +104,17 @@ export default function AfastamentosPage() {
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
+  const [competencias, setCompetencias] = useState<MesAfastamento[]>([...COMPETENCIAS_AFASTAMENTO]);
+  const [periodo, setPeriodo] = useState<PeriodoAfastamento>(PERIODO_AFASTAMENTO_PADRAO);
+  const [rotuloPeriodo, setRotuloPeriodo] = useState(PERIODO_AFASTAMENTO_ROTULO);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const res = await fetch("/api/afastamentos", { credentials: "include" });
+    const params = new URLSearchParams();
+    if (instrucaoServicoId) params.set("instrucaoServicoId", instrucaoServicoId);
+    const filtro = params.size > 0 ? `?${params.toString()}` : "";
+    const res = await fetch(`/api/afastamentos${filtro}`, { credentials: "include" });
     const data = (await res.json()) as AfastamentosResponse;
 
     if (!res.ok) {
@@ -109,7 +127,23 @@ export default function AfastamentosPage() {
       return;
     }
 
-    const iniciais = valoresIniciais(data.integrantes ?? [], data.frequencias ?? []);
+    const periodoCarregado =
+      data.periodo?.inicio && data.periodo?.fim
+        ? { inicio: data.periodo.inicio.slice(0, 10), fim: data.periodo.fim.slice(0, 10) }
+        : PERIODO_AFASTAMENTO_PADRAO;
+    const meses =
+      data.competencias && data.competencias.length > 0
+        ? data.competencias
+        : [...COMPETENCIAS_AFASTAMENTO];
+    setPeriodo(periodoCarregado);
+    setCompetencias(meses);
+    setRotuloPeriodo(data.periodo?.rotulo || rotuloPeriodoAfastamento(periodoCarregado));
+    const iniciais = valoresIniciais(
+      data.integrantes ?? [],
+      data.frequencias ?? [],
+      meses,
+      periodoCarregado
+    );
     setCanManageAll(data.canManageAll === true);
     setUsuarioId(data.usuarioId ?? "");
     setIntegrantes(data.integrantes ?? []);
@@ -117,11 +151,12 @@ export default function AfastamentosPage() {
     setValores(iniciais);
     setSalvos(iniciais);
     setLoading(false);
-  }, []);
+  }, [instrucaoServicoId]);
 
   useEffect(() => {
+    if (!filtroInstrucaoPronto) return;
     void load();
-  }, [load]);
+  }, [filtroInstrucaoPronto, load]);
 
   const setoresMacro = useMemo(() => {
     const set = new Set(integrantes.map((item) => macroSetorIntegrante(item.setor)));
@@ -140,8 +175,8 @@ export default function AfastamentosPage() {
   );
 
   const resumoFolha = useMemo(
-    () => resumoFolhaAfastamentos(integrantes, refPgto, valores),
-    [integrantes, refPgto, valores]
+    () => resumoFolhaAfastamentos(integrantes, refPgto, valores, periodo),
+    [integrantes, refPgto, valores, periodo]
   );
 
   function podeEditar(integrante: Integrante): boolean {
@@ -166,10 +201,10 @@ export default function AfastamentosPage() {
     if (bruto === salvo) return;
 
     const dias = Number(bruto === "" ? 0 : bruto);
-    const max = diasMaximosNoPeriodo(competencia);
+    const max = diasMaximosNoPeriodo(competencia, periodo);
     if (!Number.isInteger(dias) || dias < 0 || dias > max) {
       setError(
-        `Informe uma quantidade inteira entre 0 e ${max}. Apenas o período de ${PERIODO_AFASTAMENTO_ROTULO} é considerado.`
+        `Informe uma quantidade inteira entre 0 e ${max}. Apenas o período de ${rotuloPeriodo} é considerado.`
       );
       setSucesso(null);
       atualizarValor(integrante.id, competencia, salvo);
@@ -181,7 +216,10 @@ export default function AfastamentosPage() {
     setError(null);
     setSucesso(null);
 
-    const res = await fetch("/api/afastamentos", {
+    const params = new URLSearchParams();
+    if (instrucaoServicoId) params.set("instrucaoServicoId", instrucaoServicoId);
+    const filtro = params.size > 0 ? `?${params.toString()}` : "";
+    const res = await fetch(`/api/afastamentos${filtro}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -227,7 +265,7 @@ export default function AfastamentosPage() {
             ? "Informe os dias de afastamento de cada integrante."
             : "Informe os seus dias de afastamento."}{" "}
           O período considerado é de{" "}
-          <span className="font-medium text-[var(--foreground)]">{PERIODO_AFASTAMENTO_ROTULO}</span>
+          <span className="font-medium text-[var(--foreground)]">{rotuloPeriodo}</span>
           . Totais abaixo de {LIMIAR_DIAS_AFASTAMENTO} dias aparecem em vermelho;{" "}
           {LIMIAR_DIAS_AFASTAMENTO} dias ou mais, em verde. Os valores são gravados ao sair de cada
           campo.
@@ -253,12 +291,13 @@ export default function AfastamentosPage() {
           Período considerado
         </p>
         <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
-          {PERIODO_AFASTAMENTO_ROTULO}
+          {rotuloPeriodo}
         </p>
         <p className="mt-1 text-xs text-[var(--muted)]">
-          Em junho, informe apenas os dias a partir do dia {Number(PERIODO_AFASTAMENTO_INICIO.slice(8, 10))}.
-          Em dezembro, apenas até o dia {Number(PERIODO_AFASTAMENTO_FIM.slice(8, 10))}. Dias fora
-          desse intervalo não entram no total.
+          {competencias.length > 0 && competencias[0].competencia === competencias[competencias.length - 1].competencia
+            ? `Em ${competencias[0].label.toLowerCase()}, informe os dias de ${Number(periodo.inicio.slice(8, 10))} até ${Number(periodo.fim.slice(8, 10))}.`
+            : `Em ${competencias[0]?.label.toLowerCase() ?? "o primeiro mês"}, informe apenas os dias a partir do dia ${Number(periodo.inicio.slice(8, 10))}. Em ${competencias[competencias.length - 1]?.label.toLowerCase() ?? "o último mês"}, apenas até o dia ${Number(periodo.fim.slice(8, 10))}.`}{" "}
+          Dias fora desse intervalo não entram no total.
         </p>
       </section>
 
@@ -273,7 +312,7 @@ export default function AfastamentosPage() {
               {formatMoney(resumoFolha.gastoPeriodo)}
             </p>
             <p className="mt-1 text-xs text-[var(--muted)]">
-              Folha de {resumoFolha.pessoasNaFolha} integrante(s) de {PERIODO_AFASTAMENTO_ROTULO},
+              Folha de {resumoFolha.pessoasNaFolha} integrante(s) de {rotuloPeriodo},
               conforme cargo e classe/padrão.
             </p>
           </div>
@@ -368,7 +407,7 @@ export default function AfastamentosPage() {
           </table>
         </div>
         <p className="text-xs text-[var(--muted)]">
-          O gasto mensal da tabela considera {PERIODO_AFASTAMENTO_ROTULO}. O abatimento usa o
+          O gasto mensal da tabela considera {rotuloPeriodo}. O abatimento usa o
           valor diário de cada integrante (cargo e classe/padrão) e os dias lançados na grade
           abaixo.
         </p>
@@ -449,8 +488,8 @@ export default function AfastamentosPage() {
                 <th className="w-[22%] px-1.5 py-1.5 font-medium">Nome</th>
                 <th className="w-[7%] px-1 py-1.5 font-medium">Matrícula</th>
                 <th className="w-[12%] px-1 py-1.5 font-medium">Setor</th>
-                {COMPETENCIAS_AFASTAMENTO.map((mes) => {
-                  const limite = rotuloLimiteMes(mes.competencia);
+                {competencias.map((mes) => {
+                  const limite = rotuloLimiteMes(mes.competencia, periodo);
                   return (
                     <th
                       key={mes.competencia}
@@ -470,7 +509,7 @@ export default function AfastamentosPage() {
             </thead>
             <tbody>
               {integrantesFiltrados.map((integrante) => {
-                const total = totalDiasAfastamento(valores[integrante.id] ?? {});
+                const total = totalDiasAfastamento(valores[integrante.id] ?? {}, competencias, periodo);
                 const atingiuLimiar = total >= LIMIAR_DIAS_AFASTAMENTO;
                 const editavel = podeEditar(integrante);
                 return (
@@ -486,9 +525,9 @@ export default function AfastamentosPage() {
                         {rotuloSetorMicroMacro(integrante.setor)}
                       </span>
                     </td>
-                    {COMPETENCIAS_AFASTAMENTO.map((mes) => {
+                    {competencias.map((mes) => {
                       const key = chaveCelula(integrante.id, mes.competencia);
-                      const max = diasMaximosNoPeriodo(mes.competencia);
+                      const max = diasMaximosNoPeriodo(mes.competencia, periodo);
                       return (
                         <td key={mes.competencia} className="px-0.5 py-1 text-center">
                           <input

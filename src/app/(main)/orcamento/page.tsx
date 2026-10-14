@@ -29,6 +29,7 @@ import {
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import type {
   Atividade,
+  Documento,
   Equipe,
   Integrante,
   Orcamento,
@@ -190,10 +191,13 @@ export default function OrcamentoPage() {
       if (planoAtividades !== null) params.set("planoAtividades", String(planoAtividades));
       const filtro = `?${params.toString()}`;
       const res = await fetch(`/api/atividades${filtro}`, { credentials: "include" });
-      const [dataAtividades, dataEquipes] = await Promise.all([
+      const [dataAtividades, dataEquipes, dataDocumentos] = await Promise.all([
         res.json() as Promise<{ atividades?: Atividade[] }>,
         fetch(`/api/equipe${filtro}`, { credentials: "include" }).then(
           async (resEquipe) => ((await resEquipe.json()) as { equipe?: Equipe[]; ok?: boolean })
+        ),
+        fetch("/api/documentos", { credentials: "include" }).then(
+          async (resDocs) => ((await resDocs.json()) as { documentos?: Documento[] })
         ),
       ]);
       if (!ativo || !res.ok) {
@@ -204,6 +208,17 @@ export default function OrcamentoPage() {
       const atividades = dataAtividades.atividades ?? [];
       setAtividadesIs(atividades);
       setEquipes(dataEquipes.equipe ?? []);
+      const documento = (dataDocumentos.documentos ?? []).find((d) => d.id === instrucaoServicoId);
+      const inicioDocumento = documento?.periodo_inicio?.slice(0, 10) ?? "";
+      const fimDocumento = documento?.periodo_fim?.slice(0, 10) ?? "";
+      if (
+        /^\d{4}-\d{2}-\d{2}$/.test(inicioDocumento) &&
+        /^\d{4}-\d{2}-\d{2}$/.test(fimDocumento) &&
+        inicioDocumento <= fimDocumento
+      ) {
+        setPeriodoInstrucao({ inicio: inicioDocumento, fim: fimDocumento });
+        return;
+      }
       const inicios = atividades.map((a) => toISODateOnly(a.inicio)).filter(Boolean) as string[];
       const fins = atividades.map((a) => toISODateOnly(a.fim)).filter(Boolean) as string[];
       if (inicios.length === 0 || fins.length === 0) {
@@ -852,6 +867,12 @@ export default function OrcamentoPage() {
                       {formatMoney(Number(c.total_valor))}
                     </span>
                   </p>
+                  {(c.linhas_sem_referencia ?? 0) > 0 && (
+                    <p className="mt-0.5 text-[11px] text-[#6f4d14]">
+                      {c.linhas_sem_referencia} linha(s) sem referência de pagamento atual — entram
+                      como R$ 0,00.
+                    </p>
+                  )}
                   <p className="mt-0.5 text-[11px] text-[var(--muted)]">
                     {formatDataHora(c.created_at)}
                   </p>
@@ -1154,6 +1175,12 @@ export default function OrcamentoPage() {
                           −{formatMoney(Number(c.economia_stic))}
                         </span>
                       </p>
+                      {(c.sem_correspondencia ?? 0) > 0 && (
+                        <p className="mt-0.5 text-[11px] text-[#6f4d14]">
+                          {c.sem_correspondencia} pessoa(s) sem correspondência de cargo/classe —
+                          entram como R$ 0,00.
+                        </p>
+                      )}
                       <p className="mt-0.5 text-[11px] text-[var(--muted)]">
                         {formatDataHora(c.created_at)}
                       </p>

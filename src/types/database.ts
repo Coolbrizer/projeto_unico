@@ -6,6 +6,8 @@ export type Atividade = {
   codigo: string;
   descricao: string | null;
   responsavel: string | null;
+  /** Integrante cujo nome coincide exatamente com o responsável. Nulo se houver homônimo ou nenhuma correspondência. */
+  responsavel_id?: string | null;
   /** UUID do documento (Instrução de Serviço) em `documentos.id`. */
   instrucao_servico: string;
   inicio: string | null;
@@ -82,6 +84,8 @@ export type OrcamentoCenario = {
   linhas: OrcamentoCenarioLinha[];
   total_pessoas: number;
   total_valor: number;
+  /** Linhas cujo ref_pgto_id não existe mais na referência atual. Calculado na leitura. */
+  linhas_sem_referencia?: number;
   criado_por: string | null;
   created_at: string;
 };
@@ -100,6 +104,8 @@ export type OrcamentoCenarioFerias = {
   total_economia: number;
   economia_sejud: number;
   economia_stic: number;
+  /** Pessoas do cenário sem correspondência atual de cargo/classe. Calculado na leitura. */
+  sem_correspondencia?: number;
   criado_por: string | null;
   created_at: string;
 };
@@ -124,7 +130,10 @@ export type Documento = {
   etiqueta: string | null;
   /** URL do documento (coluna `link` no Supabase). */
   link: string | null;
-  /** Menor data de início e maior data de fim das atividades da mesma IS (YYYY-MM-DD). */
+  /** Período oficial da instrução (YYYY-MM-DD), gravado no documento. */
+  periodo_inicio?: string | null;
+  periodo_fim?: string | null;
+  /** Período usado nas telas: o gravado, quando início e fim existem; senão, o das atividades. */
   periodo_inicio_atividades?: string | null;
   periodo_fim_atividades?: string | null;
   /** Planos de atividades já vinculados a esta Instrução de Serviço. */

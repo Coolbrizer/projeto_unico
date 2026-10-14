@@ -12,6 +12,7 @@ import {
   normalizarDataParaApi,
 } from "@/lib/datas-atividade";
 import { camposCorrespondemBusca } from "@/lib/busca-texto";
+import { rotuloStatusExecucao } from "@/lib/status-execucao";
 import {
   montarLinhasPlanilhaAtividades,
   nomeArquivoPlanilhaAtividades,
@@ -996,6 +997,11 @@ export default function AtividadesPage() {
                         {progressoLinha}%
                       </span>
                     </div>
+                    {rotuloStatusExecucao(a.status_execucao) ? (
+                      <p className="mt-1 text-[11px] text-[var(--muted)]">
+                        {rotuloStatusExecucao(a.status_execucao)}
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2 align-top">
                     <div className="flex flex-wrap gap-1.5">

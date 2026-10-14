@@ -1,7 +1,7 @@
 import {
-  PERIODO_AFASTAMENTO_FIM,
-  PERIODO_AFASTAMENTO_INICIO,
+  PERIODO_AFASTAMENTO_PADRAO,
   diasConsideradosNoPeriodo,
+  type PeriodoAfastamento,
 } from "@/lib/afastamentos";
 import {
   despesaFolhaPeriodo,
@@ -52,9 +52,11 @@ export type MesFolhaAfastamento = MesPeriodoAfastamento & {
   liquido: number;
 };
 
-export function mesesPeriodoAfastamento(): MesPeriodoAfastamento[] {
-  const inicio = parseIso(PERIODO_AFASTAMENTO_INICIO);
-  const fim = parseIso(PERIODO_AFASTAMENTO_FIM);
+export function mesesPeriodoAfastamento(
+  periodo: PeriodoAfastamento = PERIODO_AFASTAMENTO_PADRAO
+): MesPeriodoAfastamento[] {
+  const inicio = parseIso(periodo.inicio);
+  const fim = parseIso(periodo.fim);
   if (!inicio || !fim) return [];
 
   const meses: MesPeriodoAfastamento[] = [];
@@ -94,9 +96,10 @@ export type ResumoFolhaAfastamentos = {
 export function resumoFolhaAfastamentos(
   integrantes: Integrante[],
   refs: RefPgto[],
-  valores: Record<string, Record<string, string | number | undefined>>
+  valores: Record<string, Record<string, string | number | undefined>>,
+  periodo: PeriodoAfastamento = PERIODO_AFASTAMENTO_PADRAO
 ): ResumoFolhaAfastamentos {
-  const meses: MesFolhaAfastamento[] = mesesPeriodoAfastamento().map((mes) => ({
+  const meses: MesFolhaAfastamento[] = mesesPeriodoAfastamento(periodo).map((mes) => ({
     ...mes,
     diasPagos: despesaFolhaPeriodo(1, mes.inicioISO, mes.fimISO).diasPagosContados,
     gasto: 0,
@@ -122,7 +125,8 @@ export function resumoFolhaAfastamentos(
       const gastoPessoa = despesaFolhaPeriodo(valorMensal, mes.inicioISO, mes.fimISO).total;
       const diasAfastamento = diasConsideradosNoPeriodo(
         mes.competencia,
-        valores[integrante.id]?.[mes.competencia]
+        valores[integrante.id]?.[mes.competencia],
+        periodo
       );
       const abatimentoPessoa = reducaoFeriasNoPeriodo(
         gastoPessoa,

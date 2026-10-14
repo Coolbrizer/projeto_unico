@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAuthedSupabase } from "@/lib/auth/requireAuthedSupabase";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { ordenarDocumentosPorReferencia } from "@/lib/documentos-sort";
-import { parseCorpoDocumento } from "@/lib/documentos-validacao";
+import { mensagemErroGravacaoDocumento, parseCorpoDocumento } from "@/lib/documentos-validacao";
 import type { Documento } from "@/types/database";
 
 /** Supabase pode retornar `link` ou, em bases antigas, `url`. */
@@ -79,10 +79,18 @@ export async function GET() {
     ((docsRes.data as Record<string, unknown>[]) ?? []).map((row) => {
       const doc = normalizarDocumento(row);
       const resumo = resumoPorInstrucao.get(doc.id);
+      const inicioGravado = normalizarIsoData(row.periodo_inicio);
+      const fimGravado = normalizarIsoData(row.periodo_fim);
+      const periodoOficial =
+        inicioGravado && fimGravado && inicioGravado <= fimGravado
+          ? { inicio: inicioGravado, fim: fimGravado }
+          : null;
       return {
         ...doc,
-        periodo_inicio_atividades: resumo?.inicio ?? null,
-        periodo_fim_atividades: resumo?.fim ?? null,
+        periodo_inicio: inicioGravado,
+        periodo_fim: fimGravado,
+        periodo_inicio_atividades: periodoOficial?.inicio ?? resumo?.inicio ?? null,
+        periodo_fim_atividades: periodoOficial?.fim ?? resumo?.fim ?? null,
         planos_atividades: resumo?.planos ?? [],
       } satisfies Documento;
     })
@@ -101,6 +109,8 @@ export async function POST(request: Request) {
     ano?: string;
     etiqueta?: string | null;
     link?: string | null;
+    periodo_inicio?: string | null;
+    periodo_fim?: string | null;
   };
   try {
     body = (await request.json()) as typeof body;
@@ -113,7 +123,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   }
 
-  const { tipo_documento: tipoRaw, numero, ano, etiqueta, link } = parsed.data;
+  const { tipo_documento: tipoRaw, numero, ano, etiqueta, link, periodo_inicio, periodo_fim } =
+    parsed.data;
 
   let supabase;
   try {
@@ -130,12 +141,14 @@ export async function POST(request: Request) {
       ano: Number(ano),
       etiqueta,
       link,
+      periodo_inicio,
+      periodo_fim,
     })
     .select("*")
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: mensagemErroGravacaoDocumento(error) }, { status: 400 });
   }
 
   return NextResponse.json({ ok: true, documento: data });

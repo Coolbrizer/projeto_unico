@@ -43,6 +43,8 @@ export default function DocumentosPage() {
   const [ano, setAno] = useState("");
   const [etiqueta, setEtiqueta] = useState("");
   const [link, setLink] = useState("");
+  const [periodoInicio, setPeriodoInicio] = useState("");
+  const [periodoFim, setPeriodoFim] = useState("");
 
   const load = useCallback(async () => {
     setError(null);
@@ -68,6 +70,14 @@ export default function DocumentosPage() {
     setAno("");
     setEtiqueta("");
     setLink("");
+    setPeriodoInicio("");
+    setPeriodoFim("");
+  }
+
+  function dataDoFormulario(iso: string | null | undefined): string {
+    if (!iso?.trim()) return "";
+    const texto = formatDataParaExibicao(iso);
+    return texto === "—" ? "" : texto;
   }
 
   function iniciarEdicao(r: Documento) {
@@ -77,6 +87,8 @@ export default function DocumentosPage() {
     setAno(apenasDigitos(String(r.ano ?? "")));
     setEtiqueta(r.etiqueta?.trim() ?? "");
     setLink(r.link?.trim() ?? "");
+    setPeriodoInicio(dataDoFormulario(r.periodo_inicio));
+    setPeriodoFim(dataDoFormulario(r.periodo_fim));
     setError(null);
   }
 
@@ -91,6 +103,8 @@ export default function DocumentosPage() {
       ano: apenasDigitos(ano),
       etiqueta: etiqueta.trim() || null,
       link: link.trim() || null,
+      periodo_inicio: periodoInicio.trim() || null,
+      periodo_fim: periodoFim.trim() || null,
     };
 
     const res = await fetch(
@@ -201,6 +215,30 @@ export default function DocumentosPage() {
                 className={inputClasse}
               />
             </div>
+            <div>
+              <label className="block text-xs text-[var(--muted)]">Início do período</label>
+              <input
+                value={periodoInicio}
+                onChange={(e) => setPeriodoInicio(e.target.value)}
+                placeholder="DD/MM/AAAA"
+                autoComplete="off"
+                className={inputClasse}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--muted)]">Fim do período</label>
+              <input
+                value={periodoFim}
+                onChange={(e) => setPeriodoFim(e.target.value)}
+                placeholder="DD/MM/AAAA"
+                autoComplete="off"
+                className={inputClasse}
+              />
+            </div>
+            <p className="sm:col-span-2 text-xs text-[var(--muted)]">
+              Período da instrução. Com as duas datas preenchidas, Orçamento e Afastamentos usam este
+              intervalo. Uma atividade com data diferente não altera o período da instrução.
+            </p>
             <div className="sm:col-span-2">
               <label className="block text-xs text-[var(--muted)]">Link</label>
               <input
@@ -252,7 +290,7 @@ export default function DocumentosPage() {
                       {etiquetaTxt ? (
                         <span className="text-[var(--muted)]">— {etiquetaTxt}</span>
                       ) : null}
-                      <span className="text-[var(--muted)]">· Período (atividades): {periodoAtividades}</span>
+                      <span className="text-[var(--muted)]">· Período da instrução: {periodoAtividades}</span>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       {temLink ? (

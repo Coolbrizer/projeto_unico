@@ -43,7 +43,49 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, cenarios: data ?? [] });
+  const [resInt, resRef] = await Promise.all([
+    supabase
+      .from("integrantes")
+      .select("id, matricula, nome, setor, cargo, classe_padrao, nao_remunerado, vinculo")
+      .eq("vinculo", "integrante"),
+    supabase.from("ref_pgto").select("id, cargo, classe_padrao, valor_mensal"),
+  ]);
+  if (resInt.error) {
+    return NextResponse.json({ error: resInt.error.message }, { status: 400 });
+  }
+  if (resRef.error) {
+    return NextResponse.json({ error: resRef.error.message }, { status: 400 });
+  }
+
+  const integrantes = (resInt.data ?? []) as Integrante[];
+  const refPgto = (resRef.data ?? []) as RefPgto[];
+  const cenarios = ((data ?? []) as Array<{
+    linhas: OrcamentoCenarioFeriasLinha[];
+    data_inicio: string;
+    data_fim: string;
+    total_economia: number;
+    economia_sejud: number;
+    economia_stic: number;
+  }>).map((cenario) => {
+    const linhas = Array.isArray(cenario.linhas) ? cenario.linhas : [];
+    const totais = totaisCenarioFerias(
+      linhas,
+      integrantes,
+      refPgto,
+      String(cenario.data_inicio).slice(0, 10),
+      String(cenario.data_fim).slice(0, 10)
+    );
+    if (totais.erro) return { ...cenario, sem_correspondencia: 0 };
+    return {
+      ...cenario,
+      total_economia: totais.totalEconomia,
+      economia_sejud: totais.economiaSejud,
+      economia_stic: totais.economiaStic,
+      sem_correspondencia: totais.semCorrespondencia,
+    };
+  });
+
+  return NextResponse.json({ ok: true, cenarios });
 }
 
 export async function POST(request: Request) {

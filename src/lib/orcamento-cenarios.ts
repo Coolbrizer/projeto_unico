@@ -19,12 +19,14 @@ export function linhasAtivas(
 export function totaisDoCenario(
   linhas: OrcamentoCenarioLinha[],
   refPgto: RefPgto[]
-): { totalPessoas: number; totalValor: number } {
+): { totalPessoas: number; totalValor: number; linhasSemReferencia: number } {
   const refMap = new Map(refPgto.map((r) => [r.id, r]));
   let totalPessoas = 0;
   let totalValor = 0;
+  let linhasSemReferencia = 0;
   for (const l of linhas) {
     const ref = refMap.get(l.ref_pgto_id);
+    if (!ref) linhasSemReferencia += 1;
     const valorMensal = Number(ref?.valor_mensal) || 0;
     totalPessoas += l.pessoas;
     totalValor += valorMensal * l.meses * l.pessoas;
@@ -32,6 +34,7 @@ export function totaisDoCenario(
   return {
     totalPessoas,
     totalValor: Math.round(totalValor * 100) / 100,
+    linhasSemReferencia,
   };
 }
 

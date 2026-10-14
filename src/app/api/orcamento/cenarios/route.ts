@@ -37,7 +37,29 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, cenarios: data ?? [] });
+  const { data: refs, error: errRefs } = await supabase
+    .from("ref_pgto")
+    .select("id, cargo, classe_padrao, valor_mensal");
+  if (errRefs) {
+    return NextResponse.json({ error: errRefs.message }, { status: 400 });
+  }
+
+  const cenarios = ((data ?? []) as Array<{
+    linhas: OrcamentoCenarioLinha[];
+    total_pessoas: number;
+    total_valor: number;
+  }>).map((cenario) => {
+    const linhas = Array.isArray(cenario.linhas) ? cenario.linhas : [];
+    const totais = totaisDoCenario(linhas, (refs ?? []) as RefPgto[]);
+    return {
+      ...cenario,
+      total_pessoas: totais.totalPessoas,
+      total_valor: totais.totalValor,
+      linhas_sem_referencia: totais.linhasSemReferencia,
+    };
+  });
+
+  return NextResponse.json({ ok: true, cenarios });
 }
 
 export async function POST(request: Request) {

@@ -38,22 +38,37 @@ export function totaisCenarioFerias(
   economiaSejud: number;
   economiaStic: number;
   diasPagos: number;
+  semCorrespondencia: number;
   erro?: string;
 } {
   const diasPagos = despesaFolhaPeriodo(1, dataInicioISO, dataFimISO).diasPagosContados;
   const erro = despesaFolhaPeriodo(1, dataInicioISO, dataFimISO).erro;
   if (erro) {
-    return { totalEconomia: 0, economiaSejud: 0, economiaStic: 0, diasPagos: 0, erro };
+    return {
+      totalEconomia: 0,
+      economiaSejud: 0,
+      economiaStic: 0,
+      diasPagos: 0,
+      semCorrespondencia: 0,
+      erro,
+    };
   }
 
   const porId = new Map(integrantes.map((i) => [i.id, i]));
   let economiaSejud = 0;
   let economiaStic = 0;
+  let semCorrespondencia = 0;
 
   for (const l of linhas) {
     const i = porId.get(l.integrante_id);
-    if (!i || !integranteContaParaFolha(i)) continue;
+    if (!i) {
+      semCorrespondencia += 1;
+      continue;
+    }
+    if (!integranteContaParaFolha(i)) continue;
     const valorMensal = valorMensalDoRef(refPgto, i.cargo, i.classe_padrao);
+    const temCargoOuClasse = Boolean((i.cargo ?? "").trim() || (i.classe_padrao ?? "").trim());
+    if (temCargoOuClasse && valorMensal === 0) semCorrespondencia += 1;
     const despesaPeriodo = despesaFolhaPeriodo(valorMensal, dataInicioISO, dataFimISO).total;
     const economia = reducaoFeriasNoPeriodo(despesaPeriodo, l.dias_ferias, diasPagos);
     if (macroSetorIntegrante(i.setor) === "STIC") economiaStic += economia;
@@ -66,5 +81,6 @@ export function totaisCenarioFerias(
     economiaSejud: Math.round(economiaSejud * 100) / 100,
     economiaStic: Math.round(economiaStic * 100) / 100,
     diasPagos,
+    semCorrespondencia,
   };
 }
