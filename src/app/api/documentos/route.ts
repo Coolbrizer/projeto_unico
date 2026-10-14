@@ -24,9 +24,22 @@ function normalizarDocumento(row: Record<string, unknown>): Documento {
 }
 
 function normalizarIsoData(raw: unknown): string | null {
-  const s = typeof raw === "string" ? raw.trim() : "";
+  const s = typeof raw === "string" ? raw.trim().slice(0, 10) : "";
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
   return null;
+}
+
+function planosDoResumo(raw: unknown): number[] {
+  let itens: unknown[] = [];
+  if (Array.isArray(raw)) itens = raw;
+  else if (typeof raw === "string") {
+    const interno = raw.trim().replace(/^\{|\}$/g, "");
+    itens = interno ? interno.split(",") : [];
+  }
+  const numeros = itens
+    .map((v) => Number(String(v).trim()))
+    .filter((n) => Number.isInteger(n) && n >= 1);
+  return [...new Set(numeros)].sort((a, b) => a - b);
 }
 
 export async function GET() {
@@ -34,53 +47,43 @@ export async function GET() {
   if (auth.response) return auth.response;
   const { supabase } = auth;
 
-  const [docsRes, atvRes] = await Promise.all([
+  const [docsRes, resumoRes] = await Promise.all([
     supabase.from("documentos").select("*"),
-    supabase.from("atividades").select("instrucao_servico, inicio, fim, plano_atividades"),
+    supabase
+      .from("atividades_resumo_por_documento")
+      .select("instrucao_servico, periodo_inicio, periodo_fim, planos"),
   ]);
 
   if (docsRes.error) {
     return NextResponse.json({ error: docsRes.error.message }, { status: 400 });
   }
-  if (atvRes.error) {
-    return NextResponse.json({ error: atvRes.error.message }, { status: 400 });
+  if (resumoRes.error) {
+    return NextResponse.json({ error: resumoRes.error.message }, { status: 400 });
   }
 
-  const periodoPorInstrucao = new Map<string, { inicio: string; fim: string }>();
-  const planosPorInstrucao = new Map<string, Set<number>>();
-  for (const a of (atvRes.data ?? []) as Array<Record<string, unknown>>) {
-    const instrucao = typeof a.instrucao_servico === "string" ? a.instrucao_servico : "";
+  const resumoPorInstrucao = new Map<
+    string,
+    { inicio: string | null; fim: string | null; planos: number[] }
+  >();
+  for (const row of (resumoRes.data ?? []) as Array<Record<string, unknown>>) {
+    const instrucao = typeof row.instrucao_servico === "string" ? row.instrucao_servico : "";
     if (!instrucao) continue;
-    const plano = Number(a.plano_atividades);
-    if (Number.isInteger(plano) && plano >= 1) {
-      if (!planosPorInstrucao.has(instrucao)) planosPorInstrucao.set(instrucao, new Set());
-      planosPorInstrucao.get(instrucao)!.add(plano);
-    }
-
-    const ini = normalizarIsoData(a.inicio);
-    const fim = normalizarIsoData(a.fim);
-    if (!ini || !fim) continue;
-    const atual = periodoPorInstrucao.get(instrucao);
-    if (!atual) {
-      periodoPorInstrucao.set(instrucao, { inicio: ini, fim });
-      continue;
-    }
-    periodoPorInstrucao.set(instrucao, {
-      inicio: ini < atual.inicio ? ini : atual.inicio,
-      fim: fim > atual.fim ? fim : atual.fim,
+    resumoPorInstrucao.set(instrucao, {
+      inicio: normalizarIsoData(row.periodo_inicio),
+      fim: normalizarIsoData(row.periodo_fim),
+      planos: planosDoResumo(row.planos),
     });
   }
 
   const documentos = ordenarDocumentosPorReferencia(
     ((docsRes.data as Record<string, unknown>[]) ?? []).map((row) => {
       const doc = normalizarDocumento(row);
-      const periodo = periodoPorInstrucao.get(doc.id);
-      const planos = [...(planosPorInstrucao.get(doc.id) ?? new Set<number>())].sort((a, b) => a - b);
+      const resumo = resumoPorInstrucao.get(doc.id);
       return {
         ...doc,
-        periodo_inicio_atividades: periodo?.inicio ?? null,
-        periodo_fim_atividades: periodo?.fim ?? null,
-        planos_atividades: planos,
+        periodo_inicio_atividades: resumo?.inicio ?? null,
+        periodo_fim_atividades: resumo?.fim ?? null,
+        planos_atividades: resumo?.planos ?? [],
       } satisfies Documento;
     })
   );

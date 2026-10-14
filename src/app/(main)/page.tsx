@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { useMounted } from "@/hooks/useMounted";
@@ -57,6 +57,88 @@ function formatarPlanoAtividades(valor: number | null | undefined): string {
   return valor ? `Plano de Atividades nº ${valor}` : "Plano de Atividades não informado";
 }
 
+type TamanhoPagina = 10 | 25 | 50 | "all";
+
+const OPCOES_TAMANHO_PAGINA: { value: TamanhoPagina; label: string }[] = [
+  { value: 10, label: "10" },
+  { value: 25, label: "25" },
+  { value: 50, label: "50" },
+  { value: "all", label: "Tudo" },
+];
+
+function PaginacaoControles({
+  total,
+  paginaAtual,
+  setPaginaAtual,
+  tamanhoPagina,
+  setTamanhoPagina,
+  posicao,
+}: {
+  total: number;
+  paginaAtual: number;
+  setPaginaAtual: (n: number) => void;
+  tamanhoPagina: TamanhoPagina;
+  setTamanhoPagina: (n: TamanhoPagina) => void;
+  posicao: "topo" | "base";
+}) {
+  const isAll = tamanhoPagina === "all";
+  const tamanho = isAll ? Math.max(total, 1) : tamanhoPagina;
+  const totalPaginas = isAll ? 1 : Math.max(1, Math.ceil(total / tamanho));
+  const inicio = total === 0 ? 0 : (paginaAtual - 1) * tamanho + 1;
+  const fim = isAll ? total : Math.min(total, paginaAtual * tamanho);
+  const labelId = `atividades-pagsize-${posicao}`;
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--card)]/70 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+        <label htmlFor={labelId}>Itens por página</label>
+        <select
+          id={labelId}
+          value={String(tamanhoPagina)}
+          onChange={(e) => {
+            const v = e.target.value;
+            setTamanhoPagina(v === "all" ? "all" : (Number(v) as TamanhoPagina));
+            setPaginaAtual(1);
+          }}
+          className="rounded-md border border-[var(--card-border)] bg-white px-2 py-1 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
+        >
+          {OPCOES_TAMANHO_PAGINA.map((o) => (
+            <option key={String(o.value)} value={String(o.value)}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <span className="text-[var(--muted)]">
+          {total === 0 ? "0 atividade(s)" : `${inicio}–${fim} de ${total} atividade(s)`}
+        </span>
+      </div>
+      {!isAll && totalPaginas > 1 && (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPaginaAtual(Math.max(1, paginaAtual - 1))}
+            disabled={paginaAtual <= 1}
+            className="rounded-md border border-[var(--card-border)] bg-white px-2 py-1 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--accent-muted)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            ← Anterior
+          </button>
+          <span className="text-xs tabular-nums text-[var(--muted)]">
+            Página {paginaAtual} de {totalPaginas}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPaginaAtual(Math.min(totalPaginas, paginaAtual + 1))}
+            disabled={paginaAtual >= totalPaginas}
+            className="rounded-md border border-[var(--card-border)] bg-white px-2 py-1 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--accent-muted)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Próxima →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function dataParaCampoFormulario(value: string | null | undefined): string {
   const texto = formatDataParaExibicao(value);
   return texto === "—" ? "" : texto;
@@ -81,6 +163,9 @@ export default function AtividadesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
+  const [tamanhoPagina, setTamanhoPagina] = useState<TamanhoPagina>(10);
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const listaRef = useRef<HTMLUListElement | null>(null);
   const [documentosIs, setDocumentosIs] = useState<Documento[]>([]);
   const [instrucaoServicoId, setInstrucaoServicoId] = useState("");
 
@@ -214,6 +299,30 @@ export default function AtividadesPage() {
       compararCodigoAtividade(a.codigo ?? "", b.codigo ?? "")
     );
   }, [rows, busca, filtroTipo]);
+
+  const totalPaginas = useMemo(() => {
+    if (tamanhoPagina === "all") return 1;
+    return Math.max(1, Math.ceil(filtradas.length / tamanhoPagina));
+  }, [filtradas.length, tamanhoPagina]);
+
+  const atividadesPagina = useMemo(() => {
+    if (tamanhoPagina === "all") return filtradas;
+    const inicio = (paginaAtual - 1) * tamanhoPagina;
+    return filtradas.slice(inicio, inicio + tamanhoPagina);
+  }, [filtradas, paginaAtual, tamanhoPagina]);
+
+  useEffect(() => {
+    setPaginaAtual(1);
+  }, [busca, filtroTipo, instrucaoServicoGlobalId, planoAtividadesGlobal]);
+
+  useEffect(() => {
+    if (paginaAtual > totalPaginas) setPaginaAtual(totalPaginas);
+  }, [paginaAtual, totalPaginas]);
+
+  function irParaPagina(n: number) {
+    setPaginaAtual(n);
+    listaRef.current?.scrollIntoView({ block: "start" });
+  }
 
   async function extrairPlanilha() {
     if (exportando || loading || rows.length === 0) return;
@@ -825,8 +934,19 @@ export default function AtividadesPage() {
                 : "Nenhum resultado com os critérios atuais (busca ou tipo de atividade)."}
           </p>
         ) : (
-          <ul className="space-y-3">
-            {filtradas.map((a) => (
+          <>
+          <div className="mb-3">
+            <PaginacaoControles
+              total={filtradas.length}
+              paginaAtual={paginaAtual}
+              setPaginaAtual={irParaPagina}
+              tamanhoPagina={tamanhoPagina}
+              setTamanhoPagina={setTamanhoPagina}
+              posicao="topo"
+            />
+          </div>
+          <ul ref={listaRef} className="scroll-mt-28 space-y-3">
+            {atividadesPagina.map((a) => (
               <li
                 key={a.id}
                 className={`overflow-hidden rounded-xl border bg-[var(--card)] ${
@@ -1012,6 +1132,17 @@ export default function AtividadesPage() {
               </li>
             ))}
           </ul>
+          <div className="mt-3">
+            <PaginacaoControles
+              total={filtradas.length}
+              paginaAtual={paginaAtual}
+              setPaginaAtual={irParaPagina}
+              tamanhoPagina={tamanhoPagina}
+              setTamanhoPagina={setTamanhoPagina}
+              posicao="base"
+            />
+          </div>
+          </>
         )}
       </section>
       </div>
