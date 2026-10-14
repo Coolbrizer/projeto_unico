@@ -317,6 +317,17 @@ export function AppShell({
                   ))}
                 </select>
               </div>
+              <p className="mx-auto max-w-7xl px-4 pb-3 text-xs leading-relaxed text-[var(--foreground)]">
+                {instrucaoServicoId
+                  ? `Recorte ativo: ${
+                      opcoesFiltroInstrucao.find(
+                        (opcao) =>
+                          opcao.instrucaoServicoId === instrucaoServicoId &&
+                          opcao.planoAtividades === planoAtividades
+                      )?.label ?? "instrução selecionada"
+                    }. Atividades, Equipe, Progresso, Meu perfil, Prestação de contas e Orçamento mostram só este recorte.`
+                  : "Nenhuma instrução selecionada. Essas telas mostram todas as instruções de serviço."}
+              </p>
             </div>
           </header>
           <main className="flex-1 px-4 py-6 md:px-8 md:py-8 lg:px-12">{children}</main>

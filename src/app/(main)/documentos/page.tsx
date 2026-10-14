@@ -111,14 +111,17 @@ export default function DocumentosPage() {
     void load();
   }
 
-  async function remove(id: string) {
+  async function remove(r: Documento) {
     if (!podeEditar) return;
+    const rotulo = rotuloDocumentoNumeroAno(r);
+    const ok = window.confirm(`Excluir ${rotulo}? Esta ação não pode ser desfeita.`);
+    if (!ok) return;
     setError(null);
-    const res = await fetch(`/api/documentos/${id}`, { method: "DELETE", credentials: "include" });
+    const res = await fetch(`/api/documentos/${r.id}`, { method: "DELETE", credentials: "include" });
     const data = (await res.json()) as { error?: string };
     if (!res.ok) setError(data.error ?? "Não foi possível excluir.");
     else {
-      if (editingId === id) limparFormulario();
+      if (editingId === r.id) limparFormulario();
       void load();
     }
   }
@@ -282,7 +285,7 @@ export default function DocumentosPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => void remove(r.id)}
+                            onClick={() => void remove(r)}
                             className="rounded border border-red-500/50 px-1.5 py-0.5 text-[10px] text-red-700 hover:bg-red-500/10 sm:text-xs"
                           >
                             Excluir

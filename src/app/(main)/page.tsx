@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { useMounted } from "@/hooks/useMounted";
@@ -165,7 +165,7 @@ export default function AtividadesPage() {
   const [filtroTipo, setFiltroTipo] = useState("");
   const [tamanhoPagina, setTamanhoPagina] = useState<TamanhoPagina>(10);
   const [paginaAtual, setPaginaAtual] = useState(1);
-  const listaRef = useRef<HTMLUListElement | null>(null);
+  const listaRef = useRef<HTMLDivElement | null>(null);
   const [documentosIs, setDocumentosIs] = useState<Documento[]>([]);
   const [instrucaoServicoId, setInstrucaoServicoId] = useState("");
 
@@ -479,19 +479,22 @@ export default function AtividadesPage() {
     void load();
   }
 
-  async function remove(id: string) {
+  async function remove(a: Atividade) {
     if (!podeEditar) return;
+    const rotulo = a.codigo?.trim() || "esta atividade";
+    const ok = window.confirm(`Excluir a atividade "${rotulo}"? Esta ação não pode ser desfeita.`);
+    if (!ok) return;
     setError(null);
-    const res = await fetch(`/api/atividades/${id}`, { method: "DELETE", credentials: "include" });
+    const res = await fetch(`/api/atividades/${a.id}`, { method: "DELETE", credentials: "include" });
     const data = (await res.json()) as { error?: string };
     if (!res.ok) {
       setError(data.error ?? "Não foi possível excluir.");
       return;
     }
-    if (expandedId === id) {
+    if (expandedId === a.id) {
       setExpandedId(null);
     }
-    if (editingId === id) {
+    if (editingId === a.id) {
       fecharFormulario();
     }
     void load();
@@ -930,8 +933,10 @@ export default function AtividadesPage() {
             {!configured
               ? "Configure o Supabase para ver os dados."
               : rows.length === 0
-                ? "Nenhuma atividade ainda."
-                : "Nenhum resultado com os critérios atuais (busca ou tipo de atividade)."}
+                ? instrucaoServicoGlobalId
+                  ? "Nenhuma atividade para a instrução e o plano selecionados no topo da página."
+                  : "Nenhuma atividade ainda."
+                : "Nenhum resultado com os critérios atuais (busca, tipo ou recorte do topo)."}
           </p>
         ) : (
           <>
@@ -945,101 +950,95 @@ export default function AtividadesPage() {
               posicao="topo"
             />
           </div>
-          <ul ref={listaRef} className="scroll-mt-28 space-y-3">
-            {atividadesPagina.map((a) => (
-              <li
-                key={a.id}
-                className={`overflow-hidden rounded-xl border bg-[var(--card)] ${
-                  editingId === a.id
-                    ? "border-[var(--accent)] ring-1 ring-[var(--accent)]/30"
-                    : "border-[var(--card-border)]"
-                }`}
-              >
-                <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className="cursor-text select-text font-medium"
-                      onClick={() => {
-                        if (window.getSelection()?.toString().trim()) return;
-                        handleToggleRelatorio(a);
-                      }}
-                    >
-                      {a.codigo ? <span className="text-[var(--accent)]">{a.codigo}</span> : "—"}
-                      {a.descricao && (
-                        <span className="font-normal text-[var(--foreground)]">
-                          {" "}
-                          — {a.descricao}
-                        </span>
+          <div ref={listaRef} className="scroll-mt-28 overflow-x-auto rounded-xl border border-[var(--card-border)] bg-[var(--card)]">
+            <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+              <thead className="border-b border-[var(--card-border)] bg-[var(--background)]/70 text-xs uppercase tracking-wide text-[var(--muted)]">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Código</th>
+                  <th className="px-3 py-2 font-medium">Descrição</th>
+                  <th className="px-3 py-2 font-medium">Responsável</th>
+                  <th className="px-3 py-2 font-medium">Período</th>
+                  <th className="px-3 py-2 font-medium">Progresso</th>
+                  <th className="px-3 py-2 font-medium">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+            {atividadesPagina.map((a) => {
+              const progressoLinha = Math.min(100, Math.max(0, Number(a.progresso ?? 0) || 0));
+              return (
+              <Fragment key={a.id}>
+                <tr
+                  className={`border-b border-[var(--card-border)]/70 ${
+                    editingId === a.id ? "bg-[var(--accent-muted)]/40" : ""
+                  }`}
+                >
+                  <td className="cursor-text select-text px-3 py-2 align-top font-medium text-[var(--accent)]">
+                    {a.codigo?.trim() || "—"}
+                  </td>
+                  <td className="cursor-text select-text px-3 py-2 align-top text-[var(--foreground)]">
+                    {a.descricao?.trim() || "—"}
+                  </td>
+                  <td className="px-3 py-2 align-top text-xs text-[var(--muted)]">
+                    {a.responsavel || "—"}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 align-top text-xs text-[var(--muted)]">
+                    {formatarPeriodoAtividade(a)}
+                  </td>
+                  <td className="w-36 px-3 py-2 align-top">
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 min-w-12 flex-1 overflow-hidden rounded-full bg-slate-200/80">
+                        <div
+                          className="h-full rounded-full bg-[var(--accent)]/70"
+                          style={{ width: `${progressoLinha}%` }}
+                        />
+                      </div>
+                      <span className="tabular-nums text-xs font-medium text-[var(--accent)]">
+                        {progressoLinha}%
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 align-top">
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleRelatorio(a)}
+                        className="rounded-md border border-[var(--accent)]/40 bg-[var(--accent-muted)] px-2 py-1 text-xs font-medium text-[var(--accent)] hover:brightness-95"
+                      >
+                        {expandedId === a.id ? "Fechar" : "Relatório"}
+                      </button>
+                      {podeEditar && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => abrirEdicao(a)}
+                            className="rounded-md border border-[var(--card-border)] bg-[var(--background)] px-2 py-1 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--accent-muted)]/80"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void remove(a)}
+                            className="rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-700 hover:bg-red-500/10"
+                          >
+                            Excluir
+                          </button>
+                        </>
                       )}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleRelatorio(a)}
-                      className="mt-2 w-full rounded-lg text-left outline-none ring-[var(--accent)]/40 focus-visible:ring-2"
-                    >
-                    <p className="text-sm text-[var(--muted)]">
-                      Responsável: {a.responsavel || "—"}
-                    </p>
-                    <p className="mt-1 text-xs text-[var(--muted)]">
+                    </div>
+                  </td>
+                </tr>
+                {expandedId === a.id && (
+                  <tr className="border-b border-[var(--card-border)]/70">
+                    <td colSpan={6} className="bg-[var(--background)]/50 px-4 py-4">
+                    <p className="mb-2 text-xs text-[var(--muted)]">
                       <span className="font-medium text-[var(--foreground)]">IS: </span>
                       {docPorId.get(a.instrucao_servico)
                         ? rotuloInstrucaoServico(docPorId.get(a.instrucao_servico)!)
                         : "—"}
-                    </p>
-                    <p className="mt-1 text-xs text-[var(--muted)]">
-                      Período: {formatarPeriodoAtividade(a)}
-                    </p>
-                    <p className="mt-1 text-xs text-[var(--muted)]">
+                      {" · "}
                       {formatarPlanoAtividades(a.plano_atividades)}
                     </p>
-                    <div className="mt-3">
-                      <div className="flex items-center justify-between text-xs text-[var(--muted)]">
-                        <span>Progresso</span>
-                        <span className="font-medium text-[var(--accent)]">
-                          {Math.min(100, Math.max(0, Number(a.progresso ?? 0) || 0))}%
-                        </span>
-                      </div>
-                      <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-slate-200/80">
-                        <div
-                          className="h-full rounded-full bg-[var(--accent)]/70"
-                          style={{
-                            width: `${Math.min(100, Math.max(0, Number(a.progresso ?? 0) || 0))}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <p className="mt-2 text-xs text-[var(--accent-hover)]/90">
-                      {expandedId === a.id ? "Clique para fechar o relatório" : "Clique para ver o relatório"}
-                    </p>
-                    </button>
-                  </div>
-                  {podeEditar && (
-                    <div className="flex shrink-0 flex-wrap gap-1.5 self-start sm:self-center">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          abrirEdicao(a);
-                        }}
-                        className="rounded-md border border-[var(--card-border)] bg-[var(--background)] px-2 py-1.5 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--accent-muted)]/80"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void remove(a.id);
-                        }}
-                        className="rounded-md border border-red-500/40 px-2 py-1.5 text-xs text-red-700 hover:bg-red-500/10 disabled:opacity-50"
-                      >
-                        Excluir
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {expandedId === a.id && (
-                  <div className="border-t border-[var(--card-border)] bg-[var(--background)]/50 px-4 py-4">
+                    <div>
                     <p className="mb-3 text-xs font-medium text-[var(--muted)]">Relatório</p>
                     {!sessionNomeCarregado && !isAdmin(perfil) ? (
                       <p className="text-sm text-[var(--muted)]">A verificar permissões…</p>
@@ -1127,11 +1126,16 @@ export default function AtividadesPage() {
                         </button>
                       </>
                     )}
-                  </div>
+                    </div>
+                    </td>
+                  </tr>
                 )}
-              </li>
-            ))}
-          </ul>
+              </Fragment>
+              );
+            })}
+              </tbody>
+            </table>
+          </div>
           <div className="mt-3">
             <PaginacaoControles
               total={filtradas.length}

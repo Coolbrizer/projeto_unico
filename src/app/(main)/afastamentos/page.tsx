@@ -6,6 +6,8 @@ import { useMounted } from "@/hooks/useMounted";
 import {
   COMPETENCIAS_AFASTAMENTO,
   LIMIAR_DIAS_AFASTAMENTO,
+  PERIODO_AFASTAMENTO_FIM,
+  PERIODO_AFASTAMENTO_INICIO,
   PERIODO_AFASTAMENTO_ROTULO,
   diasConsideradosNoPeriodo,
   diasMaximosNoPeriodo,
@@ -221,11 +223,14 @@ export default function AfastamentosPage() {
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Afastamentos</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Informe os dias de afastamento de cada integrante. O período considerado é de{" "}
+          {canManageAll
+            ? "Informe os dias de afastamento de cada integrante."
+            : "Informe os seus dias de afastamento."}{" "}
+          O período considerado é de{" "}
           <span className="font-medium text-[var(--foreground)]">{PERIODO_AFASTAMENTO_ROTULO}</span>
-          ; afastamentos fora desse intervalo não entram no total. Totais abaixo de{" "}
-          {LIMIAR_DIAS_AFASTAMENTO} dias aparecem em vermelho; {LIMIAR_DIAS_AFASTAMENTO} dias ou
-          mais, em verde. Os valores são gravados ao sair de cada campo.
+          . Totais abaixo de {LIMIAR_DIAS_AFASTAMENTO} dias aparecem em vermelho;{" "}
+          {LIMIAR_DIAS_AFASTAMENTO} dias ou mais, em verde. Os valores são gravados ao sair de cada
+          campo.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--muted)]">
           <span className="inline-flex items-center gap-1.5">
@@ -251,11 +256,13 @@ export default function AfastamentosPage() {
           {PERIODO_AFASTAMENTO_ROTULO}
         </p>
         <p className="mt-1 text-xs text-[var(--muted)]">
-          Em junho, informe apenas os dias a partir do dia 12. Em dezembro, apenas até o dia 19.
-          Afastamentos fora desse intervalo não são considerados.
+          Em junho, informe apenas os dias a partir do dia {Number(PERIODO_AFASTAMENTO_INICIO.slice(8, 10))}.
+          Em dezembro, apenas até o dia {Number(PERIODO_AFASTAMENTO_FIM.slice(8, 10))}. Dias fora
+          desse intervalo não entram no total.
         </p>
       </section>
 
+      {!loading && canManageAll && (
       <section className="mb-6 space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-xl border border-[var(--accent)]/25 bg-[var(--card)] px-4 py-3">
@@ -361,7 +368,7 @@ export default function AfastamentosPage() {
           </table>
         </div>
         <p className="text-xs text-[var(--muted)]">
-          O gasto mensal da tabela considera todos os meses de 12/06 a 19/12. O abatimento usa o
+          O gasto mensal da tabela considera {PERIODO_AFASTAMENTO_ROTULO}. O abatimento usa o
           valor diário de cada integrante (cargo e classe/padrão) e os dias lançados na grade
           abaixo.
         </p>
@@ -372,6 +379,7 @@ export default function AfastamentosPage() {
           </p>
         )}
       </section>
+      )}
 
       {mounted && !configured && <ConfigWarning />}
 
