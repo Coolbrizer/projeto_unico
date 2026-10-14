@@ -836,12 +836,14 @@ export default function AtividadesPage() {
                 }`}
               >
                 <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
-                  <button
-                    type="button"
-                    onClick={() => handleToggleRelatorio(a)}
-                    className="min-w-0 flex-1 rounded-lg text-left outline-none ring-[var(--accent)]/40 focus-visible:ring-2"
-                  >
-                    <p className="font-medium">
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="cursor-text select-text font-medium"
+                      onClick={() => {
+                        if (window.getSelection()?.toString().trim()) return;
+                        handleToggleRelatorio(a);
+                      }}
+                    >
                       {a.codigo ? <span className="text-[var(--accent)]">{a.codigo}</span> : "—"}
                       {a.descricao && (
                         <span className="font-normal text-[var(--foreground)]">
@@ -850,7 +852,12 @@ export default function AtividadesPage() {
                         </span>
                       )}
                     </p>
-                    <p className="mt-2 text-sm text-[var(--muted)]">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleRelatorio(a)}
+                      className="mt-2 w-full rounded-lg text-left outline-none ring-[var(--accent)]/40 focus-visible:ring-2"
+                    >
+                    <p className="text-sm text-[var(--muted)]">
                       Responsável: {a.responsavel || "—"}
                     </p>
                     <p className="mt-1 text-xs text-[var(--muted)]">
@@ -884,7 +891,8 @@ export default function AtividadesPage() {
                     <p className="mt-2 text-xs text-[var(--accent-hover)]/90">
                       {expandedId === a.id ? "Clique para fechar o relatório" : "Clique para ver o relatório"}
                     </p>
-                  </button>
+                    </button>
+                  </div>
                   {podeEditar && (
                     <div className="flex shrink-0 flex-wrap gap-1.5 self-start sm:self-center">
                       <button
