@@ -23,6 +23,16 @@ function corPorProgresso(percentual: number): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
+function hrefSeguro(url: string): string {
+  const t = url.trim();
+  if (!t) return "#";
+  if (/^https?:\/\//i.test(t)) return t;
+  return `https://${t}`;
+}
+
+const classeBotaoRelatorio =
+  "inline-flex whitespace-nowrap rounded-md bg-[var(--accent)] px-2.5 py-1 text-xs font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/50 disabled:cursor-not-allowed disabled:opacity-40";
+
 export default function ProgressoPage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
@@ -169,28 +179,44 @@ export default function ProgressoPage() {
               const progresso = progressoSeguro(atividade.progresso);
               const cor = corPorProgresso(progresso);
               const codigo = atividade.codigo?.trim() || "SEM-CODIGO";
+              const linkRelatorio = atividade.link_relatorio?.trim() ?? "";
               return (
-                <li key={atividade.id}>
+                <li
+                  key={atividade.id}
+                  className="grid grid-cols-1 items-center gap-1 px-1 py-0.5 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_3rem_auto] sm:gap-2 sm:py-1"
+                >
                   <Link
                     href={`/?busca=${encodeURIComponent(codigo)}`}
-                    className="-mx-1 block rounded-md border-0 bg-transparent px-1 py-0.5 transition-colors hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/50 sm:py-1"
+                    className="grid grid-cols-1 gap-0.5 rounded-md transition-colors hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/50 sm:col-span-3 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_3rem] sm:items-center sm:gap-2"
                   >
-                    <div className="grid grid-cols-1 gap-0.5 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_3rem] sm:items-center sm:gap-2">
-                      <p className="truncate text-sm font-medium leading-tight text-[var(--accent)]">{codigo}</p>
-                      <div className="h-3 w-full min-w-0 overflow-hidden rounded-full bg-slate-200/80">
-                        <div
-                          className="h-full rounded-full"
-                          style={{ width: `${progresso}%`, backgroundColor: cor }}
-                        />
-                      </div>
-                      <p
-                        className="text-right text-sm font-medium leading-tight tabular-nums"
-                        style={{ color: cor }}
-                      >
-                        {progresso}%
-                      </p>
+                    <p className="truncate text-sm font-medium leading-tight text-[var(--accent)]">{codigo}</p>
+                    <div className="h-3 w-full min-w-0 overflow-hidden rounded-full bg-slate-200/80">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${progresso}%`, backgroundColor: cor }}
+                      />
                     </div>
+                    <p
+                      className="text-right text-sm font-medium leading-tight tabular-nums"
+                      style={{ color: cor }}
+                    >
+                      {progresso}%
+                    </p>
                   </Link>
+                  {linkRelatorio ? (
+                    <a
+                      href={hrefSeguro(linkRelatorio)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={classeBotaoRelatorio}
+                    >
+                      Acessar relatório
+                    </a>
+                  ) : (
+                    <button type="button" disabled className={classeBotaoRelatorio} title="Relatório não informado">
+                      Acessar relatório
+                    </button>
+                  )}
                 </li>
               );
             })}
