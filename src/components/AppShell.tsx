@@ -10,7 +10,6 @@ import {
   INSTRUCAO_SERVICO_COOKIE,
   PLANO_ATIVIDADES_COOKIE,
   parseInstrucaoServicoId,
-  parsePlanoAtividades,
 } from "@/lib/instrucao-servico-filtro";
 import type { Documento } from "@/types/database";
 
@@ -82,13 +81,10 @@ function parseValorFiltroInstrucao(raw: string): {
   instrucaoServicoId: string;
   planoAtividades: number | null;
 } {
-  const [idRaw, planoRaw = ""] = raw.split(":");
+  const [idRaw] = raw.split(":");
   const instrucaoServicoId = parseInstrucaoServicoId(idRaw);
   if (!instrucaoServicoId) return { instrucaoServicoId: "", planoAtividades: null };
-  return {
-    instrucaoServicoId,
-    planoAtividades: parsePlanoAtividades(planoRaw),
-  };
+  return { instrucaoServicoId, planoAtividades: null };
 }
 
 export function AppShell({
@@ -121,26 +117,12 @@ export function AppShell({
       : ([...navBase] as const);
   const navItems = canViewAuditoria ? [...navItemsBase, navAuditoria] : navItemsBase;
   const opcoesFiltroInstrucao = useMemo<OpcaoFiltroInstrucao[]>(() => {
-    return documentosIs.flatMap((d): OpcaoFiltroInstrucao[] => {
-      const rotulo = rotuloDocumentoNumeroAno(d);
-      const planos = d.planos_atividades ?? [];
-      if (planos.length === 0) {
-        return [
-          {
-            value: valorFiltroInstrucao(d.id, null),
-            instrucaoServicoId: d.id,
-            planoAtividades: null,
-            label: rotulo,
-          },
-        ];
-      }
-      return planos.map((plano) => ({
-        value: valorFiltroInstrucao(d.id, plano),
-        instrucaoServicoId: d.id,
-        planoAtividades: plano,
-        label: `${rotulo} - Plano de Atividades nº ${plano}`,
-      }));
-    });
+    return documentosIs.map((d) => ({
+      value: valorFiltroInstrucao(d.id, null),
+      instrucaoServicoId: d.id,
+      planoAtividades: null,
+      label: rotuloDocumentoNumeroAno(d),
+    }));
   }, [documentosIs]);
 
   const filtroSelecionadoEhValido = useMemo(
@@ -181,10 +163,9 @@ export function AppShell({
 
   useEffect(() => {
     const salvo = parseInstrucaoServicoId(window.localStorage.getItem(INSTRUCAO_SERVICO_COOKIE));
-    const planoSalvo = parsePlanoAtividades(window.localStorage.getItem(PLANO_ATIVIDADES_COOKIE));
     if (salvo) {
       setInstrucaoServicoIdState(salvo);
-      setPlanoAtividadesState(planoSalvo);
+      setPlanoAtividadesState(null);
     }
     setFiltroInstrucaoPronto(true);
   }, []);
@@ -299,7 +280,7 @@ export function AppShell({
             <div className="border-t border-[var(--card-border)]/80">
               <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-3 md:flex-row md:items-center md:gap-4">
                 <label className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-                  Instrução de Serviço / Plano ativo
+                  Instrução de Serviço
                 </label>
                 <select
                   value={valorFiltroInstrucao(instrucaoServicoId, planoAtividades)}

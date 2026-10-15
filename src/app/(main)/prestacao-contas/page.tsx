@@ -49,7 +49,6 @@ export default function PrestacaoContasPage() {
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [loadingLinhas, setLoadingLinhas] = useState(false);
   const [pdfGerando, setPdfGerando] = useState(false);
-  const [numeroPlanoAtividades, setNumeroPlanoAtividades] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const instrucoesServico = useMemo(
@@ -113,14 +112,10 @@ export default function PrestacaoContasPage() {
 
   async function handleExtrairPdf() {
     if (!documentoSelecionado || linhas.length === 0) return;
-    if (!numeroPlanoAtividades.trim()) {
-      setError("Informe o número do Plano de Atividades para gerar o PDF.");
-      return;
-    }
     setPdfGerando(true);
     setError(null);
     try {
-      await gerarPdfPrestacaoContas(documentoSelecionado, linhas, numeroPlanoAtividades);
+      await gerarPdfPrestacaoContas(documentoSelecionado, linhas);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Não foi possível gerar o PDF.");
     } finally {
@@ -185,17 +180,6 @@ export default function PrestacaoContasPage() {
       ) : (
         <div>
           <div className="mb-3 flex flex-wrap items-end justify-end gap-2">
-            <div>
-              <label className="block text-xs font-medium text-[var(--muted)]">
-                Nº do Plano de Atividades <span className="text-[var(--warning)]">*</span>
-              </label>
-              <input
-                value={numeroPlanoAtividades}
-                onChange={(e) => setNumeroPlanoAtividades(e.target.value)}
-                placeholder="ex.: 1"
-                className="mt-1 w-40 rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
-              />
-            </div>
             <button
               type="button"
               onClick={() => void handleExtrairPdf()}

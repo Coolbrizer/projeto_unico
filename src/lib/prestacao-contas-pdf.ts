@@ -103,8 +103,7 @@ function textoEquipePdf(equipe: string | null | undefined): string {
 
 export function gerarPdfPrestacaoContas(
   documento: Documento,
-  linhas: LinhaPrestacaoPdf[],
-  numeroPlanoAtividades: string
+  linhas: LinhaPrestacaoPdf[]
 ): void {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
@@ -115,15 +114,12 @@ export function gerarPdfPrestacaoContas(
   doc.setTextColor(0, 0, 0);
 
   const etapaTxt = textoEtapas(linhas);
-  const numeroPlano = numeroPlanoAtividades.trim();
-  const linhaEtapaPlano = etapaTxt
-    ? `${etapaTxt} - Plano de Atividades nº ${numeroPlano}`
-    : `Plano de Atividades nº ${numeroPlano}`;
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.text(linhaEtapaPlano, centroX, ty, { align: "center" });
-  ty += 12;
+  if (etapaTxt) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(etapaTxt, centroX, ty, { align: "center" });
+    ty += 12;
+  }
 
   const head = [["Código", "Atividade", "Equipe", "Setor", "Relatório"]];
   const linksRelatorio: Array<{ url: string | null; linkNaUltimaLinha: boolean }> = [];

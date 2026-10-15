@@ -9,10 +9,14 @@ import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
 import { equipeMembrosIncluindoResponsavel } from "@/lib/equipe-page-helpers";
 import { isUuidString } from "@/lib/uuid";
 
-function parsePlanoAtividades(valor: FormDataEntryValue | null): number | null {
-  const numero = Number(String(valor ?? "").trim());
-  if (!Number.isFinite(numero) || !Number.isInteger(numero) || numero < 1) return null;
-  return numero;
+function parsePlanoAtividadesOpcional(
+  valor: FormDataEntryValue | null
+): { ok: true; plano: number | null } | { ok: false } {
+  const texto = String(valor ?? "").trim();
+  if (!texto) return { ok: true, plano: null };
+  const numero = Number(texto);
+  if (!Number.isFinite(numero) || !Number.isInteger(numero) || numero < 1) return { ok: false };
+  return { ok: true, plano: numero };
 }
 
 export async function POST(request: Request) {
@@ -30,7 +34,7 @@ export async function POST(request: Request) {
   const etapa = String(form.get("etapa") ?? "")
     .trim()
     .toUpperCase();
-  const planoAtividades = parsePlanoAtividades(form.get("plano_atividades"));
+  const planoInformado = parsePlanoAtividadesOpcional(form.get("plano_atividades"));
   const arquivo = form.get("arquivo");
 
   if (!instrucaoServicoId || !isUuidString(instrucaoServicoId)) {
@@ -47,9 +51,9 @@ export async function POST(request: Request) {
     );
   }
 
-  if (planoAtividades === null) {
+  if (!planoInformado.ok) {
     return NextResponse.json(
-      { error: "Informe um número inteiro válido para o Plano de Atividades." },
+      { error: "Informe um número inteiro válido para o Plano de Atividades, ou deixe o campo em branco." },
       { status: 400 }
     );
   }
@@ -101,7 +105,7 @@ export async function POST(request: Request) {
     fim: l.fim,
     instrucao_servico: instrucaoServicoId,
     progresso: 0,
-    plano_atividades: planoAtividades,
+    plano_atividades: planoInformado.plano,
   }));
 
   const { data: inseridas, error: errInsert } = await supabase

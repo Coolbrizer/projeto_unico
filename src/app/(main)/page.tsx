@@ -54,10 +54,6 @@ function atividadeMatchesBusca(a: Atividade, raw: string): boolean {
   return camposCorrespondemBusca([a.codigo, a.descricao, a.responsavel, plano], raw);
 }
 
-function formatarPlanoAtividades(valor: number | null | undefined): string {
-  return valor ? `Plano de Atividades nº ${valor}` : "Plano de Atividades não informado";
-}
-
 type TamanhoPagina = 10 | 25 | 50 | "all";
 
 const OPCOES_TAMANHO_PAGINA: { value: TamanhoPagina; label: string }[] = [
@@ -188,7 +184,7 @@ export default function AtividadesPage() {
   const [showImportCsv, setShowImportCsv] = useState(false);
   const [importIsId, setImportIsId] = useState("");
   const [importEtapa, setImportEtapa] = useState("5E");
-  const [importPlanoAtividades, setImportPlanoAtividades] = useState("2");
+  const [importPlanoAtividades, setImportPlanoAtividades] = useState("");
   const [importArquivo, setImportArquivo] = useState<File | null>(null);
   const [importando, setImportando] = useState(false);
   const [exportando, setExportando] = useState(false);
@@ -614,7 +610,7 @@ export default function AtividadesPage() {
           type="button"
           onClick={() => void extrairPlanilha()}
           disabled={loading || exportando || rows.length === 0}
-          title="Exporta as atividades da Instrução de Serviço e do Plano de Atividades selecionados no topo"
+          title="Exporta as atividades da Instrução de Serviço selecionada no topo"
           className="rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-4 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--accent-muted)] disabled:opacity-50"
         >
           {exportando ? "Extraindo…" : "Extrair planilha"}
@@ -662,7 +658,7 @@ export default function AtividadesPage() {
             caso a etapa da planilha prevalece. O número final (
             <code className="rounded bg-[var(--accent-muted)] px-1">5E-DEB1</code>,{" "}
             <code className="rounded bg-[var(--accent-muted)] px-1">5E-DEB2</code>…) é gerado pelo
-            sistema. Informe abaixo o Plano de Atividades que será gravado em todo o lote. Na coluna{" "}
+            sistema. O Plano de Atividades é opcional. Na coluna{" "}
             <strong>equipe</strong>, pode listar vários integrantes na mesma célula
             (um por linha, como no Google Sheets) no formato{" "}
             <code className="rounded bg-[var(--accent-muted)] px-1">matrícula | NOME</code>. O
@@ -723,16 +719,14 @@ export default function AtividadesPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-[var(--muted)]">
-                Plano de Atividades <span className="text-red-600">*</span>
-              </label>
+              <label className="block text-xs text-[var(--muted)]">Plano de Atividades</label>
               <input
-                required
                 type="number"
                 min={1}
                 step={1}
                 value={importPlanoAtividades}
                 onChange={(e) => setImportPlanoAtividades(e.target.value)}
+                placeholder="Opcional"
                 className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
@@ -752,7 +746,7 @@ export default function AtividadesPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="submit"
-              disabled={importando || !importArquivo || !importIsId || !importPlanoAtividades.trim()}
+              disabled={importando || !importArquivo || !importIsId}
               className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
             >
               {importando ? "A importar…" : "Importar"}
@@ -1061,8 +1055,6 @@ export default function AtividadesPage() {
                       {docPorId.get(a.instrucao_servico)
                         ? rotuloInstrucaoServico(docPorId.get(a.instrucao_servico)!)
                         : "—"}
-                      {" · "}
-                      {formatarPlanoAtividades(a.plano_atividades)}
                     </p>
                     <div>
                     <p className="mb-3 text-xs font-medium text-[var(--muted)]">Relatório</p>
