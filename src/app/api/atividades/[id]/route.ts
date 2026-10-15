@@ -47,10 +47,15 @@ function patchTouchesCamposGestor(body: Record<string, unknown>): boolean {
   );
 }
 
-function parsePlanoAtividades(valor: unknown): number | null {
-  const numero = Number(valor);
-  if (!Number.isFinite(numero) || !Number.isInteger(numero) || numero < 1) return null;
-  return numero;
+function parsePlanoAtividadesOpcional(
+  valor: unknown
+): { ok: true; plano: number | null } | { ok: false } {
+  if (valor === null || valor === undefined) return { ok: true, plano: null };
+  const texto = String(valor).trim();
+  if (!texto) return { ok: true, plano: null };
+  const numero = Number(texto);
+  if (!Number.isFinite(numero) || !Number.isInteger(numero) || numero < 1) return { ok: false };
+  return { ok: true, plano: numero };
 }
 
 export async function PATCH(request: Request, ctx: Ctx) {
@@ -189,14 +194,14 @@ export async function PATCH(request: Request, ctx: Ctx) {
     patch.nao_entregue_com_justificativa = body.nao_entregue_com_justificativa === true;
   }
   if ("plano_atividades" in body) {
-    const plano = parsePlanoAtividades(body.plano_atividades);
-    if (plano === null) {
+    const planoInformado = parsePlanoAtividadesOpcional(body.plano_atividades);
+    if (!planoInformado.ok) {
       return NextResponse.json(
-        { error: "Informe um número inteiro válido para o Plano de Atividades." },
+        { error: "Informe um número inteiro válido para o Plano de Atividades, ou deixe o campo em branco." },
         { status: 400 }
       );
     }
-    patch.plano_atividades = plano;
+    patch.plano_atividades = planoInformado.plano;
   }
   const hasAtividadePatch = Object.keys(patch).length > 0;
   let atividadeAtualizada: Record<string, unknown> | null = null;

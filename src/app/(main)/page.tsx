@@ -176,7 +176,7 @@ export default function AtividadesPage() {
   const [inicio, setInicio] = useState("");
   const [fim, setFim] = useState("");
   const [progressoNovo, setProgressoNovo] = useState(0);
-  const [planoAtividadesNovo, setPlanoAtividadesNovo] = useState("2");
+  const [planoAtividadesNovo, setPlanoAtividadesNovo] = useState("");
   const [naoEntregueComJustificativa, setNaoEntregueComJustificativa] = useState(false);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -375,7 +375,7 @@ export default function AtividadesPage() {
     setInicio("");
     setFim("");
     setProgressoNovo(0);
-    setPlanoAtividadesNovo("2");
+    setPlanoAtividadesNovo("");
     setNaoEntregueComJustificativa(false);
     setInstrucaoServicoId(instrucaoServicoGlobalId || defaultIsId(documentosIs));
   }
@@ -395,7 +395,7 @@ export default function AtividadesPage() {
     setInicio(dataParaCampoFormulario(a.inicio));
     setFim(dataParaCampoFormulario(a.fim));
     setProgressoNovo(Math.min(100, Math.max(0, Number(a.progresso ?? 0) || 0)));
-    setPlanoAtividadesNovo(a.plano_atividades ? String(a.plano_atividades) : "1");
+    setPlanoAtividadesNovo(a.plano_atividades ? String(a.plano_atividades) : "");
     setNaoEntregueComJustificativa(a.nao_entregue_com_justificativa === true);
     setInstrucaoServicoId(a.instrucao_servico ?? "");
     setShowImportCsv(false);
@@ -420,7 +420,7 @@ export default function AtividadesPage() {
       responsavel: responsavel.trim() || null,
       inicio: normalizarDataParaApi(inicio) ?? null,
       fim: normalizarDataParaApi(fim) ?? null,
-      plano_atividades: Number(planoAtividadesNovo),
+      plano_atividades: planoAtividadesNovo.trim() ? Number(planoAtividadesNovo) : null,
       nao_entregue_com_justificativa: naoEntregueComJustificativa,
     };
     if (!editingId) {
@@ -568,8 +568,9 @@ export default function AtividadesPage() {
         <h2 className="text-2xl font-semibold tracking-tight">Atividades</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Cada atividade deve estar vinculada a uma Instrução de Serviço cadastrada em Documentos.
-          Informe código, descrição, responsável, Plano de Atividades e datas de início e fim
-          (DD/MM/AAAA). O memorando de pagamento usa esse período para filtrar por mês. Gestores podem
+          Informe código, descrição, responsável e datas de início e fim (DD/MM/AAAA). O Plano de
+          Atividades é opcional e pode ser apagado na edição. O memorando de pagamento usa esse período
+          para filtrar por mês. Gestores podem
           importar várias atividades de uma vez por arquivo CSV. Progresso, etiqueta e link do relatório só
           podem ser alterados pelo responsável cadastrado (administradores também podem). A busca cobre
           código, descrição, responsável e plano. A IS não pode ser alterada depois de criada a atividade.
@@ -829,16 +830,14 @@ export default function AtividadesPage() {
               />
             </div>
             <div>
-              <label className="block text-xs text-[var(--muted)]">
-                Plano de Atividades <span className="text-red-600">*</span>
-              </label>
+              <label className="block text-xs text-[var(--muted)]">Plano de Atividades</label>
               <input
-                required
                 type="number"
                 min={1}
                 step={1}
                 value={planoAtividadesNovo}
                 onChange={(e) => setPlanoAtividadesNovo(e.target.value)}
+                placeholder="Opcional"
                 className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
@@ -916,11 +915,7 @@ export default function AtividadesPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="submit"
-              disabled={
-                editingId
-                  ? !planoAtividadesNovo.trim()
-                  : !instrucaoServicoId || documentosIs.length === 0 || !planoAtividadesNovo.trim()
-              }
+              disabled={!editingId && (!instrucaoServicoId || documentosIs.length === 0)}
               className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
             >
               {editingId ? "Guardar alterações" : "Guardar atividade"}
