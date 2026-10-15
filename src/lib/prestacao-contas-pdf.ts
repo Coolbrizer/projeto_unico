@@ -3,6 +3,8 @@ import autoTable from "jspdf-autotable";
 import type { Documento } from "@/types/database";
 import { parsePartesCodigoAtividade } from "@/lib/atividade-codigo";
 import { normalizarNomeSomenteLetras } from "@/lib/equipe-page-helpers";
+import { ROTULO_NAO_ENTREGUE_COM_JUSTIFICATIVA } from "@/lib/status-execucao";
+
 export type LinhaPrestacaoPdf = {
   codigo: string;
   atividade: string | null;
@@ -49,16 +51,40 @@ function celulaRelatorio(linha: LinhaPrestacaoPdf): {
   content: string;
   styles?: { textColor: [number, number, number] };
   url: string | null;
+  /** A etiqueta fica na última linha; a justificativa ocupa a linha de cima. */
+  linkNaUltimaLinha: boolean;
 } {
   const etiqueta = linha.etiqueta_relatorio?.trim() ?? "";
   const link = linha.link_relatorio?.trim() ?? "";
-  if (!etiqueta && !link) return { content: "—", url: null };
   const url = link ? hrefSeguro(link) : null;
+  const textoRelatorio = etiqueta || (link ? "Abrir link" : "");
+  const justificativa = linha.nao_entregue_com_justificativa === true;
+
+  if (justificativa) {
+    return {
+      content: textoRelatorio
+        ? `${ROTULO_NAO_ENTREGUE_COM_JUSTIFICATIVA}\n${textoRelatorio}`
+        : ROTULO_NAO_ENTREGUE_COM_JUSTIFICATIVA,
+      url: textoRelatorio ? url : null,
+      linkNaUltimaLinha: Boolean(textoRelatorio && url),
+    };
+  }
+
+  if (!textoRelatorio) return { content: "—", url: null, linkNaUltimaLinha: false };
   return {
-    content: etiqueta || "Abrir link",
+    content: textoRelatorio,
     url,
+    linkNaUltimaLinha: false,
     ...(url ? { styles: { textColor: [29, 78, 216] as [number, number, number] } } : {}),
   };
+}
+
+function corFundoCelula(fillColor: unknown): [number, number, number] {
+  if (Array.isArray(fillColor) && fillColor.length >= 3) {
+    return [Number(fillColor[0]), Number(fillColor[1]), Number(fillColor[2])];
+  }
+  if (typeof fillColor === "number") return [fillColor, fillColor, fillColor];
+  return [255, 255, 255];
 }
 
 function textoEquipePdf(equipe: string | null | undefined): string {
@@ -100,11 +126,14 @@ export function gerarPdfPrestacaoContas(
   ty += 12;
 
   const head = [["Código", "Atividade", "Equipe", "Setor", "Relatório"]];
-  const linksRelatorio: Array<string | null> = [];
+  const linksRelatorio: Array<{ url: string | null; linkNaUltimaLinha: boolean }> = [];
 
   const body = linhas.map((r) => {
     const relatorio = celulaRelatorio(r);
-    linksRelatorio.push(relatorio.url);
+    linksRelatorio.push({
+      url: relatorio.url,
+      linkNaUltimaLinha: relatorio.linkNaUltimaLinha,
+    });
     return [
       r.codigo?.trim() || "—",
       r.atividade?.trim() || "—",
@@ -132,21 +161,56 @@ export function gerarPdfPrestacaoContas(
     },
     didDrawCell: (data) => {
       if (data.section !== "body" || data.column.index !== 4) return;
-      const url = linksRelatorio[data.row.index];
-      if (!url) return;
-      doc.link(data.cell.x, data.cell.y, data.cell.width, data.cell.height, { url });
-      const texto = data.cell.text?.[0] ?? "";
+      const meta = linksRelatorio[data.row.index];
+      if (!meta?.url) return;
+      const linhasTexto = data.cell.text ?? [];
+      const indice = meta.linkNaUltimaLinha ? linhasTexto.length - 1 : 0;
+      const texto = linhasTexto[indice] ?? "";
       if (!texto) return;
+
+      const fontePt = 8;
+      const fonteMm = fontePt / doc.internal.scaleFactor;
+      const alturaLinha = fonteMm * doc.getLineHeightFactor();
+      const padTop =
+        typeof data.cell.padding === "function" ? data.cell.padding("top") : 1.8;
+      const padLeft =
+        typeof data.cell.padding === "function" ? data.cell.padding("left") : 1.8;
+      const baseline =
+        data.cell.y + padTop + fonteMm * 0.85 + indice * alturaLinha;
+      const x = data.cell.x + padLeft;
+
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
+      doc.setFontSize(fontePt);
+
+      if (meta.linkNaUltimaLinha) {
+        const [r, g, b] = corFundoCelula(data.cell.styles.fillColor);
+        doc.setFillColor(r, g, b);
+        doc.rect(
+          data.cell.x + 0.4,
+          baseline - fonteMm * 0.78,
+          data.cell.width - 0.8,
+          fonteMm * 1.15,
+          "F"
+        );
+        doc.setTextColor(29, 78, 216);
+        doc.text(texto, x, baseline);
+        doc.link(
+          data.cell.x,
+          data.cell.y + padTop + indice * alturaLinha,
+          data.cell.width,
+          alturaLinha,
+          { url: meta.url }
+        );
+      } else {
+        doc.link(data.cell.x, data.cell.y, data.cell.width, data.cell.height, {
+          url: meta.url,
+        });
+      }
+
       doc.setDrawColor(29, 78, 216);
       doc.setLineWidth(0.15);
-      const larguraTexto = Math.min(
-        doc.getTextWidth(texto),
-        data.cell.width - 3.6
-      );
-      const x = data.cell.x + 1.8;
-      const y = data.cell.y + 1.8 + 2.9;
+      const larguraTexto = Math.min(doc.getTextWidth(texto), data.cell.width - padLeft * 2);
+      const y = meta.linkNaUltimaLinha ? baseline + fonteMm * 0.18 : data.cell.y + padTop + 2.9;
       doc.line(x, y, x + larguraTexto, y);
     },
   });
