@@ -20,6 +20,8 @@ export type Atividade = {
   /** 1–4 conforme etapas do projeto (importação passivo). */
   etapa?: number | null;
   status_execucao?: StatusExecucaoAtividade | null;
+  /** Não entregue, mas com justificativa registrada; a situação é considerada normal. */
+  nao_entregue_com_justificativa?: boolean | null;
   created_at: string;
 };
 

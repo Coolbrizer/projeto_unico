@@ -12,7 +12,7 @@ import {
   normalizarDataParaApi,
 } from "@/lib/datas-atividade";
 import { camposCorrespondemBusca } from "@/lib/busca-texto";
-import { rotuloStatusExecucao } from "@/lib/status-execucao";
+import { ROTULO_NAO_ENTREGUE_COM_JUSTIFICATIVA, rotuloStatusExecucao } from "@/lib/status-execucao";
 import {
   montarLinhasPlanilhaAtividades,
   nomeArquivoPlanilhaAtividades,
@@ -177,6 +177,7 @@ export default function AtividadesPage() {
   const [fim, setFim] = useState("");
   const [progressoNovo, setProgressoNovo] = useState(0);
   const [planoAtividadesNovo, setPlanoAtividadesNovo] = useState("2");
+  const [naoEntregueComJustificativa, setNaoEntregueComJustificativa] = useState(false);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [relatorioEtiqueta, setRelatorioEtiqueta] = useState("");
@@ -375,6 +376,7 @@ export default function AtividadesPage() {
     setFim("");
     setProgressoNovo(0);
     setPlanoAtividadesNovo("2");
+    setNaoEntregueComJustificativa(false);
     setInstrucaoServicoId(instrucaoServicoGlobalId || defaultIsId(documentosIs));
   }
 
@@ -394,6 +396,7 @@ export default function AtividadesPage() {
     setFim(dataParaCampoFormulario(a.fim));
     setProgressoNovo(Math.min(100, Math.max(0, Number(a.progresso ?? 0) || 0)));
     setPlanoAtividadesNovo(a.plano_atividades ? String(a.plano_atividades) : "1");
+    setNaoEntregueComJustificativa(a.nao_entregue_com_justificativa === true);
     setInstrucaoServicoId(a.instrucao_servico ?? "");
     setShowImportCsv(false);
     setShowForm(true);
@@ -418,6 +421,7 @@ export default function AtividadesPage() {
       inicio: normalizarDataParaApi(inicio) ?? null,
       fim: normalizarDataParaApi(fim) ?? null,
       plano_atividades: Number(planoAtividadesNovo),
+      nao_entregue_com_justificativa: naoEntregueComJustificativa,
     };
     if (!editingId) {
       corpo.progresso = progressoNovo;
@@ -869,6 +873,23 @@ export default function AtividadesPage() {
                 className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
               />
             </div>
+            <div className="sm:col-span-2">
+              <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-[var(--card-border)]/80 bg-[var(--background)]/70 px-3 py-2.5 text-sm leading-snug text-[var(--foreground)]">
+                <input
+                  type="checkbox"
+                  checked={naoEntregueComJustificativa}
+                  onChange={(e) => setNaoEntregueComJustificativa(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--card-border)] text-[var(--accent)] accent-[var(--accent)] focus:ring-[var(--accent)]/40"
+                />
+                <span>
+                  Não entregue, com justificativa
+                  <span className="block text-xs font-normal text-[var(--muted)]">
+                    A atividade não foi entregue, mas a situação é considerada normal porque há registro da
+                    solicitação.
+                  </span>
+                </span>
+              </label>
+            </div>
             {!editingId && (
               <div className="sm:col-span-2">
                 <label className="block text-xs text-[var(--muted)]">
@@ -997,7 +1018,11 @@ export default function AtividadesPage() {
                         {progressoLinha}%
                       </span>
                     </div>
-                    {rotuloStatusExecucao(a.status_execucao) ? (
+                    {a.nao_entregue_com_justificativa ? (
+                      <p className="mt-1 text-[11px] font-medium text-emerald-800">
+                        {ROTULO_NAO_ENTREGUE_COM_JUSTIFICATIVA}
+                      </p>
+                    ) : rotuloStatusExecucao(a.status_execucao) ? (
                       <p className="mt-1 text-[11px] text-[var(--muted)]">
                         {rotuloStatusExecucao(a.status_execucao)}
                       </p>
