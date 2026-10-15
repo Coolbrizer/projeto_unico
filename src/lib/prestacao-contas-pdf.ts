@@ -38,6 +38,29 @@ function textoEtapas(linhas: LinhaPrestacaoPdf[]): string | null {
   return `${resto} e ${ultimo} Etapas`;
 }
 
+function hrefSeguro(url: string): string {
+  const t = url.trim();
+  if (!t) return "";
+  if (/^https?:\/\//i.test(t)) return t;
+  return `https://${t}`;
+}
+
+function celulaRelatorio(linha: LinhaPrestacaoPdf): {
+  content: string;
+  styles?: { textColor: [number, number, number] };
+  url: string | null;
+} {
+  const etiqueta = linha.etiqueta_relatorio?.trim() ?? "";
+  const link = linha.link_relatorio?.trim() ?? "";
+  if (!etiqueta && !link) return { content: "—", url: null };
+  const url = link ? hrefSeguro(link) : null;
+  return {
+    content: etiqueta || "Abrir link",
+    url,
+    ...(url ? { styles: { textColor: [29, 78, 216] as [number, number, number] } } : {}),
+  };
+}
+
 function textoEquipePdf(equipe: string | null | undefined): string {
   const vistos = new Set<string>();
   const nomes: string[] = [];
@@ -76,14 +99,20 @@ export function gerarPdfPrestacaoContas(
   doc.text(linhaEtapaPlano, centroX, ty, { align: "center" });
   ty += 12;
 
-  const head = [["Código", "Atividade", "Equipe", "Setor"]];
+  const head = [["Código", "Atividade", "Equipe", "Setor", "Relatório"]];
+  const linksRelatorio: Array<string | null> = [];
 
-  const body = linhas.map((r) => [
-    r.codigo?.trim() || "—",
-    r.atividade?.trim() || "—",
-    textoEquipePdf(r.equipe),
-    r.setor_responsavel?.trim() || "—",
-  ]);
+  const body = linhas.map((r) => {
+    const relatorio = celulaRelatorio(r);
+    linksRelatorio.push(relatorio.url);
+    return [
+      r.codigo?.trim() || "—",
+      r.atividade?.trim() || "—",
+      textoEquipePdf(r.equipe),
+      r.setor_responsavel?.trim() || "—",
+      { content: relatorio.content, styles: relatorio.styles },
+    ];
+  });
 
   autoTable(doc, {
     startY: ty,
@@ -95,10 +124,30 @@ export function gerarPdfPrestacaoContas(
     margin: { left: marginX, right: marginX },
     tableWidth: "auto",
     columnStyles: {
-      0: { cellWidth: 20 },
-      1: { cellWidth: 112, fontSize: 9 },
-      2: { cellWidth: 91 },
-      3: { cellWidth: 38, overflow: "visible" },
+      0: { cellWidth: 18 },
+      1: { cellWidth: 96, fontSize: 9 },
+      2: { cellWidth: 72 },
+      3: { cellWidth: 30, overflow: "visible" },
+      4: { cellWidth: 45 },
+    },
+    didDrawCell: (data) => {
+      if (data.section !== "body" || data.column.index !== 4) return;
+      const url = linksRelatorio[data.row.index];
+      if (!url) return;
+      doc.link(data.cell.x, data.cell.y, data.cell.width, data.cell.height, { url });
+      const texto = data.cell.text?.[0] ?? "";
+      if (!texto) return;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setDrawColor(29, 78, 216);
+      doc.setLineWidth(0.15);
+      const larguraTexto = Math.min(
+        doc.getTextWidth(texto),
+        data.cell.width - 3.6
+      );
+      const x = data.cell.x + 1.8;
+      const y = data.cell.y + 1.8 + 2.9;
+      doc.line(x, y, x + larguraTexto, y);
     },
   });
 
