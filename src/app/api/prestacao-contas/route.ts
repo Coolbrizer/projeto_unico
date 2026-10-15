@@ -121,6 +121,7 @@ export async function GET(request: Request) {
       progresso,
       etiqueta_relatorio: atividade.etiqueta_relatorio ?? null,
       link_relatorio: atividade.link_relatorio ?? null,
+      nao_entregue_com_justificativa: atividade.nao_entregue_com_justificativa === true,
     };
   });
 

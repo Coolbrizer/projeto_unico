@@ -71,6 +71,7 @@ export async function POST(request: Request) {
     progresso?: number;
     instrucao_servico?: string;
     plano_atividades?: unknown;
+    nao_entregue_com_justificativa?: boolean;
   };
   try {
     body = (await request.json()) as typeof body;
@@ -131,6 +132,7 @@ export async function POST(request: Request) {
       progresso,
       plano_atividades: planoAtividades,
       status_execucao: calcularStatusExecucao(fim, progresso),
+      nao_entregue_com_justificativa: body.nao_entregue_com_justificativa === true,
     })
     .select("*")
     .single();

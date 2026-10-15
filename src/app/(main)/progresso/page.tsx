@@ -7,6 +7,7 @@ import { ConfigWarning } from "@/components/ConfigWarning";
 import { useMounted } from "@/hooks/useMounted";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import { parsePartesCodigoAtividade, tiposAtividadeDistintos } from "@/lib/atividade-codigo";
+import { ROTULO_NAO_ENTREGUE_COM_JUSTIFICATIVA } from "@/lib/status-execucao";
 import type { Atividade } from "@/types/database";
 
 function progressoSeguro(valor: number | null | undefined): number {
@@ -180,11 +181,10 @@ export default function ProgressoPage() {
               const cor = corPorProgresso(progresso);
               const codigo = atividade.codigo?.trim() || "SEM-CODIGO";
               const linkRelatorio = atividade.link_relatorio?.trim() ?? "";
+              const naoEntregueComJustificativa = atividade.nao_entregue_com_justificativa === true;
               return (
-                <li
-                  key={atividade.id}
-                  className="grid grid-cols-1 items-center gap-1 px-1 py-0.5 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_3rem_auto] sm:gap-2 sm:py-1"
-                >
+                <li key={atividade.id} className="px-1 py-0.5 sm:py-1">
+                  <div className="grid grid-cols-1 items-center gap-1 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_3rem_auto] sm:gap-2">
                   <Link
                     href={`/?busca=${encodeURIComponent(codigo)}`}
                     className="grid grid-cols-1 gap-0.5 rounded-md transition-colors hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/50 sm:col-span-3 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_3rem] sm:items-center sm:gap-2"
@@ -217,6 +217,12 @@ export default function ProgressoPage() {
                       Acessar relatório
                     </button>
                   )}
+                  </div>
+                  {naoEntregueComJustificativa ? (
+                    <p className="mt-0.5 text-[11px] font-medium leading-tight text-emerald-800">
+                      {ROTULO_NAO_ENTREGUE_COM_JUSTIFICATIVA}
+                    </p>
+                  ) : null}
                 </li>
               );
             })}

@@ -3,7 +3,6 @@ import autoTable from "jspdf-autotable";
 import type { Documento } from "@/types/database";
 import { parsePartesCodigoAtividade } from "@/lib/atividade-codigo";
 import { normalizarNomeSomenteLetras } from "@/lib/equipe-page-helpers";
-
 export type LinhaPrestacaoPdf = {
   codigo: string;
   atividade: string | null;
@@ -12,6 +11,7 @@ export type LinhaPrestacaoPdf = {
   progresso: number;
   etiqueta_relatorio: string | null;
   link_relatorio: string | null;
+  nao_entregue_com_justificativa?: boolean | null;
 };
 
 /** Número da etapa a partir do prefixo do código (ex.: "5E-BD1" → 5). */

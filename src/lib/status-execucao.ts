@@ -32,6 +32,8 @@ export function calcularStatusExecucao(
   return "no_prazo";
 }
 
+export const ROTULO_NAO_ENTREGUE_COM_JUSTIFICATIVA = "Não entregue, com justificativa";
+
 export function rotuloStatusExecucao(status: StatusExecucaoAtividade | null | undefined): string {
   if (status === "atraso") return "Atraso";
   if (status === "antecedencia") return "Antecedência";
