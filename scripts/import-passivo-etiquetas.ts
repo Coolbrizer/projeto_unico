@@ -69,8 +69,12 @@ function statusExecucao(fim: string | null, progresso: number, hoje: string): st
 
 type Atividade = { id: string; codigo: string; fim: string | null };
 
+function criarCliente(url: string, serviceKey: string) {
+  return createClient(url, serviceKey);
+}
+
 async function fetchAtividades(
-  sb: ReturnType<typeof createClient>,
+  sb: ReturnType<typeof criarCliente>,
   codigos: string[]
 ): Promise<Atividade[]> {
   const out: Atividade[] = [];
@@ -102,7 +106,7 @@ async function main() {
   const validas = rows.filter((r) => r.etiqueta && r.relatorio);
 
   const { url, serviceKey } = loadEnvLocal();
-  const sb = createClient(url, serviceKey);
+  const sb = criarCliente(url, serviceKey);
   const atividades = await fetchAtividades(
     sb,
     validas.map((r) => r.codigo)
