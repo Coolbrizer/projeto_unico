@@ -3,6 +3,7 @@ import autoTable from "jspdf-autotable";
 import type { Documento } from "@/types/database";
 import { parsePartesCodigoAtividade } from "@/lib/atividade-codigo";
 import { normalizarNomeSomenteLetras } from "@/lib/equipe-page-helpers";
+import { ROTULO_NAO_ENTREGUE_COM_JUSTIFICATIVA } from "@/lib/status-execucao";
 
 export type LinhaPrestacaoPdf = {
   codigo: string;
@@ -12,6 +13,7 @@ export type LinhaPrestacaoPdf = {
   progresso: number;
   etiqueta_relatorio: string | null;
   link_relatorio: string | null;
+  nao_entregue_com_justificativa?: boolean | null;
 };
 
 /** Número da etapa a partir do prefixo do código (ex.: "5E-BD1" → 5). */
@@ -76,13 +78,14 @@ export function gerarPdfPrestacaoContas(
   doc.text(linhaEtapaPlano, centroX, ty, { align: "center" });
   ty += 12;
 
-  const head = [["Código", "Atividade", "Equipe", "Setor"]];
+  const head = [["Código", "Atividade", "Equipe", "Setor", "Situação"]];
 
   const body = linhas.map((r) => [
     r.codigo?.trim() || "—",
     r.atividade?.trim() || "—",
     textoEquipePdf(r.equipe),
     r.setor_responsavel?.trim() || "—",
+    r.nao_entregue_com_justificativa ? ROTULO_NAO_ENTREGUE_COM_JUSTIFICATIVA : "—",
   ]);
 
   autoTable(doc, {
@@ -95,10 +98,11 @@ export function gerarPdfPrestacaoContas(
     margin: { left: marginX, right: marginX },
     tableWidth: "auto",
     columnStyles: {
-      0: { cellWidth: 20 },
-      1: { cellWidth: 112, fontSize: 9 },
-      2: { cellWidth: 91 },
-      3: { cellWidth: 38, overflow: "visible" },
+      0: { cellWidth: 18 },
+      1: { cellWidth: 90, fontSize: 9 },
+      2: { cellWidth: 75 },
+      3: { cellWidth: 32, overflow: "visible" },
+      4: { cellWidth: 46 },
     },
   });
 

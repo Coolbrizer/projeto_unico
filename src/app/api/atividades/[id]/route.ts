@@ -42,7 +42,8 @@ function patchTouchesCamposGestor(body: Record<string, unknown>): boolean {
     "responsavel" in body ||
     "inicio" in body ||
     "fim" in body ||
-    "plano_atividades" in body
+    "plano_atividades" in body ||
+    "nao_entregue_com_justificativa" in body
   );
 }
 
@@ -138,14 +139,15 @@ export async function PATCH(request: Request, ctx: Ctx) {
     }
   }
 
-  const patch: Record<string, string | number | null> = {};
+  const patch: Record<string, string | number | boolean | null> = {};
   if ("codigo" in body) patch.codigo = String(body.codigo ?? "").trim();
   if ("descricao" in body) patch.descricao = body.descricao ? String(body.descricao).trim() : null;
   if ("responsavel" in body) {
-    patch.responsavel = body.responsavel ? String(body.responsavel).trim() : null;
+    const responsavel = body.responsavel ? String(body.responsavel).trim() : null;
+    patch.responsavel = responsavel;
     const { data: integrantes } = await supabase.from("integrantes").select("id, nome");
     patch.responsavel_id = resolverResponsavelId(
-      patch.responsavel,
+      responsavel,
       (integrantes ?? []) as Array<{ id: string; nome: string | null }>
     );
   }
@@ -182,6 +184,9 @@ export async function PATCH(request: Request, ctx: Ctx) {
       fimIso,
       normalizarProgresso((atividadeRow as { progresso?: number | null }).progresso)
     );
+  }
+  if ("nao_entregue_com_justificativa" in body) {
+    patch.nao_entregue_com_justificativa = body.nao_entregue_com_justificativa === true;
   }
   if ("plano_atividades" in body) {
     const plano = parsePlanoAtividades(body.plano_atividades);

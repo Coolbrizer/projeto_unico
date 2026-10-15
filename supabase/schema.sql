@@ -38,6 +38,7 @@ create table public.atividades (
   plano_atividades smallint,
   etapa smallint,
   status_execucao text,
+  nao_entregue_com_justificativa boolean not null default false,
   constraint atividades_plano_atividades_check check (
     plano_atividades is null or plano_atividades >= 1
   ),

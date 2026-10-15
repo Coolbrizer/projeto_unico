@@ -34,6 +34,7 @@ type LinhaPrestacao = {
   progresso: number;
   etiqueta_relatorio: string | null;
   link_relatorio: string | null;
+  nao_entregue_com_justificativa?: boolean | null;
 };
 
 export default function PrestacaoContasPage() {
