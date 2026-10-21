@@ -121,6 +121,7 @@ export default function OrcamentoPage() {
   const [pessoasPorRef, setPessoasPorRef] = useState<Record<string, number>>({});
   const [periodoInstrucao, setPeriodoInstrucao] = useState<{ inicio: string; fim: string } | null>(null);
   const [detalheIntegrantesAberto, setDetalheIntegrantesAberto] = useState(false);
+  const [refPgtoAberto, setRefPgtoAberto] = useState(false);
   const [diasFeriasPorIntegrante, setDiasFeriasPorIntegrante] = useState<Record<string, number>>({});
   const [cenariosFerias, setCenariosFerias] = useState<OrcamentoCenarioFerias[]>([]);
   const [nomeCenarioFerias, setNomeCenarioFerias] = useState("");
@@ -899,10 +900,38 @@ export default function OrcamentoPage() {
         </section>
       )}
 
-      <section className="mb-10 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-5">
-        <h3 className="mb-1 text-sm font-semibold text-[var(--foreground)]">
-          Referência de pagamento (ref_pgto)
-        </h3>
+      <section className="mb-10">
+        <button
+          type="button"
+          onClick={() => setRefPgtoAberto((v) => !v)}
+          aria-expanded={refPgtoAberto}
+          aria-controls="referencia-pagamento"
+          className="mb-3 flex w-full items-center justify-between gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-4 py-3 text-left text-sm font-medium text-[var(--muted)] transition hover:bg-[var(--accent-muted)]/40"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <span
+              aria-hidden="true"
+              className={`inline-block shrink-0 text-[var(--muted)] transition-transform ${refPgtoAberto ? "rotate-90" : ""}`}
+            >
+              ▶
+            </span>
+            <span className="shrink-0">Referência de pagamento (ref_pgto)</span>
+            <span className="truncate text-xs font-normal text-[var(--muted)]">
+              · {refPgto.length} linha{refPgto.length === 1 ? "" : "s"}
+              {totaisCenarioAtual.totalValor > 0
+                ? ` · ${formatMoney(totaisCenarioAtual.totalValor)}`
+                : ""}
+            </span>
+          </span>
+          <span className="shrink-0 text-xs font-normal text-[var(--muted)]">
+            {refPgtoAberto ? "Recolher" : "Expandir"}
+          </span>
+        </button>
+        {refPgtoAberto && (
+        <div
+          id="referencia-pagamento"
+          className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-5"
+        >
         <p className="mb-4 text-xs text-[var(--muted)]">
           Dados somente leitura nesta tela. Para incluir ou alterar linhas, use o Supabase (SQL em{" "}
           <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">supabase/migration_ref_pgto.sql</code> cria a tabela).
@@ -1084,6 +1113,8 @@ export default function OrcamentoPage() {
               </tfoot>
             </table>
           </div>
+        )}
+        </div>
         )}
       </section>
 
