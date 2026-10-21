@@ -599,19 +599,6 @@ export default function OrcamentoPage() {
 
       {!loading && configured && (
         <div className="mb-8 space-y-4">
-          <div className="rounded-xl border border-[var(--success)]/25 bg-[var(--success)]/10 px-5 py-5">
-            <p className="text-xs font-medium uppercase tracking-wide text-[var(--success)]">
-              Despesa mensal (folha integrantes)
-            </p>
-            <p className="mt-2 text-3xl font-bold text-[var(--success)]">
-              {formatMoney(folha.total)}
-            </p>
-            <p className="mt-1 text-xs text-[var(--muted)]">
-              Soma de <code className="rounded bg-[var(--accent-muted)] px-1">ref_pgto</code> de
-              {" "}{integrantesConsiderados.filter(integranteContaParaFolha).length} integrante(s).
-            </p>
-          </div>
-
           <div className="rounded-xl border border-[var(--accent)]/30 bg-[var(--card)] px-5 py-5">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
