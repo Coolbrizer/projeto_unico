@@ -524,7 +524,8 @@ export default function AfastamentosPage() {
           <table className="w-full min-w-[1180px] table-fixed border-collapse text-left text-[11px]">
             <thead className="border-b border-[var(--card-border)] bg-[var(--background)]/70 text-[10px] uppercase text-[var(--muted)]">
               <tr>
-                <th className="w-[16%] px-1.5 py-1.5 font-medium">Nome</th>
+                <th className="w-[3%] px-1 py-1.5 text-right font-medium">Nº</th>
+                <th className="w-[14%] px-1.5 py-1.5 font-medium">Nome</th>
                 <th className="w-[6%] px-1 py-1.5 font-medium">Matrícula</th>
                 <th className="w-[9%] px-1 py-1.5 font-medium">Setor</th>
                 <th className="w-[12%] px-1 py-1.5 font-medium">Cargo</th>
@@ -549,7 +550,7 @@ export default function AfastamentosPage() {
               </tr>
             </thead>
             <tbody>
-              {integrantesFiltrados.map((integrante) => {
+              {integrantesFiltrados.map((integrante, indice) => {
                 const total = totalDiasAfastamento(valores[integrante.id] ?? {}, competencias, periodo);
                 const atingiuLimiar = total >= LIMIAR_DIAS_AFASTAMENTO;
                 const editavel = podeEditar(integrante);
@@ -558,6 +559,9 @@ export default function AfastamentosPage() {
                     key={integrante.id}
                     className="border-b border-[var(--card-border)]/60 transition-colors hover:bg-[var(--accent-muted)]"
                   >
+                    <td className="px-1 py-1 text-right tabular-nums text-[var(--muted)]">
+                      {indice + 1}
+                    </td>
                     <td className="px-1.5 py-1 font-medium leading-tight text-[var(--foreground)]">
                       {integrante.nome}
                     </td>
