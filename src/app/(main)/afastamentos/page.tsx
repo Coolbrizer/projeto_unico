@@ -37,7 +37,7 @@ type AfastamentosResponse = {
 
 type ValoresPorIntegrante = Record<string, Record<string, string>>;
 
-type OrdemLista = "nome" | "dias-asc" | "dias-desc";
+type OrdemLista = "nome" | "dias-asc" | "dias-desc" | "cargo-asc" | "cargo-desc";
 
 function formatMoney(n: number): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
@@ -181,10 +181,18 @@ export default function AfastamentosPage() {
           return matchesBusca(integrante, busca);
         })
         .sort((a, b) => {
-          if (ordemLista !== "nome") {
+          if (ordemLista === "dias-asc" || ordemLista === "dias-desc") {
             const diasA = totalDiasAfastamento(valores[a.id] ?? {}, competencias, periodo);
             const diasB = totalDiasAfastamento(valores[b.id] ?? {}, competencias, periodo);
             if (diasA !== diasB) return ordemLista === "dias-asc" ? diasA - diasB : diasB - diasA;
+          }
+          if (ordemLista === "cargo-asc" || ordemLista === "cargo-desc") {
+            const cargoA = (a.cargo ?? "").trim();
+            const cargoB = (b.cargo ?? "").trim();
+            if (!cargoA && cargoB) return 1;
+            if (cargoA && !cargoB) return -1;
+            const cmp = cargoA.localeCompare(cargoB, "pt-BR", { sensitivity: "base" });
+            if (cmp !== 0) return ordemLista === "cargo-asc" ? cmp : -cmp;
           }
           return a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" });
         }),
@@ -451,7 +459,7 @@ export default function AfastamentosPage() {
       )}
 
       {canManageAll && (
-        <div className="mb-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_200px_220px]">
+        <div className="mb-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_240px_200px]">
           <div>
             <label className="block text-xs text-[var(--muted)]">Buscar integrante</label>
             <input
@@ -470,15 +478,17 @@ export default function AfastamentosPage() {
             )}
           </div>
           <div>
-            <label className="block text-xs text-[var(--muted)]">Ordenar por dias afastados</label>
+            <label className="block text-xs text-[var(--muted)]">Ordenar</label>
             <select
               value={ordemLista}
               onChange={(e) => setOrdemLista(e.target.value as OrdemLista)}
               className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
             >
               <option value="nome">Nome</option>
-              <option value="dias-asc">Crescente</option>
-              <option value="dias-desc">Decrescente</option>
+              <option value="dias-asc">Dias (crescente)</option>
+              <option value="dias-desc">Dias (decrescente)</option>
+              <option value="cargo-asc">Cargo (AN, TC)</option>
+              <option value="cargo-desc">Cargo (TC, AN)</option>
             </select>
           </div>
           <div>
@@ -544,7 +554,10 @@ export default function AfastamentosPage() {
                 const atingiuLimiar = total >= LIMIAR_DIAS_AFASTAMENTO;
                 const editavel = podeEditar(integrante);
                 return (
-                  <tr key={integrante.id} className="border-b border-[var(--card-border)]/60">
+                  <tr
+                    key={integrante.id}
+                    className="border-b border-[var(--card-border)]/60 transition-colors hover:bg-[var(--accent-muted)]"
+                  >
                     <td className="px-1.5 py-1 font-medium leading-tight text-[var(--foreground)]">
                       {integrante.nome}
                     </td>
