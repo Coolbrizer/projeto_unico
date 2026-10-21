@@ -39,10 +39,12 @@ export function useInstrucaoServicoSelecionada() {
   return useContext(InstrucaoServicoContext);
 }
 
+const itemAfastamentos = { href: "/afastamentos", label: "Afastamentos" } as const;
+
 const navBase = [
   { href: "/", label: "Atividades" },
   { href: "/meu-perfil", label: "Meu perfil" },
-  { href: "/afastamentos", label: "Afastamentos" },
+  itemAfastamentos,
   { href: "/progresso", label: "Progresso" },
   { href: "/equipe", label: "Equipe" },
   { href: "/integrantes", label: "Integrantes" },
@@ -111,7 +113,12 @@ export function AppShell({
   }
 
   const navItemsBase = isAdmin(role)
-    ? ([...navBase, ...navPrestacaoContas, ...navAdmin] as const)
+    ? ([
+        ...navBase.filter((item) => item.href !== itemAfastamentos.href),
+        ...navPrestacaoContas,
+        itemAfastamentos,
+        ...navAdmin,
+      ] as const)
     : role === "gestor"
       ? ([...navBase, ...navPrestacaoContas] as const)
       : ([...navBase] as const);

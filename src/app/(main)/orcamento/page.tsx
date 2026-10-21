@@ -5,6 +5,7 @@ import { ConfigWarning } from "@/components/ConfigWarning";
 import { usePerfil } from "@/components/AppShell";
 import { isAdmin } from "@/lib/auth/roles";
 import { useMounted } from "@/hooks/useMounted";
+import { resumoFolhaAfastamentos } from "@/lib/afastamentos-folha";
 import { macroSetorIntegrante } from "@/lib/integrante-setor-macro";
 import {
   estadoAPartirDasLinhas,
@@ -127,6 +128,7 @@ export default function OrcamentoPage() {
   const [executadoPorMes, setExecutadoPorMes] = useState<Record<string, number>>({});
   const [rascunhoExecutado, setRascunhoExecutado] = useState<Record<string, string>>({});
   const [salvandoExecucao, setSalvandoExecucao] = useState<string | null>(null);
+  const [aplicandoAfastamento, setAplicandoAfastamento] = useState<string | null>(null);
   const [mesesPorRef, setMesesPorRef] = useState<Record<string, number>>({});
   const [pessoasPorRef, setPessoasPorRef] = useState<Record<string, number>>({});
   const [detalheIntegrantesAberto, setDetalheIntegrantesAberto] = useState(false);
@@ -536,17 +538,14 @@ export default function OrcamentoPage() {
     else void load();
   }
 
-  async function gravarExecucao(key: string, ano: number, mes: number) {
-    const parsed = parseValorInformado(rascunhoExecutado[key] ?? "");
-    if (parsed === "invalido") {
-      setError("Informe o executado com um valor zero ou positivo, ou deixe em branco para usar o estimado.");
-      return;
-    }
+  async function persistirExecucao(key: string, ano: number, mes: number, valor: number | null) {
     const atual = executadoPorMes[key] ?? null;
-    if (parsed === atual) {
-      if (parsed !== null) {
-        setRascunhoExecutado((prev) => ({ ...prev, [key]: textoValor(parsed) }));
-      }
+    if (valor === atual) {
+      setRascunhoExecutado((prev) => ({
+        ...prev,
+        [key]: valor === null ? "" : textoValor(valor),
+      }));
+      setSalvandoExecucao((atualKey) => (atualKey === key ? null : atualKey));
       return;
     }
     setSalvandoExecucao(key);
@@ -559,7 +558,7 @@ export default function OrcamentoPage() {
         periodoId: periodoOrcamento.id,
         ano,
         mes,
-        valorExecutado: parsed,
+        valorExecutado: valor,
       }),
     });
     const data = (await res.json()) as { error?: string };
@@ -570,14 +569,66 @@ export default function OrcamentoPage() {
     }
     setExecutadoPorMes((prev) => {
       const next = { ...prev };
-      if (parsed === null) delete next[key];
-      else next[key] = parsed;
+      if (valor === null) delete next[key];
+      else next[key] = valor;
       return next;
     });
     setRascunhoExecutado((prev) => ({
       ...prev,
-      [key]: parsed === null ? "" : textoValor(parsed),
+      [key]: valor === null ? "" : textoValor(valor),
     }));
+  }
+
+  async function gravarExecucao(key: string, ano: number, mes: number) {
+    const parsed = parseValorInformado(rascunhoExecutado[key] ?? "");
+    if (parsed === "invalido") {
+      setError("Informe o executado com um valor zero ou positivo, ou deixe em branco para usar o estimado.");
+      return;
+    }
+    await persistirExecucao(key, ano, mes, parsed);
+  }
+
+  async function aplicarAfastamentos(row: {
+    key: string;
+    year: number;
+    mes: number;
+    valor: number;
+  }) {
+    setAplicandoAfastamento(row.key);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/orcamento/afastamentos?ano=${row.year}&mes=${row.mes}`,
+        { credentials: "include" }
+      );
+      const data = (await res.json()) as {
+        error?: string;
+        dias?: Array<{ integrante_id: string; dias_afastamento: number }>;
+      };
+      if (!res.ok) {
+        setError(data.error ?? "Não foi possível consultar os afastamentos.");
+        return;
+      }
+
+      const inicioMes = isoDate(row.year, row.mes, 1);
+      const fimMes = isoDate(row.year, row.mes, diasNoMes(row.year, row.mes));
+      const inicio = inicioMes < dataInicioPeriodo ? dataInicioPeriodo : inicioMes;
+      const fim = fimMes > dataFimPeriodo ? dataFimPeriodo : fimMes;
+      const valores: Record<string, Record<string, number>> = {};
+      for (const item of data.dias ?? []) {
+        valores[item.integrante_id] = { [inicioMes]: Number(item.dias_afastamento) || 0 };
+      }
+      const abatimento = resumoFolhaAfastamentos(integrantesConsiderados, refPgto, valores, {
+        inicio,
+        fim,
+      }).abatimentoPeriodo;
+      const resultado = Math.max(0, Math.round((row.valor - abatimento) * 100) / 100);
+      await persistirExecucao(row.key, row.year, row.mes, resultado);
+    } catch {
+      setError("Não foi possível consultar os afastamentos.");
+    } finally {
+      setAplicandoAfastamento((atualKey) => (atualKey === row.key ? null : atualKey));
+    }
   }
 
   return (
@@ -706,7 +757,7 @@ export default function OrcamentoPage() {
 
             {!estimativaPeriodo.erro && folhaPorMes.length > 0 && (
               <div className="mt-4 overflow-x-auto rounded-lg border border-[var(--card-border)] bg-white">
-                <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+                <table className="w-full min-w-[860px] border-collapse text-left text-sm">
                   <thead className="border-b border-[var(--card-border)] bg-[var(--background)]/80 text-xs uppercase tracking-wide text-[var(--muted)]">
                     <tr>
                       <th className="px-3 py-2.5 font-medium">Mês</th>
@@ -714,6 +765,7 @@ export default function OrcamentoPage() {
                       <th className="px-3 py-2.5 text-right font-medium">Dias pagos</th>
                       <th className="px-3 py-2.5 text-right font-medium">Estimado</th>
                       <th className="px-3 py-2.5 text-right font-medium">Executado</th>
+                      <th className="px-3 py-2.5 text-right font-medium">Afastamentos</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -788,6 +840,17 @@ export default function OrcamentoPage() {
                               className="w-36 rounded-md border border-[var(--card-border)] bg-white px-2 py-1 text-right text-sm tabular-nums text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2 disabled:opacity-60"
                             />
                           </td>
+                          <td className="px-3 py-2 text-right">
+                            <button
+                              type="button"
+                              onClick={() => void aplicarAfastamentos(row)}
+                              disabled={salvandoExecucao === row.key || aplicandoAfastamento === row.key}
+                              title="Preenche o executado com o estimado menos os afastamentos do mês"
+                              className="whitespace-nowrap rounded-md border border-[var(--accent)]/40 bg-[var(--accent-muted)] px-2.5 py-1 text-xs font-medium text-[var(--accent)] hover:brightness-95 disabled:opacity-50"
+                            >
+                              {aplicandoAfastamento === row.key ? "Aplicando…" : "Aplicar afastamentos"}
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}
@@ -809,6 +872,7 @@ export default function OrcamentoPage() {
                       <td className="px-3 py-2 text-right font-semibold tabular-nums text-[var(--success)]">
                         {formatMoney(totaisPeriodo.considerado)}
                       </td>
+                      <td />
                     </tr>
                   </tfoot>
                 </table>
@@ -821,6 +885,8 @@ export default function OrcamentoPage() {
               Janeiro conta a partir do dia 7 e dezembro até o dia 19; demais meses, integralmente,
               dentro do período. O valor executado, quando informado, substitui o estimado daquele
               mês no total e no saldo. Deixe o campo em branco para continuar usando o estimado.
+              Aplicar afastamentos consulta os dias de todos os integrantes na aba Afastamentos e
+              grava no executado o estimado menos o valor desses dias.
               Os dias de férias reduzem só a simulação do estimado:{" "}
               <code className="rounded bg-[var(--accent-muted)] px-1">
                 bruto × dias_férias ÷ dias_pagos
