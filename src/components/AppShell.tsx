@@ -277,6 +277,7 @@ export function AppShell({
                 </button>
               </nav>
             </div>
+            {pathname !== "/orcamento" && (
             <div className="border-t border-[var(--card-border)]/80">
               <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-3 md:flex-row md:items-center md:gap-4">
                 <label className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
@@ -306,10 +307,11 @@ export function AppShell({
                           opcao.instrucaoServicoId === instrucaoServicoId &&
                           opcao.planoAtividades === planoAtividades
                       )?.label ?? "instrução selecionada"
-                    }. Atividades, Equipe, Progresso, Meu perfil, Afastamentos, Prestação de contas e Orçamento mostram só este recorte.`
+                    }. Atividades, Equipe, Progresso, Meu perfil, Afastamentos e Prestação de contas mostram só este recorte.`
                   : "Nenhuma instrução selecionada. Essas telas mostram todas as instruções de serviço."}
               </p>
             </div>
+            )}
           </header>
           <main className="flex-1 px-4 py-6 md:px-8 md:py-8 lg:px-12">{children}</main>
         </div>

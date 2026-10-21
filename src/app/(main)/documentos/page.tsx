@@ -236,7 +236,7 @@ export default function DocumentosPage() {
               />
             </div>
             <p className="sm:col-span-2 text-xs text-[var(--muted)]">
-              Período da instrução. Com as duas datas preenchidas, Orçamento e Afastamentos usam este
+              Período da instrução. Com as duas datas preenchidas, Afastamentos usa este
               intervalo. Uma atividade com data diferente não altera o período da instrução.
             </p>
             <div className="sm:col-span-2">

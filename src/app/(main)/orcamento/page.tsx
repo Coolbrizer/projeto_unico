@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
-import { useInstrucaoServicoSelecionada, usePerfil } from "@/components/AppShell";
+import { usePerfil } from "@/components/AppShell";
 import { isAdmin } from "@/lib/auth/roles";
-import { equipeLinhaEhResponsavel } from "@/lib/equipe-page-helpers";
 import { useMounted } from "@/hooks/useMounted";
 import { macroSetorIntegrante } from "@/lib/integrante-setor-macro";
 import {
@@ -18,7 +17,6 @@ import {
   linhasFeriasAtivas,
 } from "@/lib/orcamento-cenarios-ferias";
 import {
-  DATA_ORCAMENTO_INICIO_ISO,
   despesaFolhaPeriodo,
   diasNoMes,
   integranteContaParaFolha,
@@ -26,17 +24,33 @@ import {
   totalDespesaMensalFolha,
   valorMensalDoRef,
 } from "@/lib/orcamento-folha";
+import {
+  PERIODO_ORCAMENTO_INICIAL,
+  PERIODOS_ORCAMENTO,
+  periodoOrcamentoPorId,
+  type ExecucaoMensal,
+} from "@/lib/orcamento-periodos";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import type {
-  Atividade,
-  Documento,
-  Equipe,
   Integrante,
   Orcamento,
   OrcamentoCenario,
   OrcamentoCenarioFerias,
   RefPgto,
 } from "@/types/database";
+
+function textoValor(n: number): string {
+  return n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function parseValorInformado(raw: string): number | null | "invalido" {
+  const s = raw.trim();
+  if (!s) return null;
+  const normalizado = s.includes(",") ? s.replace(/\./g, "").replace(",", ".") : s.replace(/\s/g, "");
+  const n = Number(normalizado);
+  if (!Number.isFinite(n) || n < 0) return "invalido";
+  return Math.round(n * 100) / 100;
+}
 
 function formatMoney(n: number | null) {
   if (n === null || n === undefined) return "—";
@@ -60,17 +74,8 @@ function macroDoSetor(setor: string | null | undefined): string {
   return macroSetorIntegrante(setor);
 }
 
-function toISODateOnly(raw: string | null | undefined): string | null {
-  const s = (raw ?? "").trim();
-  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
-}
-
 function isoDate(year: number, month: number, day: number): string {
   return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
-
-function ultimoDiaDoMes(year: number, month: number): number {
-  return new Date(year, month, 0).getDate();
 }
 
 function formatBR(iso: string): string {
@@ -104,22 +109,26 @@ export default function OrcamentoPage() {
   const mounted = useMounted();
   const configured = useIsSupabaseConfigured();
   const perfil = usePerfil();
-  const { instrucaoServicoId, planoAtividades } = useInstrucaoServicoSelecionada();
   const podeExcluirLancamento = isAdmin(perfil);
   const [rows, setRows] = useState<Orcamento[]>([]);
   const [integrantes, setIntegrantes] = useState<Integrante[]>([]);
   const [refPgto, setRefPgto] = useState<RefPgto[]>([]);
-  const [atividadesIs, setAtividadesIs] = useState<Atividade[]>([]);
-  const [equipes, setEquipes] = useState<Equipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [dataInicioPeriodo, setDataInicioPeriodo] = useState(DATA_ORCAMENTO_INICIO_ISO);
-  const [dataFimPeriodo, setDataFimPeriodo] = useState("2026-12-31");
+  const [periodoId, setPeriodoId] = useState(PERIODO_ORCAMENTO_INICIAL.id);
+  const periodoOrcamento = useMemo(
+    () => periodoOrcamentoPorId(periodoId) ?? PERIODO_ORCAMENTO_INICIAL,
+    [periodoId]
+  );
+  const dataInicioPeriodo = periodoOrcamento.inicio;
+  const dataFimPeriodo = periodoOrcamento.fim;
   const [diasFerias, setDiasFerias] = useState(0);
+  const [executadoPorMes, setExecutadoPorMes] = useState<Record<string, number>>({});
+  const [rascunhoExecutado, setRascunhoExecutado] = useState<Record<string, string>>({});
+  const [salvandoExecucao, setSalvandoExecucao] = useState<string | null>(null);
   const [mesesPorRef, setMesesPorRef] = useState<Record<string, number>>({});
   const [pessoasPorRef, setPessoasPorRef] = useState<Record<string, number>>({});
-  const [periodoInstrucao, setPeriodoInstrucao] = useState<{ inicio: string; fim: string } | null>(null);
   const [detalheIntegrantesAberto, setDetalheIntegrantesAberto] = useState(false);
   const [refPgtoAberto, setRefPgtoAberto] = useState(false);
   const [diasFeriasPorIntegrante, setDiasFeriasPorIntegrante] = useState<Record<string, number>>({});
@@ -162,7 +171,6 @@ export default function OrcamentoPage() {
       setRows([]);
       setIntegrantes([]);
       setRefPgto([]);
-      setEquipes([]);
     } else {
       setRows(data.orcamento ?? []);
       setIntegrantes(data.integrantes ?? []);
@@ -178,116 +186,38 @@ export default function OrcamentoPage() {
   }, [load, loadCenarios, loadCenariosFerias]);
 
   useEffect(() => {
-    if (!instrucaoServicoId) {
-      setAtividadesIs([]);
-      setPeriodoInstrucao(null);
-      setDataInicioPeriodo(DATA_ORCAMENTO_INICIO_ISO);
-      setDataFimPeriodo("2026-12-31");
-      return;
-    }
-
     let ativo = true;
+    setExecutadoPorMes({});
+    setRascunhoExecutado({});
     void (async () => {
-      const params = new URLSearchParams({ instrucaoServicoId });
-      if (planoAtividades !== null) params.set("planoAtividades", String(planoAtividades));
-      const filtro = `?${params.toString()}`;
-      const res = await fetch(`/api/atividades${filtro}`, { credentials: "include" });
-      const [dataAtividades, dataEquipes, dataDocumentos] = await Promise.all([
-        res.json() as Promise<{ atividades?: Atividade[] }>,
-        fetch(`/api/equipe${filtro}`, { credentials: "include" }).then(
-          async (resEquipe) => ((await resEquipe.json()) as { equipe?: Equipe[]; ok?: boolean })
-        ),
-        fetch("/api/documentos", { credentials: "include" }).then(
-          async (resDocs) => ((await resDocs.json()) as { documentos?: Documento[] })
-        ),
-      ]);
-      if (!ativo || !res.ok) {
-        setAtividadesIs([]);
-        setPeriodoInstrucao(null);
+      const res = await fetch(
+        `/api/orcamento/execucao?periodoId=${encodeURIComponent(periodoOrcamento.id)}`,
+        { credentials: "include" }
+      );
+      const data = (await res.json()) as { error?: string; execucoes?: ExecucaoMensal[] };
+      if (!ativo) return;
+      if (!res.ok) {
+        setError(data.error ?? "Não foi possível carregar a execução mensal.");
         return;
       }
-      const atividades = dataAtividades.atividades ?? [];
-      setAtividadesIs(atividades);
-      setEquipes(dataEquipes.equipe ?? []);
-      const documento = (dataDocumentos.documentos ?? []).find((d) => d.id === instrucaoServicoId);
-      const inicioDocumento = documento?.periodo_inicio?.slice(0, 10) ?? "";
-      const fimDocumento = documento?.periodo_fim?.slice(0, 10) ?? "";
-      if (
-        /^\d{4}-\d{2}-\d{2}$/.test(inicioDocumento) &&
-        /^\d{4}-\d{2}-\d{2}$/.test(fimDocumento) &&
-        inicioDocumento <= fimDocumento
-      ) {
-        setPeriodoInstrucao({ inicio: inicioDocumento, fim: fimDocumento });
-        return;
+      const salvos: Record<string, number> = {};
+      const rascunho: Record<string, string> = {};
+      for (const item of data.execucoes ?? []) {
+        const key = `${item.ano}-${item.mes}`;
+        const valor = Number(item.valor_executado);
+        if (!Number.isFinite(valor)) continue;
+        salvos[key] = valor;
+        rascunho[key] = textoValor(valor);
       }
-      const inicios = atividades.map((a) => toISODateOnly(a.inicio)).filter(Boolean) as string[];
-      const fins = atividades.map((a) => toISODateOnly(a.fim)).filter(Boolean) as string[];
-      if (inicios.length === 0 || fins.length === 0) {
-        setPeriodoInstrucao(null);
-        return;
-      }
-      inicios.sort();
-      fins.sort();
-      const inicio = inicios[0];
-      const fim = fins[fins.length - 1];
-      if (!inicio || !fim || inicio > fim) {
-        setPeriodoInstrucao(null);
-        return;
-      }
-      setPeriodoInstrucao({ inicio, fim });
+      setExecutadoPorMes(salvos);
+      setRascunhoExecutado(rascunho);
     })();
     return () => {
       ativo = false;
     };
-  }, [instrucaoServicoId, planoAtividades]);
+  }, [periodoOrcamento.id]);
 
-  useEffect(() => {
-    if (!periodoInstrucao) return;
-    setDataInicioPeriodo(periodoInstrucao.inicio);
-    setDataFimPeriodo(periodoInstrucao.fim);
-  }, [periodoInstrucao]);
-
-  const integrantesConsiderados = useMemo(() => {
-    if (!instrucaoServicoId) return integrantes;
-    if (atividadesIs.length === 0) return [];
-
-    const ids = new Set<string>();
-    const porCodigo = new Map<string, Atividade[]>();
-    for (const a of atividadesIs) {
-      const codigo = (a.codigo ?? "").trim();
-      if (!porCodigo.has(codigo)) porCodigo.set(codigo, []);
-      porCodigo.get(codigo)!.push(a);
-    }
-
-    for (const [codigo, atividades] of porCodigo) {
-      const equipeRows = equipes.filter((e) => (e.codigo ?? "").trim() === codigo);
-      const nomesEquipe = new Set(
-        equipeRows.map((e) => (e.equipe ?? "").trim().toLowerCase()).filter(Boolean)
-      );
-      const codigoLc = codigo.toLowerCase();
-
-      for (const i of integrantes) {
-        const setor = (i.setor ?? "").trim().toLowerCase();
-        if (!setor) continue;
-        if (codigo && setor === codigoLc) ids.add(i.id);
-        else if (nomesEquipe.has(setor)) ids.add(i.id);
-      }
-
-      for (const r of equipeRows) {
-        for (const i of integrantes) {
-          if (equipeLinhaEhResponsavel(r.equipe ?? "", i.nome ?? "")) ids.add(i.id);
-        }
-      }
-
-      for (const a of atividades) {
-        for (const i of integrantes) {
-          if (equipeLinhaEhResponsavel(i.nome ?? "", a.responsavel)) ids.add(i.id);
-        }
-      }
-    }
-
-    return integrantes.filter((i) => ids.has(i.id));
-  }, [instrucaoServicoId, atividadesIs, equipes, integrantes]);
+  const integrantesConsiderados = integrantes;
 
   const folha = useMemo(
     () => totalDespesaMensalFolha(integrantesConsiderados, refPgto),
@@ -438,28 +368,38 @@ export default function OrcamentoPage() {
     return { totalBruto, diasPagos, diasFeriasValido, reducao, totalFinal };
   }, [estimativaPeriodo, diasFerias]);
 
-  const aplicarPreset = useCallback(
-    (preset: "mes-atual" | "ano-atual" | "is") => {
-      const hoje = new Date();
-      const ano = hoje.getFullYear();
-      const mes = hoje.getMonth() + 1;
-      if (preset === "mes-atual") {
-        setDataInicioPeriodo(isoDate(ano, mes, 1));
-        setDataFimPeriodo(isoDate(ano, mes, ultimoDiaDoMes(ano, mes)));
-        return;
+  function valorExecutadoDaLinha(key: string): number | null {
+    const rascunho = rascunhoExecutado[key];
+    if (rascunho !== undefined) {
+      const parsed = parseValorInformado(rascunho);
+      if (parsed !== "invalido") return parsed;
+    }
+    return executadoPorMes[key] ?? null;
+  }
+
+  const totaisPeriodo = useMemo(() => {
+    let estimado = 0;
+    let considerado = 0;
+    let mesesExecutados = 0;
+    for (const row of folhaPorMes) {
+      estimado += row.valor;
+      const rascunho = rascunhoExecutado[row.key];
+      let executado: number | null = executadoPorMes[row.key] ?? null;
+      if (rascunho !== undefined) {
+        const parsed = parseValorInformado(rascunho);
+        if (parsed !== "invalido") executado = parsed;
       }
-      if (preset === "ano-atual") {
-        setDataInicioPeriodo(isoDate(ano, 1, 1));
-        setDataFimPeriodo(isoDate(ano, 12, 31));
-        return;
+      if (executado === null) considerado += row.valor;
+      else {
+        considerado += executado;
+        mesesExecutados += 1;
       }
-      if (preset === "is" && periodoInstrucao) {
-        setDataInicioPeriodo(periodoInstrucao.inicio);
-        setDataFimPeriodo(periodoInstrucao.fim);
-      }
-    },
-    [periodoInstrucao]
-  );
+    }
+    estimado = Math.round(estimado * 100) / 100;
+    considerado = Math.round(considerado * 100) / 100;
+    const saldo = Math.round((periodoOrcamento.valorAprovado - considerado) * 100) / 100;
+    return { estimado, considerado, saldo, mesesExecutados };
+  }, [folhaPorMes, rascunhoExecutado, executadoPorMes, periodoOrcamento.valorAprovado]);
 
   const totais = useMemo(() => {
     let prev = 0;
@@ -522,8 +462,6 @@ export default function OrcamentoPage() {
   function carregarCenarioFerias(c: OrcamentoCenarioFerias) {
     const linhas = Array.isArray(c.linhas) ? c.linhas : [];
     setDiasFeriasPorIntegrante(estadoAPartirDasLinhasFerias(linhas));
-    setDataInicioPeriodo(c.data_inicio);
-    setDataFimPeriodo(c.data_fim);
     setMostrarSalvarCenarioFerias(false);
     setNomeCenarioFerias("");
     setDetalheIntegrantesAberto(true);
@@ -598,13 +536,56 @@ export default function OrcamentoPage() {
     else void load();
   }
 
+  async function gravarExecucao(key: string, ano: number, mes: number) {
+    const parsed = parseValorInformado(rascunhoExecutado[key] ?? "");
+    if (parsed === "invalido") {
+      setError("Informe o executado com um valor zero ou positivo, ou deixe em branco para usar o estimado.");
+      return;
+    }
+    const atual = executadoPorMes[key] ?? null;
+    if (parsed === atual) {
+      if (parsed !== null) {
+        setRascunhoExecutado((prev) => ({ ...prev, [key]: textoValor(parsed) }));
+      }
+      return;
+    }
+    setSalvandoExecucao(key);
+    setError(null);
+    const res = await fetch("/api/orcamento/execucao", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        periodoId: periodoOrcamento.id,
+        ano,
+        mes,
+        valorExecutado: parsed,
+      }),
+    });
+    const data = (await res.json()) as { error?: string };
+    setSalvandoExecucao((atualKey) => (atualKey === key ? null : atualKey));
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível guardar o valor executado.");
+      return;
+    }
+    setExecutadoPorMes((prev) => {
+      const next = { ...prev };
+      if (parsed === null) delete next[key];
+      else next[key] = parsed;
+      return next;
+    });
+    setRascunhoExecutado((prev) => ({
+      ...prev,
+      [key]: parsed === null ? "" : textoValor(parsed),
+    }));
+  }
+
   return (
     <div className="mx-auto max-w-5xl">
       <header className="mb-8">
         <h2 className="text-2xl font-semibold tracking-tight">Orçamento</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Despesa da folha (integrantes ×{" "}
-          <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">ref_pgto</code>) e estimativa de despesa por intervalo de datas.
+          Folha dos integrantes e acompanhamento do orçamento aprovado por período.
         </p>
       </header>
 
@@ -627,77 +608,35 @@ export default function OrcamentoPage() {
             </p>
             <p className="mt-1 text-xs text-[var(--muted)]">
               Soma de <code className="rounded bg-[var(--accent-muted)] px-1">ref_pgto</code> de
-              {" "}{integrantesConsiderados.filter(integranteContaParaFolha).length} integrante(s)
-              {instrucaoServicoId ? " vinculado(s) à IS selecionada" : ""}.
+              {" "}{integrantesConsiderados.filter(integranteContaParaFolha).length} integrante(s).
             </p>
           </div>
 
           <div className="rounded-xl border border-[var(--accent)]/30 bg-[var(--card)] px-5 py-5">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                Estimativa por período
-              </h3>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => aplicarPreset("mes-atual")}
-                  className="rounded-md border border-[var(--card-border)] bg-white px-2 py-1 text-[11px] font-medium text-[var(--foreground)] hover:bg-[var(--accent-muted)]"
-                >
-                  Mês atual
-                </button>
-                <button
-                  type="button"
-                  onClick={() => aplicarPreset("ano-atual")}
-                  className="rounded-md border border-[var(--card-border)] bg-white px-2 py-1 text-[11px] font-medium text-[var(--foreground)] hover:bg-[var(--accent-muted)]"
-                >
-                  Ano atual
-                </button>
-                {periodoInstrucao && (
-                  <button
-                    type="button"
-                    onClick={() => aplicarPreset("is")}
-                    className="rounded-md border border-[var(--accent)]/40 bg-[var(--accent-muted)] px-2 py-1 text-[11px] font-medium text-[var(--accent)] hover:brightness-95"
-                  >
-                    Período da IS
-                  </button>
-                )}
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--foreground)]">
+                  Orçamento do período
+                </h3>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  {formatBR(dataInicioPeriodo)} a {formatBR(dataFimPeriodo)}
+                  {!estimativaPeriodo.erro &&
+                    ` · ${estimativaPeriodo.diasPagosContados} dia(s) pago(s)`}
+                </p>
               </div>
-            </div>
-
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <label className="block">
-                <span className="block text-xs font-medium text-[var(--muted)]">Data inicial</span>
-                <input
-                  type="date"
-                  value={dataInicioPeriodo}
-                  onChange={(e) => setDataInicioPeriodo(e.target.value)}
+              <label className="block min-w-[220px]">
+                <span className="block text-xs font-medium text-[var(--muted)]">Período</span>
+                <select
+                  value={periodoOrcamento.id}
+                  onChange={(e) => setPeriodoId(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
-                />
-              </label>
-              <label className="block">
-                <span className="block text-xs font-medium text-[var(--muted)]">Data final</span>
-                <input
-                  type="date"
-                  value={dataFimPeriodo}
-                  onChange={(e) => setDataFimPeriodo(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
-                />
-              </label>
-              <label className="block">
-                <span className="block text-xs font-medium text-[var(--muted)]">
-                  Dias de férias (todos)
-                </span>
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={diasFerias}
-                  onChange={(e) => {
-                    const n = Number(e.target.value);
-                    setDiasFerias(Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0);
-                  }}
-                  className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
-                />
+                >
+                  {PERIODOS_ORCAMENTO.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {formatBR(p.inicio)} a {formatBR(p.fim)}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
 
@@ -706,62 +645,113 @@ export default function OrcamentoPage() {
                 {estimativaPeriodo.erro}
               </p>
             ) : (
-              <div className="mt-4 rounded-lg border border-[var(--accent)]/25 bg-[var(--accent-muted)] px-4 py-4">
-                <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                  Valor estimado no período
-                </p>
-                <p className="mt-1 text-3xl font-bold text-[var(--accent)]">
-                  {formatMoney(resumoFerias.totalFinal)}
-                </p>
-                <p className="mt-1 text-xs text-[var(--muted)]">
-                  {formatBR(dataInicioPeriodo)} a {formatBR(dataFimPeriodo)} ·{" "}
-                  {estimativaPeriodo.diasPagosContados} dia(s) pago(s)
-                  {resumoFerias.diasFeriasValido > 0 &&
-                    ` · −${resumoFerias.diasFeriasValido} dia(s) de férias`}
-                </p>
-                {resumoFerias.diasFeriasValido > 0 && (
-                  <div className="mt-3 grid gap-2 border-t border-[var(--accent)]/20 pt-3 text-xs sm:grid-cols-3">
-                    <div>
-                      <p className="text-[var(--muted)]">Bruto</p>
-                      <p className="font-semibold text-[var(--foreground)]">
-                        {formatMoney(resumoFerias.totalBruto)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[var(--muted)]">
-                        Redução por férias ({resumoFerias.diasFeriasValido} dia
-                        {resumoFerias.diasFeriasValido === 1 ? "" : "s"})
-                      </p>
-                      <p className="font-semibold text-[var(--danger)]">
-                        −{formatMoney(resumoFerias.reducao)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[var(--muted)]">Final</p>
-                      <p className="font-semibold text-[var(--accent)]">
-                        {formatMoney(resumoFerias.totalFinal)}
-                      </p>
-                    </div>
-                  </div>
-                )}
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-lg border border-[var(--card-border)] bg-white px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
+                    Orçamento aprovado
+                  </p>
+                  <p className="mt-1 text-xl font-bold text-[var(--foreground)]">
+                    {formatMoney(periodoOrcamento.valorAprovado)}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-[var(--card-border)] bg-white px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Estimado</p>
+                  <p className="mt-1 text-xl font-bold text-[var(--accent)]">
+                    {formatMoney(totaisPeriodo.estimado)}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-[var(--card-border)] bg-white px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
+                    Total do período
+                  </p>
+                  <p className="mt-1 text-xl font-bold text-[var(--foreground)]">
+                    {formatMoney(totaisPeriodo.considerado)}
+                  </p>
+                  <p className="mt-1 text-[11px] text-[var(--muted)]">
+                    {totaisPeriodo.mesesExecutados > 0
+                      ? `${totaisPeriodo.mesesExecutados} ${
+                          totaisPeriodo.mesesExecutados === 1 ? "mês" : "meses"
+                        } com valor executado`
+                      : "Ainda sem valor executado"}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-[var(--card-border)] bg-white px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Saldo</p>
+                  <p
+                    className={`mt-1 text-xl font-bold ${
+                      totaisPeriodo.saldo < 0 ? "text-[var(--danger)]" : "text-[var(--success)]"
+                    }`}
+                  >
+                    {formatMoney(totaisPeriodo.saldo)}
+                  </p>
+                  <p className="mt-1 text-[11px] text-[var(--muted)]">Aprovado − total do período</p>
+                </div>
               </div>
+            )}
+
+            <label className="mt-4 block max-w-xs">
+              <span className="block text-xs font-medium text-[var(--muted)]">
+                Dias de férias (todos)
+              </span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={diasFerias}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  setDiasFerias(Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0);
+                }}
+                className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
+              />
+            </label>
+            {!estimativaPeriodo.erro && resumoFerias.diasFeriasValido > 0 && (
+              <p className="mt-2 text-xs text-[var(--muted)]">
+                Simulação de férias sobre o estimado: −{formatMoney(resumoFerias.reducao)} (
+                {resumoFerias.diasFeriasValido} dia
+                {resumoFerias.diasFeriasValido === 1 ? "" : "s"}), ficando{" "}
+                <span className="font-medium text-[var(--foreground)]">
+                  {formatMoney(resumoFerias.totalFinal)}
+                </span>
+                . O saldo do período usa o executado informado, ou o estimado de cada mês.
+              </p>
             )}
 
             {!estimativaPeriodo.erro && folhaPorMes.length > 0 && (
               <div className="mt-4 overflow-x-auto rounded-lg border border-[var(--card-border)] bg-white">
-                <table className="w-full min-w-[420px] border-collapse text-left text-sm">
+                <table className="w-full min-w-[640px] border-collapse text-left text-sm">
                   <thead className="border-b border-[var(--card-border)] bg-[var(--background)]/80 text-xs uppercase tracking-wide text-[var(--muted)]">
                     <tr>
                       <th className="px-3 py-2.5 font-medium">Mês</th>
                       <th className="px-3 py-2.5 text-right font-medium">Dias no mês</th>
                       <th className="px-3 py-2.5 text-right font-medium">Dias pagos</th>
-                      <th className="px-3 py-2.5 text-right font-medium">Valor</th>
+                      <th className="px-3 py-2.5 text-right font-medium">Estimado</th>
+                      <th className="px-3 py-2.5 text-right font-medium">Executado</th>
                     </tr>
                   </thead>
                   <tbody>
                     {folhaPorMes.map((row) => {
+                      const dim = diasNoMes(row.year, row.mes);
+                      const inicioMes = isoDate(row.year, row.mes, 1);
+                      const fimMes = isoDate(row.year, row.mes, dim);
+                      const inicioEfetivo = inicioMes < dataInicioPeriodo ? dataInicioPeriodo : inicioMes;
+                      const fimEfetivo = fimMes > dataFimPeriodo ? dataFimPeriodo : fimMes;
+                      const diaIni = Number(inicioEfetivo.slice(8, 10));
+                      const diaFim = Number(fimEfetivo.slice(8, 10));
                       const nota =
-                        row.mes === 1 ? "7 → fim" : row.mes === 12 ? "1–19" : null;
+                        row.mes === 1 && diaIni <= 7 && diaFim === dim
+                          ? "7 → fim"
+                          : row.mes === 12 && diaIni === 1 && diaFim >= 19
+                            ? "1–19"
+                            : diaIni === 1 && diaFim === dim
+                              ? null
+                              : diaIni === 1
+                                ? `até ${diaFim}`
+                                : diaFim === dim
+                                  ? `a partir de ${diaIni}`
+                                  : `${diaIni}–${diaFim}`;
+                      const executado = valorExecutadoDaLinha(row.key);
+                      const substituido = executado !== null;
                       return (
                         <tr
                           key={row.key}
@@ -781,8 +771,35 @@ export default function OrcamentoPage() {
                           <td className="px-3 py-2 text-right tabular-nums text-[var(--muted)]">
                             {row.diasPagos}
                           </td>
-                          <td className="px-3 py-2 text-right font-medium tabular-nums text-[var(--success)]">
+                          <td
+                            className={`px-3 py-2 text-right font-medium tabular-nums ${
+                              substituido
+                                ? "text-[var(--muted)] line-through"
+                                : "text-[var(--success)]"
+                            }`}
+                          >
                             {formatMoney(row.valor)}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={rascunhoExecutado[row.key] ?? ""}
+                              placeholder="usar estimado"
+                              aria-label={`Total executado em ${row.label}`}
+                              disabled={salvandoExecucao === row.key}
+                              onChange={(e) =>
+                                setRascunhoExecutado((prev) => ({
+                                  ...prev,
+                                  [row.key]: e.target.value,
+                                }))
+                              }
+                              onBlur={() => void gravarExecucao(row.key, row.year, row.mes)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") e.currentTarget.blur();
+                              }}
+                              className="w-36 rounded-md border border-[var(--card-border)] bg-white px-2 py-1 text-right text-sm tabular-nums text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2 disabled:opacity-60"
+                            />
                           </td>
                         </tr>
                       );
@@ -791,7 +808,7 @@ export default function OrcamentoPage() {
                   <tfoot className="bg-[var(--background)]/60 text-xs">
                     <tr>
                       <td className="px-3 py-2 font-medium text-[var(--muted)]">
-                        Subtotal bruto
+                        Total do período
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-[var(--muted)]">
                         {folhaPorMes.reduce((acc, r) => acc + r.diasNoMes, 0)}
@@ -800,7 +817,10 @@ export default function OrcamentoPage() {
                         {estimativaPeriodo.diasPagosContados}
                       </td>
                       <td className="px-3 py-2 text-right font-semibold tabular-nums text-[var(--foreground)]">
-                        {formatMoney(resumoFerias.totalBruto)}
+                        {formatMoney(totaisPeriodo.estimado)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold tabular-nums text-[var(--success)]">
+                        {formatMoney(totaisPeriodo.considerado)}
                       </td>
                     </tr>
                   </tfoot>
@@ -811,15 +831,14 @@ export default function OrcamentoPage() {
             <p className="mt-3 text-[11px] leading-snug text-[var(--muted)]">
               Cada dia útil de folha soma{" "}
               <code className="rounded bg-[var(--accent-muted)] px-1">folha ÷ dias do mês</code>.
-              Janeiro conta a partir do dia 7 e dezembro até o dia 19; demais meses, integralmente.
-              Os dias de férias reduzem o total proporcionalmente:{" "}
+              Janeiro conta a partir do dia 7 e dezembro até o dia 19; demais meses, integralmente,
+              dentro do período. O valor executado, quando informado, substitui o estimado daquele
+              mês no total e no saldo. Deixe o campo em branco para continuar usando o estimado.
+              Os dias de férias reduzem só a simulação do estimado:{" "}
               <code className="rounded bg-[var(--accent-muted)] px-1">
                 bruto × dias_férias ÷ dias_pagos
               </code>
               .
-              {periodoInstrucao
-                ? ` IS selecionada: ${formatBR(periodoInstrucao.inicio)} a ${formatBR(periodoInstrucao.fim)}.`
-                : ""}
             </p>
           </div>
 
