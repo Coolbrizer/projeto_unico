@@ -21,6 +21,8 @@ export type ExecucaoMensal = {
   ano: number;
   mes: number;
   valor_executado: number;
+  /** true quando o executado foi gravado por "Aplicar afastamentos". */
+  por_afastamento: boolean;
 };
 
 export function periodoOrcamentoPorId(id: string): PeriodoOrcamento | null {

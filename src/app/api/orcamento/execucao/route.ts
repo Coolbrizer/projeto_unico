@@ -28,7 +28,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await auth.supabase
     .from("orcamento_execucao_mensal")
-    .select("ano, mes, valor_executado")
+    .select("ano, mes, valor_executado, por_afastamento")
     .eq("periodo_id", periodo.id)
     .order("ano", { ascending: true })
     .order("mes", { ascending: true });
@@ -39,6 +39,7 @@ export async function GET(request: Request) {
     ano: Number(row.ano),
     mes: Number(row.mes),
     valor_executado: Number(row.valor_executado),
+    por_afastamento: row.por_afastamento === true,
   }));
 
   return NextResponse.json({ ok: true, execucoes });
@@ -56,6 +57,7 @@ export async function PUT(request: Request) {
     ano?: number;
     mes?: number;
     valorExecutado?: number | null;
+    porAfastamento?: boolean;
   };
   try {
     body = (await request.json()) as typeof body;
@@ -93,6 +95,7 @@ export async function PUT(request: Request) {
       ano,
       mes,
       valor_executado: valorExecutado,
+      por_afastamento: body.porAfastamento === true,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "periodo_id,ano,mes" }

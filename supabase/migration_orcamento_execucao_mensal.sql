@@ -5,6 +5,7 @@ create table if not exists public.orcamento_execucao_mensal (
   ano smallint not null,
   mes smallint not null check (mes between 1 and 12),
   valor_executado numeric(14, 2) not null check (valor_executado >= 0),
+  por_afastamento boolean not null default false,
   updated_at timestamptz not null default now(),
   unique (periodo_id, ano, mes)
 );

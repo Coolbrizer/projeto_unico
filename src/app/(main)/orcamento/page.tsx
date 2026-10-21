@@ -127,6 +127,7 @@ export default function OrcamentoPage() {
   const [diasFerias, setDiasFerias] = useState(0);
   const [executadoPorMes, setExecutadoPorMes] = useState<Record<string, number>>({});
   const [rascunhoExecutado, setRascunhoExecutado] = useState<Record<string, string>>({});
+  const [afastamentoPorMes, setAfastamentoPorMes] = useState<Record<string, boolean>>({});
   const [salvandoExecucao, setSalvandoExecucao] = useState<string | null>(null);
   const [aplicandoAfastamento, setAplicandoAfastamento] = useState<string | null>(null);
   const [mesesPorRef, setMesesPorRef] = useState<Record<string, number>>({});
@@ -191,6 +192,7 @@ export default function OrcamentoPage() {
     let ativo = true;
     setExecutadoPorMes({});
     setRascunhoExecutado({});
+    setAfastamentoPorMes({});
     void (async () => {
       const res = await fetch(
         `/api/orcamento/execucao?periodoId=${encodeURIComponent(periodoOrcamento.id)}`,
@@ -204,15 +206,18 @@ export default function OrcamentoPage() {
       }
       const salvos: Record<string, number> = {};
       const rascunho: Record<string, string> = {};
+      const porAfastamento: Record<string, boolean> = {};
       for (const item of data.execucoes ?? []) {
         const key = `${item.ano}-${item.mes}`;
         const valor = Number(item.valor_executado);
         if (!Number.isFinite(valor)) continue;
         salvos[key] = valor;
         rascunho[key] = textoValor(valor);
+        if (item.por_afastamento) porAfastamento[key] = true;
       }
       setExecutadoPorMes(salvos);
       setRascunhoExecutado(rascunho);
+      setAfastamentoPorMes(porAfastamento);
     })();
     return () => {
       ativo = false;
@@ -538,9 +543,26 @@ export default function OrcamentoPage() {
     else void load();
   }
 
-  async function persistirExecucao(key: string, ano: number, mes: number, valor: number | null) {
+  function marcarOrigemExecucao(key: string, porAfastamento: boolean) {
+    setAfastamentoPorMes((prev) => {
+      if (porAfastamento) return prev[key] ? prev : { ...prev, [key]: true };
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
+
+  async function persistirExecucao(
+    key: string,
+    ano: number,
+    mes: number,
+    valor: number | null,
+    porAfastamento: boolean
+  ) {
     const atual = executadoPorMes[key] ?? null;
-    if (valor === atual) {
+    const origemAtual = afastamentoPorMes[key] === true;
+    if (valor === atual && origemAtual === porAfastamento) {
       setRascunhoExecutado((prev) => ({
         ...prev,
         [key]: valor === null ? "" : textoValor(valor),
@@ -559,6 +581,7 @@ export default function OrcamentoPage() {
         ano,
         mes,
         valorExecutado: valor,
+        porAfastamento,
       }),
     });
     const data = (await res.json()) as { error?: string };
@@ -577,6 +600,7 @@ export default function OrcamentoPage() {
       ...prev,
       [key]: valor === null ? "" : textoValor(valor),
     }));
+    marcarOrigemExecucao(key, valor !== null && porAfastamento);
   }
 
   async function gravarExecucao(key: string, ano: number, mes: number) {
@@ -585,7 +609,23 @@ export default function OrcamentoPage() {
       setError("Informe o executado com um valor zero ou positivo, ou deixe em branco para usar o estimado.");
       return;
     }
-    await persistirExecucao(key, ano, mes, parsed);
+    const mantemAfastamento =
+      parsed !== null &&
+      afastamentoPorMes[key] === true &&
+      parsed === (executadoPorMes[key] ?? null);
+    await persistirExecucao(key, ano, mes, parsed, mantemAfastamento);
+  }
+
+  async function removerAfastamentos(row: { key: string; year: number; mes: number }) {
+    setAplicandoAfastamento(row.key);
+    setError(null);
+    try {
+      await persistirExecucao(row.key, row.year, row.mes, null, false);
+    } catch {
+      setError("Não foi possível remover os afastamentos.");
+    } finally {
+      setAplicandoAfastamento((atualKey) => (atualKey === row.key ? null : atualKey));
+    }
   }
 
   async function aplicarAfastamentos(row: {
@@ -623,7 +663,7 @@ export default function OrcamentoPage() {
         fim,
       }).abatimentoPeriodo;
       const resultado = Math.max(0, Math.round((row.valor - abatimento) * 100) / 100);
-      await persistirExecucao(row.key, row.year, row.mes, resultado);
+      await persistirExecucao(row.key, row.year, row.mes, resultado, true);
     } catch {
       setError("Não foi possível consultar os afastamentos.");
     } finally {
@@ -791,6 +831,14 @@ export default function OrcamentoPage() {
                                   : `${diaIni}–${diaFim}`;
                       const executado = valorExecutadoDaLinha(row.key);
                       const substituido = executado !== null;
+                      const valorAplicado = afastamentoPorMes[row.key] ? executadoPorMes[row.key] : undefined;
+                      const rascunho = rascunhoExecutado[row.key] ?? "";
+                      const porAfastamento =
+                        valorAplicado !== undefined &&
+                        (rascunho === textoValor(valorAplicado) ||
+                          parseValorInformado(rascunho) === valorAplicado);
+                      const afastamentoOcupado =
+                        salvandoExecucao === row.key || aplicandoAfastamento === row.key;
                       return (
                         <tr
                           key={row.key}
@@ -843,12 +891,32 @@ export default function OrcamentoPage() {
                           <td className="px-3 py-2 text-right">
                             <button
                               type="button"
-                              onClick={() => void aplicarAfastamentos(row)}
-                              disabled={salvandoExecucao === row.key || aplicandoAfastamento === row.key}
-                              title="Preenche o executado com o estimado menos os afastamentos do mês"
-                              className="whitespace-nowrap rounded-md border border-[var(--accent)]/40 bg-[var(--accent-muted)] px-2.5 py-1 text-xs font-medium text-[var(--accent)] hover:brightness-95 disabled:opacity-50"
+                              onClick={() =>
+                                void (porAfastamento
+                                  ? removerAfastamentos(row)
+                                  : aplicarAfastamentos(row))
+                              }
+                              disabled={afastamentoOcupado || (substituido && !porAfastamento)}
+                              title={
+                                porAfastamento
+                                  ? "Limpa o executado e volta a usar o estimado"
+                                  : substituido
+                                    ? "O executado informado manualmente é o valor real deste mês"
+                                    : "Preenche o executado com o estimado menos os afastamentos do mês"
+                              }
+                              className={`whitespace-nowrap rounded-md border px-2.5 py-1 text-xs font-medium disabled:opacity-50 ${
+                                porAfastamento
+                                  ? "border-[var(--danger)]/30 bg-[var(--danger)]/10 text-[var(--danger)] hover:bg-[var(--danger)]/15"
+                                  : "border-[var(--accent)]/40 bg-[var(--accent-muted)] text-[var(--accent)] hover:brightness-95"
+                              }`}
                             >
-                              {aplicandoAfastamento === row.key ? "Aplicando…" : "Aplicar afastamentos"}
+                              {aplicandoAfastamento === row.key
+                                ? porAfastamento
+                                  ? "Removendo…"
+                                  : "Aplicando…"
+                                : porAfastamento
+                                  ? "Remover afastamentos"
+                                  : "Aplicar afastamentos"}
                             </button>
                           </td>
                         </tr>
@@ -885,8 +953,9 @@ export default function OrcamentoPage() {
               Janeiro conta a partir do dia 7 e dezembro até o dia 19; demais meses, integralmente,
               dentro do período. O valor executado, quando informado, substitui o estimado daquele
               mês no total e no saldo. Deixe o campo em branco para continuar usando o estimado.
-              Aplicar afastamentos consulta os dias de todos os integrantes na aba Afastamentos e
-              grava no executado o estimado menos o valor desses dias.
+              Aplicar afastamentos só fica disponível enquanto o mês usa o estimado: consulta os
+              dias de todos os integrantes e grava no executado o estimado menos esses dias. Remover
+              afastamentos limpa esse valor. Um executado digitado manualmente é o valor real do mês.
               Os dias de férias reduzem só a simulação do estimado:{" "}
               <code className="rounded bg-[var(--accent-muted)] px-1">
                 bruto × dias_férias ÷ dias_pagos
