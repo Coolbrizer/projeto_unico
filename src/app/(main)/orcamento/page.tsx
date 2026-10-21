@@ -11,6 +11,7 @@ import {
   estadoAPartirDasLinhas,
   linhasAtivas,
   resumoLinhasCenario,
+  totalLinhaRefPgto,
   totaisDoCenario,
 } from "@/lib/orcamento-cenarios";
 import {
@@ -130,7 +131,7 @@ export default function OrcamentoPage() {
   const [afastamentoPorMes, setAfastamentoPorMes] = useState<Record<string, boolean>>({});
   const [salvandoExecucao, setSalvandoExecucao] = useState<string | null>(null);
   const [aplicandoAfastamento, setAplicandoAfastamento] = useState<string | null>(null);
-  const [mesesPorRef, setMesesPorRef] = useState<Record<string, number>>({});
+  const [diasPorRef, setDiasPorRef] = useState<Record<string, number>>({});
   const [pessoasPorRef, setPessoasPorRef] = useState<Record<string, number>>({});
   const [detalheIntegrantesAberto, setDetalheIntegrantesAberto] = useState(false);
   const [refPgtoAberto, setRefPgtoAberto] = useState(false);
@@ -232,8 +233,8 @@ export default function OrcamentoPage() {
   );
 
   const linhasCenarioAtual = useMemo(
-    () => linhasAtivas(mesesPorRef, pessoasPorRef),
-    [mesesPorRef, pessoasPorRef]
+    () => linhasAtivas(diasPorRef, pessoasPorRef),
+    [diasPorRef, pessoasPorRef]
   );
 
   const totaisCenarioAtual = useMemo(
@@ -433,8 +434,8 @@ export default function OrcamentoPage() {
 
   function carregarCenario(c: OrcamentoCenario) {
     const linhas = Array.isArray(c.linhas) ? c.linhas : [];
-    const { mesesPorRef: meses, pessoasPorRef: pessoas } = estadoAPartirDasLinhas(linhas);
-    setMesesPorRef(meses);
+    const { diasPorRef: dias, pessoasPorRef: pessoas } = estadoAPartirDasLinhas(linhas);
+    setDiasPorRef(dias);
     setPessoasPorRef(pessoas);
     setMostrarSalvarCenario(false);
     setNomeCenario("");
@@ -1076,8 +1077,8 @@ export default function OrcamentoPage() {
         <p className="mb-4 text-xs text-[var(--muted)]">
           Dados somente leitura nesta tela. Para incluir ou alterar linhas, use o Supabase (SQL em{" "}
           <code className="rounded bg-[var(--accent-muted)] px-1 text-[var(--foreground)]">supabase/migration_ref_pgto.sql</code> cria a tabela).
-          Selecione <strong>Meses</strong> e <strong>Pessoas</strong> para estimar o custo total
-          (<code className="rounded bg-[var(--accent-muted)] px-1">valor × meses × pessoas</code>).
+          Informe <strong>Dias</strong> e <strong>Pessoas</strong> para estimar o custo total
+          (<code className="rounded bg-[var(--accent-muted)] px-1">valor/mês ÷ 30 × dias × pessoas</code>).
           Com ao menos uma linha preenchida, você pode <strong>salvar o cenário</strong> com um nome.
         </p>
 
@@ -1112,7 +1113,7 @@ export default function OrcamentoPage() {
                     autoFocus
                     value={nomeCenario}
                     onChange={(e) => setNomeCenario(e.target.value)}
-                    placeholder="Ex.: Equipe SEJUD — 6 meses"
+                    placeholder="Ex.: Equipe SEJUD — 180 dias"
                     className="mt-1 w-full min-w-[200px] rounded-lg border border-[var(--card-border)] bg-white px-3 py-2 text-sm outline-none ring-[var(--accent)]/30 focus:ring-2"
                   />
                 </div>
@@ -1149,7 +1150,7 @@ export default function OrcamentoPage() {
                   <th className="px-3 py-2.5 font-medium">Cargo</th>
                   <th className="px-3 py-2.5 font-medium">Classe/Padrão</th>
                   <th className="px-3 py-2.5 text-right font-medium">Valor/mês</th>
-                  <th className="px-3 py-2.5 text-center font-medium">Meses</th>
+                  <th className="px-3 py-2.5 text-center font-medium">Dias</th>
                   <th className="px-3 py-2.5 text-center font-medium">Pessoas</th>
                   <th className="px-3 py-2.5 text-right font-medium">Total</th>
                 </tr>
@@ -1158,9 +1159,9 @@ export default function OrcamentoPage() {
                 {refPorCargo.map(([cargo, itens]) =>
                   itens.map((r, idx) => {
                     const valorMensal = Number(r.valor_mensal) || 0;
-                    const meses = mesesPorRef[r.id] ?? 0;
+                    const dias = diasPorRef[r.id] ?? 0;
                     const pessoas = pessoasPorRef[r.id] ?? 0;
-                    const total = valorMensal * meses * pessoas;
+                    const total = totalLinhaRefPgto(valorMensal, dias, pessoas);
                     return (
                       <tr
                         key={r.id}
@@ -1179,24 +1180,24 @@ export default function OrcamentoPage() {
                           {formatMoney(valorMensal)}
                         </td>
                         <td className="px-3 py-2 text-center">
-                          <select
-                            value={meses}
-                            onChange={(e) =>
-                              setMesesPorRef((prev) => ({
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={dias || ""}
+                            placeholder="—"
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              const n = Number(raw);
+                              setDiasPorRef((prev) => ({
                                 ...prev,
-                                [r.id]: Number(e.target.value),
-                              }))
-                            }
-                            className="rounded-md border border-[var(--card-border)] bg-white px-2 py-1 text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
-                            aria-label={`Meses para ${r.classe_padrao || "classe/padrão"}`}
-                          >
-                            <option value={0}>—</option>
-                            {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-                              <option key={n} value={n}>
-                                {n}
-                              </option>
-                            ))}
-                          </select>
+                                [r.id]:
+                                  raw === "" || !Number.isFinite(n) || n < 0 ? 0 : Math.floor(n),
+                              }));
+                            }}
+                            className="w-20 rounded-md border border-[var(--card-border)] bg-white px-2 py-1 text-center text-sm text-[var(--foreground)] outline-none ring-[var(--accent)]/30 focus:ring-2"
+                            aria-label={`Dias para ${r.classe_padrao || "classe/padrão"}`}
+                          />
                         </td>
                         <td className="px-3 py-2 text-center">
                           <input
@@ -1218,7 +1219,7 @@ export default function OrcamentoPage() {
                           />
                         </td>
                         <td className="px-3 py-2 text-right font-semibold tabular-nums">
-                          {meses > 0 && pessoas > 0 ? (
+                          {dias > 0 && pessoas > 0 ? (
                             <span className="text-[var(--success)]">{formatMoney(total)}</span>
                           ) : (
                             <span className="text-[var(--muted)]">—</span>
@@ -1244,9 +1245,9 @@ export default function OrcamentoPage() {
                     {formatMoney(
                       refPgto.reduce((acc, r) => {
                         const valorMensal = Number(r.valor_mensal) || 0;
-                        const meses = mesesPorRef[r.id] ?? 0;
+                        const dias = diasPorRef[r.id] ?? 0;
                         const pessoas = pessoasPorRef[r.id] ?? 0;
-                        return acc + valorMensal * meses * pessoas;
+                        return acc + totalLinhaRefPgto(valorMensal, dias, pessoas);
                       }, 0)
                     )}
                   </td>

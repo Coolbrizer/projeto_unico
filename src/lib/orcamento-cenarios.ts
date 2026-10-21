@@ -1,16 +1,32 @@
 import type { OrcamentoCenarioLinha, RefPgto } from "@/types/database";
 
+/** Mês comercial usado para converter o valor mensal da referência em valor diário. */
+export const DIAS_MES_REFERENCIA = 30;
+
+export function diasDaLinha(linha: { dias?: number; meses?: number }): number {
+  const dias = Number(linha.dias);
+  if (Number.isFinite(dias) && dias > 0) return Math.floor(dias);
+  const meses = Number(linha.meses);
+  if (Number.isFinite(meses) && meses > 0) return Math.floor(meses) * DIAS_MES_REFERENCIA;
+  return 0;
+}
+
+export function totalLinhaRefPgto(valorMensal: number, dias: number, pessoas: number): number {
+  if (dias <= 0 || pessoas <= 0 || valorMensal <= 0) return 0;
+  return (valorMensal / DIAS_MES_REFERENCIA) * dias * pessoas;
+}
+
 export function linhasAtivas(
-  mesesPorRef: Record<string, number>,
+  diasPorRef: Record<string, number>,
   pessoasPorRef: Record<string, number>
 ): OrcamentoCenarioLinha[] {
-  const ids = new Set([...Object.keys(mesesPorRef), ...Object.keys(pessoasPorRef)]);
+  const ids = new Set([...Object.keys(diasPorRef), ...Object.keys(pessoasPorRef)]);
   const linhas: OrcamentoCenarioLinha[] = [];
   for (const ref_pgto_id of ids) {
-    const meses = mesesPorRef[ref_pgto_id] ?? 0;
+    const dias = diasPorRef[ref_pgto_id] ?? 0;
     const pessoas = pessoasPorRef[ref_pgto_id] ?? 0;
-    if (meses > 0 && pessoas > 0) {
-      linhas.push({ ref_pgto_id, meses, pessoas });
+    if (dias > 0 && pessoas > 0) {
+      linhas.push({ ref_pgto_id, dias, pessoas });
     }
   }
   return linhas;
@@ -29,7 +45,7 @@ export function totaisDoCenario(
     if (!ref) linhasSemReferencia += 1;
     const valorMensal = Number(ref?.valor_mensal) || 0;
     totalPessoas += l.pessoas;
-    totalValor += valorMensal * l.meses * l.pessoas;
+    totalValor += totalLinhaRefPgto(valorMensal, diasDaLinha(l), l.pessoas);
   }
   return {
     totalPessoas,
@@ -68,14 +84,14 @@ export function resumoLinhasCenario(
 }
 
 export function estadoAPartirDasLinhas(linhas: OrcamentoCenarioLinha[]): {
-  mesesPorRef: Record<string, number>;
+  diasPorRef: Record<string, number>;
   pessoasPorRef: Record<string, number>;
 } {
-  const mesesPorRef: Record<string, number> = {};
+  const diasPorRef: Record<string, number> = {};
   const pessoasPorRef: Record<string, number> = {};
   for (const l of linhas) {
-    mesesPorRef[l.ref_pgto_id] = l.meses;
+    diasPorRef[l.ref_pgto_id] = diasDaLinha(l);
     pessoasPorRef[l.ref_pgto_id] = l.pessoas;
   }
-  return { mesesPorRef, pessoasPorRef };
+  return { diasPorRef, pessoasPorRef };
 }

@@ -10,13 +10,18 @@ function parseLinhas(raw: unknown): OrcamentoCenarioLinha[] | null {
     if (!item || typeof item !== "object") return null;
     const o = item as Record<string, unknown>;
     const ref_pgto_id = typeof o.ref_pgto_id === "string" ? o.ref_pgto_id.trim() : "";
-    const meses = Number(o.meses);
+    const dias =
+      o.dias != null && o.dias !== ""
+        ? Number(o.dias)
+        : o.meses != null && o.meses !== ""
+          ? Number(o.meses) * 30
+          : Number.NaN;
     const pessoas = Number(o.pessoas);
-    if (!ref_pgto_id || !Number.isFinite(meses) || !Number.isFinite(pessoas)) return null;
-    if (meses < 1 || meses > 12 || pessoas < 1) return null;
+    if (!ref_pgto_id || !Number.isFinite(dias) || !Number.isFinite(pessoas)) return null;
+    if (dias < 1 || dias > 100_000 || pessoas < 1) return null;
     linhas.push({
       ref_pgto_id,
-      meses: Math.floor(meses),
+      dias: Math.floor(dias),
       pessoas: Math.floor(pessoas),
     });
   }
@@ -82,7 +87,7 @@ export async function POST(request: Request) {
   const linhas = parseLinhas(body.linhas);
   if (!linhas || linhas.length === 0) {
     return NextResponse.json(
-      { error: "Selecione ao menos uma linha com meses e pessoas." },
+      { error: "Informe ao menos uma linha com dias e pessoas." },
       { status: 400 }
     );
   }

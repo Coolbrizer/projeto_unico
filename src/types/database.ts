@@ -76,8 +76,10 @@ export type RefPgto = {
 
 export type OrcamentoCenarioLinha = {
   ref_pgto_id: string;
-  meses: number;
+  dias: number;
   pessoas: number;
+  /** Cenários antigos gravavam a quantidade em meses (1–12). */
+  meses?: number;
 };
 
 export type OrcamentoCenario = {
