@@ -19,6 +19,11 @@ import {
 import { resumoFolhaAfastamentos } from "@/lib/afastamentos-folha";
 import { camposCorrespondemBusca } from "@/lib/busca-texto";
 import { macroSetorIntegrante, parseSetorMicroMacro, rotuloSetorMicroMacro } from "@/lib/integrante-setor-macro";
+import {
+  montarPlanilhaAfastamentos,
+  nomeArquivoPlanilhaAfastamentos,
+} from "@/lib/planilha-afastamentos";
+import { baixarPlanilhaXlsx } from "@/lib/planilha-xlsx";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
 import type { FrequenciaMensal, Integrante, RefPgto } from "@/types/database";
 
@@ -281,6 +286,32 @@ export default function AfastamentosPage() {
     setSucesso(`Afastamento de ${integrante.nome} atualizado.`);
   }
 
+  function extrairPlanilha() {
+    if (loading || integrantesFiltrados.length === 0) return;
+    const linhas = integrantesFiltrados.map((integrante, indice) => ({
+      numero: indice + 1,
+      nome: integrante.nome,
+      matricula: integrante.matricula == null ? "" : String(integrante.matricula),
+      setor: rotuloSetorMicroMacro(integrante.setor),
+      cargo: integrante.cargo?.trim() ?? "",
+      classe: integrante.classe_padrao?.trim() ?? "",
+      dias: competencias.map((mes) =>
+        diasConsideradosNoPeriodo(
+          mes.competencia,
+          valores[integrante.id]?.[mes.competencia],
+          periodo
+        )
+      ),
+      total: totalDiasAfastamento(valores[integrante.id] ?? {}, competencias, periodo),
+    }));
+    const planilha = montarPlanilhaAfastamentos(competencias, linhas);
+    baixarPlanilhaXlsx(
+      planilha.linhas,
+      nomeArquivoPlanilhaAfastamentos(periodo.inicio, periodo.fim),
+      planilha.opcoes
+    );
+  }
+
   return (
     <div className="mx-auto max-w-7xl">
       <header className="mb-8">
@@ -458,8 +489,9 @@ export default function AfastamentosPage() {
         </p>
       )}
 
+      <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end">
       {canManageAll && (
-        <div className="mb-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_240px_200px]">
+        <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-[minmax(0,1fr)_220px_180px]">
           <div>
             <label className="block text-xs text-[var(--muted)]">Buscar integrante</label>
             <input
@@ -508,6 +540,16 @@ export default function AfastamentosPage() {
           </div>
         </div>
       )}
+        <button
+          type="button"
+          onClick={extrairPlanilha}
+          disabled={loading || integrantesFiltrados.length === 0}
+          title="Baixa em Excel a lista exibida, na ordem atual"
+          className="shrink-0 rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-4 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--accent-muted)] disabled:opacity-50"
+        >
+          Extrair planilha
+        </button>
+      </div>
 
       {loading ? (
         <p className="text-sm text-[var(--muted)]">Carregando…</p>

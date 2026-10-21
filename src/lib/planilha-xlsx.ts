@@ -120,7 +120,29 @@ function colunaExcel(indice: number): string {
   return nome;
 }
 
-function planilhaXml(linhas: string[][]): string {
+const LARGURAS_PADRAO = [18, 72, 42, 72];
+
+export type OpcoesPlanilhaXlsx = {
+  nomeAba?: string;
+  larguras?: number[];
+  /** Índices de coluna (0-based) gravados como número nas linhas de dados. */
+  colunasNumericas?: number[];
+};
+
+function nomeAbaExcel(nome: string): string {
+  const limpo = nome.replace(/[:\\/?*[\]]/g, " ").trim() || "Planilha";
+  return escaparXml(limpo.slice(0, 31));
+}
+
+function planilhaXml(linhas: string[][], opcoes?: OpcoesPlanilhaXlsx): string {
+  const larguras = opcoes?.larguras?.length ? opcoes.larguras : LARGURAS_PADRAO;
+  const numericas = new Set(opcoes?.colunasNumericas ?? []);
+  const cols = larguras
+    .map(
+      (largura, indice) =>
+        `<col min="${indice + 1}" max="${indice + 1}" width="${largura}" customWidth="1"/>`
+    )
+    .join("");
   const rows = linhas
     .map((linha, indiceLinha) => {
       const r = indiceLinha + 1;
@@ -128,6 +150,9 @@ function planilhaXml(linhas: string[][]): string {
       const cells = linha
         .map((valor, indiceColuna) => {
           const ref = `${colunaExcel(indiceColuna)}${r}`;
+          if (indiceLinha > 0 && numericas.has(indiceColuna) && /^-?\d+$/.test(valor)) {
+            return `<c r="${ref}" s="${estilo}"><v>${valor}</v></c>`;
+          }
           return `<c r="${ref}" t="inlineStr" s="${estilo}"><is><t xml:space="preserve">${escaparXml(valor)}</t></is></c>`;
         })
         .join("");
@@ -137,14 +162,18 @@ function planilhaXml(linhas: string[][]): string {
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <cols>
-    <col min="1" max="1" width="18" customWidth="1"/>
-    <col min="2" max="2" width="72" customWidth="1"/>
-    <col min="3" max="3" width="42" customWidth="1"/>
-    <col min="4" max="4" width="72" customWidth="1"/>
-  </cols>
+  <cols>${cols}</cols>
   <sheetData>${rows}</sheetData>
 </worksheet>`;
+}
+
+function workbookXml(nomeAba: string): string {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="${nomeAbaExcel(nomeAba)}" sheetId="1" r:id="rId1"/>
+  </sheets>
+</workbook>`;
 }
 
 const CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -160,13 +189,6 @@ const RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
 </Relationships>`;
-
-const WORKBOOK = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-  <sheets>
-    <sheet name="Atividades" sheetId="1" r:id="rId1"/>
-  </sheets>
-</workbook>`;
 
 const WORKBOOK_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
@@ -197,19 +219,23 @@ const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
   </cellXfs>
 </styleSheet>`;
 
-export function criarPlanilhaXlsx(linhas: string[][]): Uint8Array {
+export function criarPlanilhaXlsx(linhas: string[][], opcoes?: OpcoesPlanilhaXlsx): Uint8Array {
   return zipArmazenado([
     { nome: "[Content_Types].xml", conteudo: CONTENT_TYPES },
     { nome: "_rels/.rels", conteudo: RELS },
-    { nome: "xl/workbook.xml", conteudo: WORKBOOK },
+    { nome: "xl/workbook.xml", conteudo: workbookXml(opcoes?.nomeAba ?? "Atividades") },
     { nome: "xl/_rels/workbook.xml.rels", conteudo: WORKBOOK_RELS },
     { nome: "xl/styles.xml", conteudo: STYLES },
-    { nome: "xl/worksheets/sheet1.xml", conteudo: planilhaXml(linhas) },
+    { nome: "xl/worksheets/sheet1.xml", conteudo: planilhaXml(linhas, opcoes) },
   ]);
 }
 
-export function baixarPlanilhaXlsx(linhas: string[][], nomeArquivo: string): void {
-  const bytes = criarPlanilhaXlsx(linhas);
+export function baixarPlanilhaXlsx(
+  linhas: string[][],
+  nomeArquivo: string,
+  opcoes?: OpcoesPlanilhaXlsx
+): void {
+  const bytes = criarPlanilhaXlsx(linhas, opcoes);
   const copia = new Uint8Array(bytes.byteLength);
   copia.set(bytes);
   const blob = new Blob([copia], {
