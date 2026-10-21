@@ -37,6 +37,8 @@ type AfastamentosResponse = {
 
 type ValoresPorIntegrante = Record<string, Record<string, string>>;
 
+type OrdemLista = "nome" | "dias-asc" | "dias-desc";
+
 function formatMoney(n: number): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
 }
@@ -100,6 +102,7 @@ export default function AfastamentosPage() {
   const [salvos, setSalvos] = useState<ValoresPorIntegrante>({});
   const [busca, setBusca] = useState("");
   const [setorMacro, setSetorMacro] = useState("");
+  const [ordemLista, setOrdemLista] = useState<OrdemLista>("nome");
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -170,8 +173,15 @@ export default function AfastamentosPage() {
           if (setorMacro && macroSetorIntegrante(integrante.setor) !== setorMacro) return false;
           return matchesBusca(integrante, busca);
         })
-        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })),
-    [integrantes, busca, setorMacro]
+        .sort((a, b) => {
+          if (ordemLista !== "nome") {
+            const diasA = totalDiasAfastamento(valores[a.id] ?? {}, competencias, periodo);
+            const diasB = totalDiasAfastamento(valores[b.id] ?? {}, competencias, periodo);
+            if (diasA !== diasB) return ordemLista === "dias-asc" ? diasA - diasB : diasB - diasA;
+          }
+          return a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" });
+        }),
+    [integrantes, busca, setorMacro, ordemLista, valores, competencias, periodo]
   );
 
   const resumoFolha = useMemo(
@@ -434,7 +444,7 @@ export default function AfastamentosPage() {
       )}
 
       {canManageAll && (
-        <div className="mb-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
+        <div className="mb-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_200px_220px]">
           <div>
             <label className="block text-xs text-[var(--muted)]">Buscar integrante</label>
             <input
@@ -451,6 +461,18 @@ export default function AfastamentosPage() {
                   : "registros encontrados"}
               </p>
             )}
+          </div>
+          <div>
+            <label className="block text-xs text-[var(--muted)]">Ordenar por dias afastados</label>
+            <select
+              value={ordemLista}
+              onChange={(e) => setOrdemLista(e.target.value as OrdemLista)}
+              className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+            >
+              <option value="nome">Nome</option>
+              <option value="dias-asc">Crescente</option>
+              <option value="dias-desc">Decrescente</option>
+            </select>
           </div>
           <div>
             <label className="block text-xs text-[var(--muted)]">Setor macro</label>
