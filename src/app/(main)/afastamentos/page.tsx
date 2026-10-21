@@ -54,6 +54,8 @@ function matchesBusca(integrante: Integrante, raw: string): boolean {
       integrante.nome,
       integrante.matricula,
       integrante.setor,
+      integrante.cargo,
+      integrante.classe_padrao,
       micro,
       macro,
       rotuloSetorMicroMacro(integrante.setor),
@@ -161,14 +163,19 @@ export default function AfastamentosPage() {
     void load();
   }, [filtroInstrucaoPronto, load]);
 
+  const integrantesVisiveis = useMemo(
+    () => integrantes.filter((item) => !item.nao_remunerado),
+    [integrantes]
+  );
+
   const setoresMacro = useMemo(() => {
-    const set = new Set(integrantes.map((item) => macroSetorIntegrante(item.setor)));
+    const set = new Set(integrantesVisiveis.map((item) => macroSetorIntegrante(item.setor)));
     return [...set].sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
-  }, [integrantes]);
+  }, [integrantesVisiveis]);
 
   const integrantesFiltrados = useMemo(
     () =>
-      integrantes
+      integrantesVisiveis
         .filter((integrante) => {
           if (setorMacro && macroSetorIntegrante(integrante.setor) !== setorMacro) return false;
           return matchesBusca(integrante, busca);
@@ -181,7 +188,7 @@ export default function AfastamentosPage() {
           }
           return a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" });
         }),
-    [integrantes, busca, setorMacro, ordemLista, valores, competencias, periodo]
+    [integrantesVisiveis, busca, setorMacro, ordemLista, valores, competencias, periodo]
   );
 
   const resumoFolha = useMemo(
@@ -450,7 +457,7 @@ export default function AfastamentosPage() {
             <input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="Nome, matrícula, setor macro ou micro"
+              placeholder="Nome, matrícula, setor, cargo ou classe"
               className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
             />
             {busca.trim() !== "" && (
@@ -496,7 +503,7 @@ export default function AfastamentosPage() {
         <p className="text-sm text-[var(--muted)]">Carregando…</p>
       ) : integrantesFiltrados.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">
-          {integrantes.length === 0
+          {integrantesVisiveis.length === 0
             ? canManageAll
               ? "Nenhum integrante encontrado."
               : "Não foi possível identificar seu cadastro."
@@ -504,12 +511,14 @@ export default function AfastamentosPage() {
         </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-[var(--card-border)] bg-[var(--card)]">
-          <table className="w-full table-fixed border-collapse text-left text-[11px]">
+          <table className="w-full min-w-[1180px] table-fixed border-collapse text-left text-[11px]">
             <thead className="border-b border-[var(--card-border)] bg-[var(--background)]/70 text-[10px] uppercase text-[var(--muted)]">
               <tr>
-                <th className="w-[22%] px-1.5 py-1.5 font-medium">Nome</th>
-                <th className="w-[7%] px-1 py-1.5 font-medium">Matrícula</th>
-                <th className="w-[12%] px-1 py-1.5 font-medium">Setor</th>
+                <th className="w-[16%] px-1.5 py-1.5 font-medium">Nome</th>
+                <th className="w-[6%] px-1 py-1.5 font-medium">Matrícula</th>
+                <th className="w-[9%] px-1 py-1.5 font-medium">Setor</th>
+                <th className="w-[12%] px-1 py-1.5 font-medium">Cargo</th>
+                <th className="w-[8%] px-1 py-1.5 font-medium">Classe</th>
                 {competencias.map((mes) => {
                   const limite = rotuloLimiteMes(mes.competencia, periodo);
                   return (
@@ -546,6 +555,15 @@ export default function AfastamentosPage() {
                       <span className="inline-block max-w-full truncate rounded border border-[var(--card-border)] bg-[var(--accent-muted)]/50 px-1 py-px text-[10px] font-medium">
                         {rotuloSetorMicroMacro(integrante.setor)}
                       </span>
+                    </td>
+                    <td className="px-1 py-1 leading-tight" title={integrante.cargo?.trim() || undefined}>
+                      <span className="block truncate">{integrante.cargo?.trim() || "—"}</span>
+                    </td>
+                    <td
+                      className="px-1 py-1 leading-tight"
+                      title={integrante.classe_padrao?.trim() || undefined}
+                    >
+                      <span className="block truncate">{integrante.classe_padrao?.trim() || "—"}</span>
                     </td>
                     {competencias.map((mes) => {
                       const key = chaveCelula(integrante.id, mes.competencia);

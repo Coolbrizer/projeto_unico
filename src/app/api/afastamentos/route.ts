@@ -49,6 +49,7 @@ export async function GET(request: Request) {
     .from("integrantes")
     .select("id, matricula, nome, setor, cargo, classe_padrao, email, perfil, nao_remunerado, created_at")
     .eq("vinculo", VINCULO_INTEGRANTE)
+    .eq("nao_remunerado", false)
     .order("nome", { ascending: true });
 
   if (!canManageAll) {
