@@ -87,6 +87,12 @@ function corFundoCelula(fillColor: unknown): [number, number, number] {
   return [255, 255, 255];
 }
 
+function textoPercentualConclusao(progresso: number): string {
+  const n = Number(progresso);
+  if (!Number.isFinite(n)) return "—";
+  return `${Math.round(n)}%`;
+}
+
 function textoEquipePdf(equipe: string | null | undefined): string {
   const vistos = new Set<string>();
   const nomes: string[] = [];
@@ -121,7 +127,10 @@ export function gerarPdfPrestacaoContas(
     ty += 12;
   }
 
-  const head = [["Código", "Atividade", "Equipe", "Setor", "Relatório"]];
+  const colRelatorio = 5;
+  const head = [
+    ["Código", "Atividade", "Equipe", "Setor", "Percentual de Conclusão", "Relatório"],
+  ];
   const linksRelatorio: Array<{ url: string | null; linkNaUltimaLinha: boolean }> = [];
 
   const body = linhas.map((r) => {
@@ -135,6 +144,7 @@ export function gerarPdfPrestacaoContas(
       r.atividade?.trim() || "—",
       textoEquipePdf(r.equipe),
       r.setor_responsavel?.trim() || "—",
+      textoPercentualConclusao(r.progresso),
       { content: relatorio.content, styles: relatorio.styles },
     ];
   });
@@ -150,13 +160,14 @@ export function gerarPdfPrestacaoContas(
     tableWidth: "auto",
     columnStyles: {
       0: { cellWidth: 18 },
-      1: { cellWidth: 96, fontSize: 9 },
-      2: { cellWidth: 72 },
+      1: { cellWidth: 78, fontSize: 9 },
+      2: { cellWidth: 62 },
       3: { cellWidth: 30, overflow: "visible" },
-      4: { cellWidth: 45 },
+      4: { cellWidth: 32, halign: "center" },
+      5: { cellWidth: 41 },
     },
     didDrawCell: (data) => {
-      if (data.section !== "body" || data.column.index !== 4) return;
+      if (data.section !== "body" || data.column.index !== colRelatorio) return;
       const meta = linksRelatorio[data.row.index];
       if (!meta?.url) return;
       const linhasTexto = data.cell.text ?? [];
