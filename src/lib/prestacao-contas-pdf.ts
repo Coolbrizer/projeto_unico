@@ -2,8 +2,11 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Documento } from "@/types/database";
 import { parsePartesCodigoAtividade } from "@/lib/atividade-codigo";
+import { rotuloDocumentoNumeroAno } from "@/lib/documento-referencia";
 import { normalizarNomeSomenteLetras } from "@/lib/equipe-page-helpers";
 import { ROTULO_NAO_ENTREGUE_COM_JUSTIFICATIVA } from "@/lib/status-execucao";
+
+const TITULO_PROJETO_PDF = "Projeto de Modernização do sistema Único";
 
 export type LinhaPrestacaoPdf = {
   codigo: string;
@@ -38,6 +41,14 @@ function textoEtapas(linhas: LinhaPrestacaoPdf[]): string | null {
   const ultimo = ordinais[ordinais.length - 1];
   const resto = ordinais.slice(0, -1).join(", ");
   return `${resto} e ${ultimo} Etapas`;
+}
+
+function linhasTituloPdf(documento: Documento, linhas: LinhaPrestacaoPdf[]): string[] {
+  const titulo = [TITULO_PROJETO_PDF];
+  const etapaTxt = textoEtapas(linhas);
+  if (etapaTxt) titulo.push(etapaTxt);
+  titulo.push(rotuloDocumentoNumeroAno(documento));
+  return titulo;
 }
 
 function hrefSeguro(url: string): string {
@@ -116,16 +127,15 @@ export function gerarPdfPrestacaoContas(
   const marginX = 18;
   const centroX = pageW / 2;
 
-  let ty = 18;
+  let ty = 16;
   doc.setTextColor(0, 0, 0);
-
-  const etapaTxt = textoEtapas(linhas);
-  if (etapaTxt) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text(etapaTxt, centroX, ty, { align: "center" });
-    ty += 12;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  for (const linha of linhasTituloPdf(documento, linhas)) {
+    doc.text(linha, centroX, ty, { align: "center" });
+    ty += 6;
   }
+  ty += 4;
 
   const colRelatorio = 5;
   const head = [
