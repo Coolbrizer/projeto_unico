@@ -4,6 +4,14 @@ import type { Integrante } from "@/types/database";
 
 /** Matrícula no início da linha: `27601 | NOME`, `27601- NOME`, `27601 NOME`. */
 const PREFIXO_MATRICULA_RESPONSAVEL = /^\s*(\d+)\s*[|│｜\-–—:]?\s*/;
+
+/** Matrícula no início da linha de equipe ou do responsável. Nulo se a linha não começa com número. */
+export function extrairMatriculaLinha(raw: string): number | null {
+  const mat = raw.trim().match(PREFIXO_MATRICULA_RESPONSAVEL);
+  if (!mat) return null;
+  const n = Number(mat[1]);
+  return Number.isFinite(n) ? n : null;
+}
 const SEPARADORES_INICIO_NOME = /^[|│｜\-–—•·.,:;]+\s*/;
 
 function normalizeNomeComparacao(s: string): string {

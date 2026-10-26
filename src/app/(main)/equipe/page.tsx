@@ -586,8 +586,8 @@ export default function EquipePage() {
           <div>
             <p className="text-sm font-medium text-[var(--foreground)]">Verificar dados da IS selecionada</p>
             <p className="mt-0.5 text-xs text-[var(--muted)]">
-              Pessoas vinculadas às atividades desta IS, atividades cadastradas e pessoas sem nenhuma
-              atividade vinculada.
+              Pessoas vinculadas às atividades desta IS, atividades cadastradas, pessoas sem atividade
+              vinculada e pessoas citadas na IS que não estão no cadastro.
             </p>
           </div>
           <button
@@ -606,7 +606,7 @@ export default function EquipePage() {
           </p>
         ) : (
           mostrarVerificacao && (
-            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+            <div className="mt-4 grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-lg border border-[var(--card-border)] bg-[var(--background)]/60 p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
                   Atividades cadastradas nesta IS ({verificacaoIS.atividades.length})
@@ -666,6 +666,36 @@ export default function EquipePage() {
                         {i.nao_remunerado && (
                           <span className="ml-1 shrink-0 rounded border border-[var(--danger)] bg-[var(--danger)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
                             Não remunerado
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-[var(--danger)]/35 bg-[var(--danger)]/8 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--danger)]">
+                  Na IS, sem cadastro ({verificacaoIS.pessoasNaoCadastradas.length})
+                </p>
+                {verificacaoIS.pessoasNaoCadastradas.length === 0 ? (
+                  <p className="mt-2 text-sm text-[var(--muted)]">
+                    Todas as pessoas citadas nesta IS estão cadastradas.
+                  </p>
+                ) : (
+                  <ul className="mt-2 max-h-72 space-y-1 overflow-y-auto text-sm">
+                    {verificacaoIS.pessoasNaoCadastradas.map((pessoa) => (
+                      <li
+                        key={`${pessoa.matricula ?? "sem-matricula"}:${pessoa.nome}`}
+                        className="rounded-md bg-white/70 px-2 py-1"
+                      >
+                        <span className="font-medium">{pessoa.nome}</span>
+                        {pessoa.matricula != null && (
+                          <span className="ml-1 text-[var(--muted)]">· {pessoa.matricula}</span>
+                        )}
+                        {pessoa.codigos.length > 0 && (
+                          <span className="mt-0.5 block text-xs text-[var(--danger)]">
+                            {pessoa.codigos.join(", ")}
                           </span>
                         )}
                       </li>
