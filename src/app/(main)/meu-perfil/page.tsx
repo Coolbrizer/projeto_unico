@@ -8,7 +8,7 @@ import { useMounted } from "@/hooks/useMounted";
 import { camposCorrespondemBusca, normalizarTextoBusca } from "@/lib/busca-texto";
 import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpers";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
-import { isAdmin } from "@/lib/auth/roles";
+import { canEditarRelatorioQualquerAtividade, isAdmin } from "@/lib/auth/roles";
 import type { Atividade, Integrante } from "@/types/database";
 
 type StatusFaixa = "nao_iniciada" | "em_andamento" | "concluida";
@@ -293,7 +293,7 @@ export default function MeuPerfilPage() {
 
   const podeEditarAtividade = useCallback(
     (atividade: Atividade) => {
-      if (isAdmin(perfil)) return true;
+      if (canEditarRelatorioQualquerAtividade(perfil)) return true;
       if (!sessionNomeCarregado || !nomeUsuario) return false;
       return integranteNomeMatchResponsavelAtividade(nomeUsuario, atividade.responsavel);
     },
@@ -539,7 +539,7 @@ export default function MeuPerfilPage() {
                         <div className="border-t border-[var(--card-border)] px-4 py-4">
                           {!podeEditar ? (
                             <p className="text-sm text-[var(--muted)]">
-                              Apenas o gestor da atividade (responsável) ou administrador pode editar.
+                              Apenas o responsável pela atividade pode editar estes campos.
                             </p>
                           ) : (
                             <>

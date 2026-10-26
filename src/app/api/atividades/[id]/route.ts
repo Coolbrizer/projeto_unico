@@ -7,7 +7,7 @@ import { integranteNomeMatchResponsavelAtividade } from "@/lib/equipe-page-helpe
 import { resolverResponsavelId } from "@/lib/responsavel-atividade";
 import { calcularStatusExecucao } from "@/lib/status-execucao";
 import { requireGestorOuAdmin } from "@/lib/auth/requireRole";
-import { isAdmin } from "@/lib/auth/roles";
+import { canEditarRelatorioQualquerAtividade } from "@/lib/auth/roles";
 import { writeAuditLog } from "@/lib/audit-log";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -109,7 +109,7 @@ export async function PATCH(request: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Atividade não encontrada." }, { status: 404 });
   }
 
-  if (relatorio && !isAdmin(session.role)) {
+  if (relatorio && !canEditarRelatorioQualquerAtividade(session.role)) {
     const responsavelId = (atividadeRow as { responsavel_id?: string | null }).responsavel_id ?? null;
     if (responsavelId) {
       if (responsavelId !== session.sub) {

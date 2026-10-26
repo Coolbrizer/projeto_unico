@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { useMounted } from "@/hooks/useMounted";
 import { useInstrucaoServicoSelecionada, usePerfil } from "@/components/AppShell";
-import { canEditarAtividadesIntegrantes, isAdmin } from "@/lib/auth/roles";
+import { canEditarAtividadesIntegrantes, canEditarRelatorioQualquerAtividade } from "@/lib/auth/roles";
 import {
   formatarPeriodoAtividade,
   formatDataParaExibicao,
@@ -267,7 +267,7 @@ export default function AtividadesPage() {
 
   const podeEditarRelatorio = useCallback(
     (a: Atividade) => {
-      if (isAdmin(perfil)) return true;
+      if (canEditarRelatorioQualquerAtividade(perfil)) return true;
       if (!sessionNomeCarregado) return false;
       if (!nomeUsuario) return false;
       return integranteNomeMatchResponsavelAtividade(nomeUsuario, a.responsavel);
@@ -1058,7 +1058,7 @@ export default function AtividadesPage() {
                     </p>
                     <div>
                     <p className="mb-3 text-xs font-medium text-[var(--muted)]">Relatório</p>
-                    {!sessionNomeCarregado && !isAdmin(perfil) ? (
+                    {!sessionNomeCarregado && !canEditarRelatorioQualquerAtividade(perfil) ? (
                       <p className="text-sm text-[var(--muted)]">A verificar permissões…</p>
                     ) : !podeEditarRelatorio(a) ? (
                       <div className="space-y-2 text-sm">

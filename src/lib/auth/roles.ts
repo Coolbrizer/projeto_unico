@@ -17,6 +17,11 @@ export function canEditarEquipe(perfil: Perfil): boolean {
   return perfil === "gestor" || perfil === "admin";
 }
 
+/** Progresso, etiqueta e link do relatório de qualquer atividade. */
+export function canEditarRelatorioQualquerAtividade(perfil: Perfil): boolean {
+  return perfil === "gestor" || perfil === "admin";
+}
+
 export function isAdmin(perfil: Perfil): boolean {
   return perfil === "admin";
 }
