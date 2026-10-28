@@ -47,6 +47,22 @@ const MESES_PT = [
 
 type TamanhoPagina = 10 | 25 | 50 | "all";
 
+type RascunhoPeriodoEspecial = {
+  chave: string;
+  integranteId: string;
+  diaInicio: string;
+  diaFim: string;
+};
+
+function novoRascunhoPeriodo(): RascunhoPeriodoEspecial {
+  return {
+    chave: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    integranteId: "",
+    diaInicio: "",
+    diaFim: "",
+  };
+}
+
 const OPCOES_TAMANHO_PAGINA: { value: TamanhoPagina; label: string }[] = [
   { value: 10, label: "10" },
   { value: 25, label: "25" },
@@ -144,9 +160,9 @@ export default function EquipePage() {
   const [filtroTipo, setFiltroTipo] = useState("");
   const [mesExtracao, setMesExtracao] = useState("");
   const [anoExtracao, setAnoExtracao] = useState("");
-  const [sgpParticipanteId, setSgpParticipanteId] = useState("");
-  const [sgpDiaInicio, setSgpDiaInicio] = useState("");
-  const [sgpDiaFim, setSgpDiaFim] = useState("");
+  const [periodosEspeciais, setPeriodosEspeciais] = useState<RascunhoPeriodoEspecial[]>(() => [
+    novoRascunhoPeriodo(),
+  ]);
   const [mostrarVerificacao, setMostrarVerificacao] = useState(false);
   const [mostrarPeriodoEspecial, setMostrarPeriodoEspecial] = useState(false);
 
@@ -176,28 +192,41 @@ export default function EquipePage() {
   const maxDiaSgp = mesAnoSgp ? diasNoMesReferencia(mesAnoSgp.year, mesAnoSgp.month) : 31;
 
   const resumoPeriodoSgp = useMemo(() => {
-    if (!mesAnoSgp || !sgpParticipanteId) return null;
-    const participante = integrantes.find((i) => i.id === sgpParticipanteId);
-    const diaInicio = Number(sgpDiaInicio);
-    const diaFim = Number(sgpDiaFim);
-    if (
-      !participante ||
-      !Number.isInteger(diaInicio) ||
-      !Number.isInteger(diaFim) ||
-      diaInicio < 1 ||
-      diaFim < 1 ||
-      diaInicio > diaFim
-    ) {
-      return null;
+    if (!mesAnoSgp) return null;
+    const porParticipante = new Map<string, PeriodoEspecialMemorandoSgp[]>();
+    for (const periodo of periodosEspeciais) {
+      const diaInicio = Number(periodo.diaInicio);
+      const diaFim = Number(periodo.diaFim);
+      if (
+        !periodo.integranteId ||
+        !Number.isInteger(diaInicio) ||
+        !Number.isInteger(diaFim) ||
+        diaInicio < 1 ||
+        diaFim < 1 ||
+        diaInicio > diaFim
+      ) {
+        continue;
+      }
+      const lista = porParticipante.get(periodo.integranteId) ?? [];
+      lista.push({ integranteId: periodo.integranteId, diaInicio, diaFim });
+      porParticipante.set(periodo.integranteId, lista);
     }
-    const dias = diasTotaisMemorandoSgp(participante, mesAnoSgp.year, mesAnoSgp.month, {
-      integranteId: participante.id,
-      diaInicio,
-      diaFim,
-    });
+    const partes: string[] = [];
+    for (const [integranteId, lista] of porParticipante) {
+      const participante = integrantes.find((i) => i.id === integranteId);
+      if (!participante) continue;
+      const dias = diasTotaisMemorandoSgp(
+        participante,
+        mesAnoSgp.year,
+        mesAnoSgp.month,
+        lista
+      );
+      partes.push(`${participante.nome}: ${dias} dia(s)`);
+    }
+    if (partes.length === 0) return null;
     const diasMes = diasTotaisMemorandoPagamento(mesAnoSgp.year, mesAnoSgp.month);
-    return `${participante.nome}: ${dias} dia(s). Demais participantes: ${diasMes} dia(s).`;
-  }, [integrantes, mesAnoSgp, sgpDiaFim, sgpDiaInicio, sgpParticipanteId]);
+    return `${partes.join(" · ")}. Demais participantes: ${diasMes} dia(s).`;
+  }, [integrantes, mesAnoSgp, periodosEspeciais]);
 
   const [codigo, setCodigo] = useState("");
   const [equipe, setEquipe] = useState("");
@@ -359,37 +388,56 @@ export default function EquipePage() {
     void load();
   }
 
-  function lerPeriodoEspecial(
+  function atualizarPeriodoEspecial(
+    chave: string,
+    patch: Partial<Pick<RascunhoPeriodoEspecial, "integranteId" | "diaInicio" | "diaFim">>
+  ) {
+    setPeriodosEspeciais((lista) =>
+      lista.map((periodo) => (periodo.chave === chave ? { ...periodo, ...patch } : periodo))
+    );
+  }
+
+  function lerPeriodosEspeciais(
     year: number,
     month: number
-  ): PeriodoEspecialMemorandoSgp | null | undefined {
-    const informouAlgumPeriodo = Boolean(
-      sgpParticipanteId || sgpDiaInicio.trim() || sgpDiaFim.trim()
-    );
-    if (!informouAlgumPeriodo) return null;
-    if (!sgpParticipanteId) {
-      window.alert("Selecione o participante do período especial.");
-      return undefined;
-    }
+  ): PeriodoEspecialMemorandoSgp[] | undefined {
     const max = diasNoMesReferencia(year, month);
-    const diaInicio = Number(sgpDiaInicio);
-    const diaFim = Number(sgpDiaFim);
-    if (
-      !Number.isInteger(diaInicio) ||
-      !Number.isInteger(diaFim) ||
-      diaInicio < 1 ||
-      diaFim < 1 ||
-      diaInicio > max ||
-      diaFim > max
-    ) {
-      window.alert(`Informe o dia inicial e o dia final entre 1 e ${max}.`);
-      return undefined;
+    const validos: PeriodoEspecialMemorandoSgp[] = [];
+    for (let indice = 0; indice < periodosEspeciais.length; indice++) {
+      const periodo = periodosEspeciais[indice];
+      const informouAlgumCampo = Boolean(
+        periodo.integranteId || periodo.diaInicio.trim() || periodo.diaFim.trim()
+      );
+      if (!informouAlgumCampo) continue;
+      const numero = indice + 1;
+      if (!periodo.integranteId) {
+        window.alert(`Selecione o participante do período especial ${numero}.`);
+        return undefined;
+      }
+      const diaInicio = Number(periodo.diaInicio);
+      const diaFim = Number(periodo.diaFim);
+      if (
+        !Number.isInteger(diaInicio) ||
+        !Number.isInteger(diaFim) ||
+        diaInicio < 1 ||
+        diaFim < 1 ||
+        diaInicio > max ||
+        diaFim > max
+      ) {
+        window.alert(
+          `No período especial ${numero}, informe o dia inicial e o dia final entre 1 e ${max}.`
+        );
+        return undefined;
+      }
+      if (diaInicio > diaFim) {
+        window.alert(
+          `No período especial ${numero}, o dia inicial não pode ser posterior ao dia final.`
+        );
+        return undefined;
+      }
+      validos.push({ integranteId: periodo.integranteId, diaInicio, diaFim });
     }
-    if (diaInicio > diaFim) {
-      window.alert("O dia inicial não pode ser posterior ao dia final.");
-      return undefined;
-    }
-    return { integranteId: sgpParticipanteId, diaInicio, diaFim };
+    return validos;
   }
 
   function handleMemorandoPagamento() {
@@ -403,8 +451,8 @@ export default function EquipePage() {
       window.alert("Selecione o mês e o ano para extração do relatório");
       return;
     }
-    const periodoEspecial = lerPeriodoEspecial(year, month);
-    if (periodoEspecial === undefined) return;
+    const periodosEspeciaisInformados = lerPeriodosEspeciais(year, month);
+    if (periodosEspeciaisInformados === undefined) return;
     const resultado = listarIntegrantesMemorandoPagamento(
       equipesDoFiltro,
       atividadesDoFiltro,
@@ -412,7 +460,7 @@ export default function EquipePage() {
       year,
       month
     );
-    gerarPdfMemorandoPagamento(resultado, year, month, periodoEspecial);
+    gerarPdfMemorandoPagamento(resultado, year, month, periodosEspeciaisInformados);
   }
 
   function handleMemorandoSgp() {
@@ -427,11 +475,11 @@ export default function EquipePage() {
       return;
     }
 
-    const periodoEspecial = lerPeriodoEspecial(year, month);
-    if (periodoEspecial === undefined) return;
+    const periodosEspeciaisInformados = lerPeriodosEspeciais(year, month);
+    if (periodosEspeciaisInformados === undefined) return;
 
     const lista = listarIntegrantesMemorandoSgp(equipesDoFiltro, atividadesDoFiltro, integrantes);
-    gerarPdfMemorandoSgp(lista, year, month, periodoEspecial);
+    gerarPdfMemorandoSgp(lista, year, month, periodosEspeciaisInformados);
   }
 
   return (
@@ -500,60 +548,103 @@ export default function EquipePage() {
           {mostrarPeriodoEspecial && (
             <div className="mt-3">
               <p className="text-xs text-[var(--muted)]">
-                Informe o dia inicial e o dia final de um participante. Os demais ficam com o período
-                completo do mês.
+                Informe o dia inicial e o dia final de cada período especial. Você pode registrar dois
+                ou mais, inclusive para participantes diferentes. Quem não tiver período especial fica
+                com o mês completo.
               </p>
-              <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-                <div className="min-w-0 flex-1 sm:min-w-[220px]">
-                  <label className="block text-xs font-medium text-[var(--muted)]" htmlFor="sgp-participante">
-                    Participante
-                  </label>
-                  <select
-                    id="sgp-participante"
-                    value={sgpParticipanteId}
-                    onChange={(e) => setSgpParticipanteId(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+              <div className="mt-3 space-y-3">
+                {periodosEspeciais.map((periodo, indice) => (
+                  <div
+                    key={periodo.chave}
+                    className="flex flex-col gap-3 rounded-lg border border-[var(--card-border)] bg-[var(--card)]/50 px-3 py-3 sm:flex-row sm:flex-wrap sm:items-end"
                   >
-                    <option value="">Nenhum (mês completo para todos)</option>
-                    {integrantesOpcoesSgp.map((i) => (
-                      <option key={i.id} value={i.id}>
-                        {(i.nome ?? "").trim() || "Sem nome"}
-                        {i.matricula != null ? ` · mat. ${i.matricula}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[var(--muted)]" htmlFor="sgp-dia-inicio">
-                    Dia inicial
-                  </label>
-                  <input
-                    id="sgp-dia-inicio"
-                    type="number"
-                    min={1}
-                    max={maxDiaSgp}
-                    value={sgpDiaInicio}
-                    onChange={(e) => setSgpDiaInicio(e.target.value)}
-                    placeholder="1"
-                    className="mt-1 w-28 rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[var(--muted)]" htmlFor="sgp-dia-fim">
-                    Dia final
-                  </label>
-                  <input
-                    id="sgp-dia-fim"
-                    type="number"
-                    min={1}
-                    max={maxDiaSgp}
-                    value={sgpDiaFim}
-                    onChange={(e) => setSgpDiaFim(e.target.value)}
-                    placeholder={String(maxDiaSgp)}
-                    className="mt-1 w-28 rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
-                  />
-                </div>
+                    <div className="min-w-0 flex-1 sm:min-w-[220px]">
+                      <label
+                        className="block text-xs font-medium text-[var(--muted)]"
+                        htmlFor={`sgp-participante-${periodo.chave}`}
+                      >
+                        Participante {indice + 1}
+                      </label>
+                      <select
+                        id={`sgp-participante-${periodo.chave}`}
+                        value={periodo.integranteId}
+                        onChange={(e) =>
+                          atualizarPeriodoEspecial(periodo.chave, { integranteId: e.target.value })
+                        }
+                        className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+                      >
+                        <option value="">Selecione o participante</option>
+                        {integrantesOpcoesSgp.map((i) => (
+                          <option key={i.id} value={i.id}>
+                            {(i.nome ?? "").trim() || "Sem nome"}
+                            {i.matricula != null ? ` · mat. ${i.matricula}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label
+                        className="block text-xs font-medium text-[var(--muted)]"
+                        htmlFor={`sgp-dia-inicio-${periodo.chave}`}
+                      >
+                        Dia inicial
+                      </label>
+                      <input
+                        id={`sgp-dia-inicio-${periodo.chave}`}
+                        type="number"
+                        min={1}
+                        max={maxDiaSgp}
+                        value={periodo.diaInicio}
+                        onChange={(e) =>
+                          atualizarPeriodoEspecial(periodo.chave, { diaInicio: e.target.value })
+                        }
+                        placeholder="1"
+                        className="mt-1 w-28 rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        className="block text-xs font-medium text-[var(--muted)]"
+                        htmlFor={`sgp-dia-fim-${periodo.chave}`}
+                      >
+                        Dia final
+                      </label>
+                      <input
+                        id={`sgp-dia-fim-${periodo.chave}`}
+                        type="number"
+                        min={1}
+                        max={maxDiaSgp}
+                        value={periodo.diaFim}
+                        onChange={(e) =>
+                          atualizarPeriodoEspecial(periodo.chave, { diaFim: e.target.value })
+                        }
+                        placeholder={String(maxDiaSgp)}
+                        className="mt-1 w-28 rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPeriodosEspeciais((lista) =>
+                          lista.filter((item) => item.chave !== periodo.chave)
+                        )
+                      }
+                      className="rounded-lg border border-[var(--danger)]/30 bg-white/70 px-3 py-2 text-xs font-medium text-[var(--danger)] hover:bg-[var(--danger)]/10"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                ))}
               </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setPeriodosEspeciais((lista) => [...lista, novoRascunhoPeriodo()])
+                }
+                className="mt-3 rounded-lg border border-[var(--accent)]/40 bg-[var(--accent-muted)] px-3 py-1.5 text-xs font-medium text-[var(--accent)] hover:brightness-95"
+              >
+                Adicionar período
+              </button>
               {resumoPeriodoSgp && (
                 <p className="mt-2 text-xs text-[var(--muted)]">{resumoPeriodoSgp}</p>
               )}

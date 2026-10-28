@@ -5,10 +5,12 @@ import {
   diasTotaisMemorandoParticipante,
   textoPeriodoMemorandoParticipante,
   type PeriodoEspecialMemorando,
+  type PeriodosEspeciaisMemorando,
 } from "@/lib/memorando-pagamento";
 import type { Atividade, Equipe, Integrante } from "@/types/database";
 
 export type PeriodoEspecialMemorandoSgp = PeriodoEspecialMemorando;
+export type PeriodosEspeciaisMemorandoSgp = PeriodosEspeciaisMemorando;
 
 export {
   diasTotaisMemorandoParticipante as diasTotaisMemorandoSgp,
@@ -34,7 +36,7 @@ export function gerarPdfMemorandoSgp(
   integrantes: Integrante[],
   year: number,
   month: number,
-  periodoEspecial?: PeriodoEspecialMemorandoSgp | null
+  periodosEspeciais?: PeriodosEspeciaisMemorandoSgp
 ): void {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const marginX = 18;
@@ -62,8 +64,8 @@ export function gerarPdfMemorandoSgp(
     const body = integrantes.map((i) => [
       String(i.matricula),
       (i.nome ?? "").trim() || "—",
-      textoPeriodoMemorandoParticipante(i, year, month, periodoEspecial),
-      String(diasTotaisMemorandoParticipante(i, year, month, periodoEspecial)),
+      textoPeriodoMemorandoParticipante(i, year, month, periodosEspeciais),
+      String(diasTotaisMemorandoParticipante(i, year, month, periodosEspeciais)),
     ]);
 
     autoTable(doc, {

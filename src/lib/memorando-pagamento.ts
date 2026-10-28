@@ -62,6 +62,12 @@ export type PeriodoEspecialMemorando = {
   diaFim: number;
 };
 
+/** Um período, vários períodos, ou nenhum. */
+export type PeriodosEspeciaisMemorando =
+  | PeriodoEspecialMemorando
+  | readonly PeriodoEspecialMemorando[]
+  | null;
+
 function diaNoMes(valor: number, max: number): number {
   if (!Number.isFinite(valor)) return 1;
   return Math.min(Math.max(Math.trunc(valor), 1), max);
@@ -71,54 +77,100 @@ function doisDigitos(n: number): string {
   return String(n).padStart(2, "0");
 }
 
+function listaPeriodosEspeciais(
+  periodos?: PeriodosEspeciaisMemorando
+): PeriodoEspecialMemorando[] {
+  if (!periodos) return [];
+  return Array.isArray(periodos) ? [...periodos] : [periodos];
+}
+
+function unirIntervalos(
+  intervalos: { diaInicio: number; diaFim: number }[]
+): { diaInicio: number; diaFim: number }[] {
+  const ordenados = [...intervalos].sort(
+    (a, b) => a.diaInicio - b.diaInicio || a.diaFim - b.diaFim
+  );
+  const unidos: { diaInicio: number; diaFim: number }[] = [];
+  for (const atual of ordenados) {
+    const ultimo = unidos[unidos.length - 1];
+    if (!ultimo || atual.diaInicio > ultimo.diaFim + 1) {
+      unidos.push({ ...atual });
+    } else if (atual.diaFim > ultimo.diaFim) {
+      ultimo.diaFim = atual.diaFim;
+    }
+  }
+  return unidos;
+}
+
+/** Intervalos do participante: os períodos especiais dele, ou o mês inteiro. */
+export function intervalosPeriodoMemorandoParticipante(
+  integrante: Integrante,
+  year: number,
+  month: number,
+  periodosEspeciais?: PeriodosEspeciaisMemorando
+): { diaInicio: number; diaFim: number }[] {
+  const max = diasNoMesReferencia(year, month);
+  const doIntegrante = listaPeriodosEspeciais(periodosEspeciais).filter(
+    (p) => p.integranteId === integrante.id
+  );
+  if (doIntegrante.length === 0) return [{ diaInicio: 1, diaFim: max }];
+
+  const brutos = doIntegrante.map((p) => {
+    const inicio = diaNoMes(p.diaInicio, max);
+    const fim = diaNoMes(p.diaFim, max);
+    return inicio <= fim
+      ? { diaInicio: inicio, diaFim: fim }
+      : { diaInicio: fim, diaFim: inicio };
+  });
+  return unirIntervalos(brutos);
+}
+
 export function periodoDiasMemorandoParticipante(
   integrante: Integrante,
   year: number,
   month: number,
-  periodoEspecial?: PeriodoEspecialMemorando | null
+  periodosEspeciais?: PeriodosEspeciaisMemorando
 ): { diaInicio: number; diaFim: number } {
-  const max = diasNoMesReferencia(year, month);
-  if (periodoEspecial && periodoEspecial.integranteId === integrante.id) {
-    const inicio = diaNoMes(periodoEspecial.diaInicio, max);
-    const fim = diaNoMes(periodoEspecial.diaFim, max);
-    return inicio <= fim ? { diaInicio: inicio, diaFim: fim } : { diaInicio: fim, diaFim: inicio };
-  }
-  return { diaInicio: 1, diaFim: max };
+  return intervalosPeriodoMemorandoParticipante(
+    integrante,
+    year,
+    month,
+    periodosEspeciais
+  )[0];
 }
 
 export function textoPeriodoMemorandoParticipante(
   integrante: Integrante,
   year: number,
   month: number,
-  periodoEspecial?: PeriodoEspecialMemorando | null
+  periodosEspeciais?: PeriodosEspeciaisMemorando
 ): string {
-  const { diaInicio, diaFim } = periodoDiasMemorandoParticipante(
-    integrante,
-    year,
-    month,
-    periodoEspecial
-  );
   const mes = doisDigitos(month);
-  return `${doisDigitos(diaInicio)}/${mes}/${year} a ${doisDigitos(diaFim)}/${mes}/${year}`;
+  return intervalosPeriodoMemorandoParticipante(integrante, year, month, periodosEspeciais)
+    .map(
+      ({ diaInicio, diaFim }) =>
+        `${doisDigitos(diaInicio)}/${mes}/${year} a ${doisDigitos(diaFim)}/${mes}/${year}`
+    )
+    .join("; ");
 }
 
-/** Mês completo, salvo período informado para um participante. */
+/** Mês completo, salvo os períodos especiais informados para o participante. */
 export function diasTotaisMemorandoParticipante(
   integrante: Integrante,
   year: number,
   month: number,
-  periodoEspecial?: PeriodoEspecialMemorando | null
+  periodosEspeciais?: PeriodosEspeciaisMemorando
 ): number {
-  if (periodoEspecial && periodoEspecial.integranteId === integrante.id) {
-    const { diaInicio, diaFim } = periodoDiasMemorandoParticipante(
-      integrante,
-      year,
-      month,
-      periodoEspecial
-    );
-    return diaFim - diaInicio + 1;
-  }
-  return diasTotaisMemorandoPagamento(year, month);
+  const temEspecial = listaPeriodosEspeciais(periodosEspeciais).some(
+    (p) => p.integranteId === integrante.id
+  );
+  if (!temEspecial) return diasTotaisMemorandoPagamento(year, month);
+  return intervalosPeriodoMemorandoParticipante(
+    integrante,
+    year,
+    month,
+    periodosEspeciais
+  ).reduce((total, intervalo) => total + (intervalo.diaFim - intervalo.diaInicio + 1), 0);
 }
 
 export { parseSetorMicroMacro };
@@ -212,7 +264,7 @@ export function gerarPdfMemorandoPagamento(
   resultado: ResultadoMemorandoPagamento,
   year: number,
   month: number,
-  periodoEspecial?: PeriodoEspecialMemorando | null
+  periodosEspeciais?: PeriodosEspeciaisMemorando
 ): void {
   const { integrantes, atividadesNoMes } = resultado;
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
@@ -300,8 +352,8 @@ export function gerarPdfMemorandoPagamento(
           micro,
           String(i.matricula),
           (i.nome ?? "").trim() || "—",
-          textoPeriodoMemorandoParticipante(i, year, month, periodoEspecial),
-          String(diasTotaisMemorandoParticipante(i, year, month, periodoEspecial)),
+          textoPeriodoMemorandoParticipante(i, year, month, periodosEspeciais),
+          String(diasTotaisMemorandoParticipante(i, year, month, periodosEspeciais)),
         ];
       });
 
