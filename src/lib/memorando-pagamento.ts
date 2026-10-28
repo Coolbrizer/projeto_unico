@@ -77,11 +77,17 @@ function doisDigitos(n: number): string {
   return String(n).padStart(2, "0");
 }
 
+function ehListaDePeriodos(
+  periodos: PeriodoEspecialMemorando | readonly PeriodoEspecialMemorando[]
+): periodos is readonly PeriodoEspecialMemorando[] {
+  return Array.isArray(periodos);
+}
+
 function listaPeriodosEspeciais(
   periodos?: PeriodosEspeciaisMemorando
 ): PeriodoEspecialMemorando[] {
   if (!periodos) return [];
-  return Array.isArray(periodos) ? [...periodos] : [periodos];
+  return ehListaDePeriodos(periodos) ? [...periodos] : [periodos];
 }
 
 function unirIntervalos(
