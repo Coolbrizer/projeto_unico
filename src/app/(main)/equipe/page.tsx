@@ -414,6 +414,10 @@ export default function EquipePage() {
         window.alert(`Selecione o participante do período especial ${numero}.`);
         return undefined;
       }
+      if (!periodo.diaInicio.trim() || !periodo.diaFim.trim()) {
+        window.alert(`No período especial ${numero}, preencha o dia inicial e o dia final.`);
+        return undefined;
+      }
       const diaInicio = Number(periodo.diaInicio);
       const diaFim = Number(periodo.diaFim);
       if (
@@ -598,7 +602,6 @@ export default function EquipePage() {
                         onChange={(e) =>
                           atualizarPeriodoEspecial(periodo.chave, { diaInicio: e.target.value })
                         }
-                        placeholder="1"
                         className="mt-1 w-28 rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
                       />
                     </div>
@@ -618,7 +621,6 @@ export default function EquipePage() {
                         onChange={(e) =>
                           atualizarPeriodoEspecial(periodo.chave, { diaFim: e.target.value })
                         }
-                        placeholder={String(maxDiaSgp)}
                         className="mt-1 w-28 rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none ring-[var(--accent)]/40 focus:ring-2"
                       />
                     </div>
