@@ -1,4 +1,8 @@
-import { TIPOS_DOCUMENTO, type TipoDocumento } from "@/lib/documentos-constants";
+import {
+  TIPOS_DOCUMENTO,
+  tipoDocumentoSoEtiquetaELink,
+  type TipoDocumento,
+} from "@/lib/documentos-constants";
 import { normalizarDataParaApi } from "@/lib/datas-atividade";
 
 export function isTipoDocumento(v: string): v is TipoDocumento {
@@ -11,8 +15,8 @@ export function apenasDigitosValido(s: string): boolean {
 
 export type CorpoDocumento = {
   tipo_documento: string;
-  numero: string;
-  ano: string;
+  numero: number | null;
+  ano: number | null;
   etiqueta: string | null;
   link: string | null;
   periodo_inicio: string | null;
@@ -41,17 +45,40 @@ export function parseCorpoDocumento(body: {
     return { ok: false, error: "Selecione um tipo de documento válido.", status: 400 };
   }
 
-  const numero = body.numero?.trim() ?? "";
-  const ano = body.ano?.trim() ?? "";
-  if (!numero || !apenasDigitosValido(numero)) {
-    return { ok: false, error: "Informe o número (apenas dígitos).", status: 400 };
-  }
-  if (!ano || !apenasDigitosValido(ano)) {
-    return { ok: false, error: "Informe o ano (apenas dígitos).", status: 400 };
+  const numeroTexto = body.numero?.trim() ?? "";
+  const anoTexto = body.ano?.trim() ?? "";
+  const soEtiquetaELink = tipoDocumentoSoEtiquetaELink(tipoRaw);
+
+  if (!soEtiquetaELink) {
+    if (!numeroTexto || !apenasDigitosValido(numeroTexto)) {
+      return { ok: false, error: "Informe o número (apenas dígitos).", status: 400 };
+    }
+    if (!anoTexto || !apenasDigitosValido(anoTexto)) {
+      return { ok: false, error: "Informe o ano (apenas dígitos).", status: 400 };
+    }
+  } else {
+    if (numeroTexto && !apenasDigitosValido(numeroTexto)) {
+      return { ok: false, error: "O número, se informado, deve conter apenas dígitos.", status: 400 };
+    }
+    if (anoTexto && !apenasDigitosValido(anoTexto)) {
+      return { ok: false, error: "O ano, se informado, deve conter apenas dígitos.", status: 400 };
+    }
   }
 
-  const etiqueta = body.etiqueta?.trim() || null;
-  const link = body.link?.trim() || null;
+  const etiquetaTexto = body.etiqueta?.trim() ?? "";
+  const linkTexto = body.link?.trim() ?? "";
+  if (soEtiquetaELink) {
+    if (!etiquetaTexto) {
+      return { ok: false, error: "Informe a etiqueta.", status: 400 };
+    }
+    if (!linkTexto) {
+      return { ok: false, error: "Informe o link.", status: 400 };
+    }
+  }
+  const etiqueta = etiquetaTexto || null;
+  const link = linkTexto || null;
+  const numero = numeroTexto ? Number(numeroTexto) : null;
+  const ano = anoTexto ? Number(anoTexto) : null;
   const inicio = dataInformada(body.periodo_inicio);
   const fim = dataInformada(body.periodo_fim);
   if (!inicio.ok || !fim.ok) {
@@ -60,7 +87,9 @@ export function parseCorpoDocumento(body: {
   if ((inicio.iso && !fim.iso) || (!inicio.iso && fim.iso)) {
     return {
       ok: false,
-      error: "Informe início e fim do período da instrução, ou deixe os dois em branco.",
+      error: soEtiquetaELink
+        ? "Informe o início e o fim do período, ou deixe os dois em branco."
+        : "Informe início e fim do período da instrução, ou deixe os dois em branco.",
       status: 400,
     };
   }

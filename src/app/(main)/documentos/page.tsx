@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ConfigWarning } from "@/components/ConfigWarning";
 import { usePerfil } from "@/components/AppShell";
 import { canEditarDocumentos } from "@/lib/auth/roles";
-import { TIPOS_DOCUMENTO } from "@/lib/documentos-constants";
+import { TIPOS_DOCUMENTO, tipoDocumentoSoEtiquetaELink } from "@/lib/documentos-constants";
 import { isTipoDocumento } from "@/lib/documentos-validacao";
 import { useMounted } from "@/hooks/useMounted";
 import { useIsSupabaseConfigured } from "@/lib/supabase/client";
@@ -140,6 +140,8 @@ export default function DocumentosPage() {
     }
   }
 
+  const soEtiquetaELink = tipoDocumentoSoEtiquetaELink(tipoDocumento);
+
   const btnPrimario =
     "rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-50";
   const inputClasse =
@@ -183,9 +185,12 @@ export default function DocumentosPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-[var(--muted)]">Número</label>
+              <label className="block text-xs text-[var(--muted)]">
+                Número
+                {!soEtiquetaELink && <span className="text-[var(--warning)]"> *</span>}
+              </label>
               <input
-                required
+                required={!soEtiquetaELink}
                 value={numero}
                 onChange={(e) => setNumero(apenasDigitos(e.target.value))}
                 inputMode="numeric"
@@ -195,9 +200,12 @@ export default function DocumentosPage() {
               />
             </div>
             <div>
-              <label className="block text-xs text-[var(--muted)]">Ano</label>
+              <label className="block text-xs text-[var(--muted)]">
+                Ano
+                {!soEtiquetaELink && <span className="text-[var(--warning)]"> *</span>}
+              </label>
               <input
-                required
+                required={!soEtiquetaELink}
                 value={ano}
                 onChange={(e) => setAno(apenasDigitos(e.target.value))}
                 inputMode="numeric"
@@ -207,8 +215,12 @@ export default function DocumentosPage() {
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-xs text-[var(--muted)]">Etiqueta</label>
+              <label className="block text-xs text-[var(--muted)]">
+                Etiqueta
+                {soEtiquetaELink && <span className="text-[var(--warning)]"> *</span>}
+              </label>
               <input
+                required={soEtiquetaELink}
                 value={etiqueta}
                 onChange={(e) => setEtiqueta(e.target.value)}
                 placeholder="Texto livre"
@@ -236,12 +248,17 @@ export default function DocumentosPage() {
               />
             </div>
             <p className="sm:col-span-2 text-xs text-[var(--muted)]">
-              Período da instrução. Com as duas datas preenchidas, Afastamentos usa este
-              intervalo. Uma atividade com data diferente não altera o período da instrução.
+              {soEtiquetaELink
+                ? "Número, ano e período são opcionais. Se informar o período, preencha o início e o fim."
+                : "Período da instrução. Com as duas datas preenchidas, Afastamentos usa este intervalo. Uma atividade com data diferente não altera o período da instrução."}
             </p>
             <div className="sm:col-span-2">
-              <label className="block text-xs text-[var(--muted)]">Link</label>
+              <label className="block text-xs text-[var(--muted)]">
+                Link
+                {soEtiquetaELink && <span className="text-[var(--warning)]"> *</span>}
+              </label>
               <input
+                required={soEtiquetaELink}
                 value={link}
                 onChange={(e) => setLink(e.target.value)}
                 placeholder="URL ou texto de referência"
@@ -281,6 +298,8 @@ export default function DocumentosPage() {
                   : "—";
 
               const temLink = Boolean(r.link?.trim());
+              const soEtiquetaELinkItem = tipoDocumentoSoEtiquetaELink(r.tipo ?? "");
+              const temPeriodo = periodoAtividades !== "—";
 
               return (
                 <li key={r.id}>
@@ -290,7 +309,13 @@ export default function DocumentosPage() {
                       {etiquetaTxt ? (
                         <span className="text-[var(--muted)]">— {etiquetaTxt}</span>
                       ) : null}
-                      <span className="text-[var(--muted)]">· Período da instrução: {periodoAtividades}</span>
+                      {soEtiquetaELinkItem ? (
+                        temPeriodo ? (
+                          <span className="text-[var(--muted)]">· Período: {periodoAtividades}</span>
+                        ) : null
+                      ) : (
+                        <span className="text-[var(--muted)]">· Período da instrução: {periodoAtividades}</span>
+                      )}
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       {temLink ? (

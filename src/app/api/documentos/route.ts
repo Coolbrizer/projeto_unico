@@ -137,8 +137,8 @@ export async function POST(request: Request) {
     .from("documentos")
     .insert({
       tipo: tipoRaw,
-      numero: Number(numero),
-      ano: Number(ano),
+      numero,
+      ano,
       etiqueta,
       link,
       periodo_inicio,

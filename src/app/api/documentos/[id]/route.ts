@@ -48,8 +48,8 @@ export async function PATCH(request: Request, ctx: Ctx) {
     .from("documentos")
     .update({
       tipo: tipoRaw,
-      numero: Number(numero),
-      ano: Number(ano),
+      numero,
+      ano,
       etiqueta,
       link,
       periodo_inicio,
